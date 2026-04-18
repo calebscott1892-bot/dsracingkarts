@@ -86,7 +86,7 @@ export function HeroVideo() {
         ref={videoRef}
         muted
         playsInline
-        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ${
+        className={`absolute inset-0 w-full h-full object-contain md:object-cover transition-opacity duration-1000 ${
           videoEnded ? "opacity-0" : "opacity-100"
         }`}
       >
