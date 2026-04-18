@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 // Simple in-memory rate limiter (per IP, 3 submissions per 15 minutes)
 const rateMap = new Map<string, number[]>();
 const RATE_LIMIT = 3;
@@ -63,6 +61,8 @@ export async function POST(req: NextRequest) {
     const safeEmail = escapeHtml(email);
     const safeSubject = escapeHtml(subject);
     const safeMessage = escapeHtml(message);
+
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     await resend.emails.send({
       from: "DS Racing Karts <onboarding@resend.dev>",
