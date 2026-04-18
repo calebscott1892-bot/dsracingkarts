@@ -1,0 +1,200 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #e60012;
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #ff1a2e;
+  }
+  ::selection {
+    background: rgba(230, 0, 18, 0.4);
+    color: #fff;
+  }
+}
+
+@layer components {
+  /* ── Carbon Fiber Texture ── */
+  .carbon-fiber {
+    background:
+      linear-gradient(45deg, rgba(20,20,20,0.9) 25%, transparent 25%),
+      linear-gradient(-45deg, rgba(20,20,20,0.9) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, rgba(20,20,20,0.9) 75%),
+      linear-gradient(-45deg, transparent 75%, rgba(20,20,20,0.9) 75%);
+    background-size: 4px 4px;
+    background-color: #0a0a0a;
+  }
+
+  /* ── Chequered Patterns ── */
+  .chequered-stripe {
+    background: repeating-conic-gradient(
+      #1a1a1a 0% 25%, #2a2a2a 0% 50%
+    ) 0 0 / 20px 20px;
+    height: 40px;
+    width: 100%;
+  }
+
+  .chequered-bg {
+    background: repeating-conic-gradient(
+      rgba(255,255,255,0.03) 0% 25%, transparent 0% 50%
+    ) 0 0 / 20px 20px;
+  }
+
+  .chequered-stripe-sm {
+    background: repeating-conic-gradient(
+      #1a1a1a 0% 25%, #222222 0% 50%
+    ) 0 0 / 10px 10px;
+    height: 20px;
+    width: 100%;
+  }
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply relative overflow-hidden bg-racing-red text-white font-heading
+           uppercase tracking-[0.15em] px-8 py-3.5 transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-racing-red/50
+           hover:bg-racing-red-light hover:shadow-[0_0_25px_rgba(230,0,18,0.4)]
+           active:scale-[0.98];
+  }
+  .btn-primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: repeating-conic-gradient(
+      rgba(255,255,255,0.08) 0% 25%, transparent 0% 50%
+    ) 0 0 / 12px 12px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .btn-primary:hover::after {
+    opacity: 1;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent text-white font-heading uppercase tracking-[0.15em]
+           px-8 py-3.5 border-2 border-racing-red/40
+           hover:bg-racing-red hover:border-racing-red
+           transition-all duration-200 active:scale-[0.98];
+  }
+
+  .btn-gold {
+    @apply bg-racing-gold text-black font-heading uppercase tracking-[0.15em]
+           px-8 py-3.5 transition-all duration-200
+           hover:shadow-[0_0_25px_rgba(212,175,55,0.4)]
+           active:scale-[0.98];
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-[#141414] border border-[#2a2a2a] overflow-hidden
+           transition-all duration-300;
+  }
+  .card-hover {
+    @apply bg-[#141414] border border-[#2a2a2a] overflow-hidden
+           transition-all duration-300
+           hover:border-racing-red/40
+           hover:shadow-[0_0_30px_rgba(230,0,18,0.1)]
+           hover:translate-y-[-2px];
+  }
+  .card-hover::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #e60012;
+    transform: scaleX(0);
+    transition: transform 0.3s;
+    z-index: 10;
+  }
+  .card-hover:hover::before {
+    transform: scaleX(1);
+  }
+
+  /* ── Product Grid ── */
+  .product-grid {
+    @apply grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 md:gap-5;
+  }
+
+  /* ── Section Heading ── */
+  .section-heading {
+    @apply font-heading text-3xl md:text-4xl lg:text-5xl uppercase tracking-[0.12em] text-white;
+  }
+
+  /* ── Racing Accent Line ── */
+  .racing-line {
+    @apply h-[2px] bg-gradient-to-r from-transparent via-racing-red to-transparent;
+  }
+
+  /* ── Input ── */
+  .input-dark {
+    @apply w-full bg-surface-700 border border-surface-500 px-4 py-3
+           text-white placeholder:text-text-muted
+           focus:outline-none focus:border-racing-red focus:ring-1 focus:ring-racing-red/30
+           transition-colors;
+  }
+
+  /* ── Badges ── */
+  .badge-sale {
+    @apply bg-racing-red text-white text-xs font-heading uppercase tracking-wider
+           px-2.5 py-1;
+  }
+  .badge-stock {
+    @apply text-xs font-digital uppercase tracking-wider px-2 py-0.5
+           border border-current;
+  }
+
+  /* ── Film Grain Overlay ── */
+  .film-grain {
+    position: relative;
+  }
+  .film-grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.3;
+    z-index: 1;
+  }
+}
+
+/* ── Lightbox Animations ── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ── Sponsor Carousel ── */
+@keyframes marquee-ltr {
+  0% { transform: translateX(-33.333%); }
+  100% { transform: translateX(0%); }
+}
+@keyframes marquee-rtl {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-33.333%); }
+}
+.sponsor-track {
+  display: inline-flex;
+  will-change: transform;
+}
+.sponsor-track--ltr {
+  animation: marquee-ltr 35s linear infinite;
+}
+.sponsor-track--rtl {
+  animation: marquee-rtl 35s linear infinite;
+}

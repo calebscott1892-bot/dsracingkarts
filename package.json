@@ -1,0 +1,43 @@
+{
+  "name": "dsracingkarts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "import-csv": "node scripts/import-square-csv.js",
+    "migrate-images": "node scripts/migrate-images.js"
+  },
+  "dependencies": {
+    "@gsap/react": "^2.1.2",
+    "@sentry/nextjs": "^10.49.0",
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.47.0",
+    "clsx": "^2.1.1",
+    "gsap": "^3.14.2",
+    "lenis": "^1.3.21",
+    "lucide-react": "^0.460.0",
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "resend": "^6.11.0",
+    "sanitize-html": "^2.17.2",
+    "square": "^38.0.0",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@types/sanitize-html": "^2.16.1",
+    "autoprefixer": "^10.4.20",
+    "csv-parse": "^5.6.0",
+    "dotenv": "^16.4.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}
