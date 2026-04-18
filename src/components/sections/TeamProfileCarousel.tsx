@@ -28,7 +28,7 @@ const teams: Team[] = [
     name: "Kart Blanche",
     accent: "#e2e8f0",
     accentRgb: "226,232,240",
-    logo: "/images/history/Kart Blanch #43.jpeg",
+    logo: "/images/history/Kart-Blanche-43.jpeg",
     tagline: "Full freedom on the track",
   },
   {
