@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
         .join("");
 
       await resend.emails.send({
-        from: "DS Racing Karts <onboarding@resend.dev>",
+        from: "DS Racing Karts <orders@dsracingkarts.com.au>",
         to: customer.email,
         subject: `Order Confirmed — #${order.order_number}`,
         html: `

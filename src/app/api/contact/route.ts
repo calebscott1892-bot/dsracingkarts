@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     const resend = new Resend(process.env.RESEND_API_KEY);
 
     await resend.emails.send({
-      from: "DS Racing Karts <onboarding@resend.dev>",
+      from: "DS Racing Karts <noreply@dsracingkarts.com.au>",
       to: "dsracing@bigpond.com",
       replyTo: email,
       subject: `[${safeSubject}] Contact from ${safeName}`,

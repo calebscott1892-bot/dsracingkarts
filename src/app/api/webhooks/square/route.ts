@@ -3,11 +3,13 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const WEBHOOK_SECRET = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
+const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/square`;
 
 function verifySignature(body: string, signature: string): boolean {
   if (!WEBHOOK_SECRET) return false;
+  // Square requires: HMAC-SHA256(sigKey, notificationUrl + body)
   const hmac = createHmac("sha256", WEBHOOK_SECRET);
-  hmac.update(body);
+  hmac.update(WEBHOOK_URL + body);
   const expected = hmac.digest("base64");
   try {
     return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
