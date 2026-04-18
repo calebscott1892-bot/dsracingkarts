@@ -27,7 +27,7 @@ export default async function HomePage() {
     .from("categories")
     .select("id, name, slug, image_url")
     .is("parent_id", null)
-    .order("sort_order")
+    .order("name")
     .limit(8);
 
   return (

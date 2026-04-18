@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useState, useEffect } from "react";
 import { ShoppingCart, Menu, X, Phone } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
+import C4FooterCredit from "../c4-footer-credit/C4FooterCredit";
 
 export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -59,6 +60,19 @@ export function Header() {
             >
               {mobileOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
+
+            {/* C4 Studios credit — desktop only */}
+            <div className="hidden md:flex items-center ml-4 lg:ml-7 opacity-60 hover:opacity-100 transition-opacity">
+              <a href="https://c4studios.com.au" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-black rounded-full px-3.5 py-1.5 shadow-sm hover:bg-black transition-colors">
+                <span className="text-[9px] uppercase tracking-[0.18em] text-white/50 font-heading whitespace-nowrap">designed with</span>
+                <C4FooterCredit
+                  size={32}
+                  showText={false}
+                  colorScheme="dark"
+                  initialStage={1}
+                />
+              </a>
+            </div>
 
             {/* Logo — centered */}
             <Link href="/" className="absolute left-1/2 -translate-x-1/2 flex items-center">

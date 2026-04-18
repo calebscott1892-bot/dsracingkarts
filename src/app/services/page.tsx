@@ -62,14 +62,14 @@ const services = [
   },
   {
     iconName: "Zap" as const,
-    title: "4 Stroke Endurance",
-    description: "Specialist 4-stroke endurance kart servicing. From Briggs & Stratton to Honda GX200 — we know these engines inside out.",
+    title: "Engine Servicing",
+    description: "Comprehensive engine servicing for 2-stroke and 4-stroke kart engines across all classes. Keep your engine running at its best.",
     details: [
-      "Endurance racing puts extreme demands on equipment. Our 4-stroke endurance service is built around reliability-first engineering — because the fastest kart is the one still running at the chequered flag.",
-      "We specialise in Honda GX200, Briggs & Stratton L206 and Animal, and Torini engines. From full rebuilds to pre-race inspections, we cover everything your endurance team needs.",
+      "Endurance racing puts extreme demands on equipment. Our engine servicing is built around reliability-first engineering — because the fastest kart is the one still running at the chequered flag.",
+      "We service all major engine platforms including Honda GX200, Briggs & Stratton L206 and Animal, Torini, Yamaha KT100, Rotax, and IAME. From pre-race inspections to full post-race tear-downs, we cover everything your team needs.",
     ],
     includes: [
-      "Full engine rebuild & inspection",
+      "Full engine inspection & servicing",
       "Valve adjustment & lapping",
       "Oil system service",
       "Governor & throttle linkage setup",
@@ -192,12 +192,12 @@ export default function ServicesPage() {
               </p>
               <p>
                 With decades of hands-on racing and engineering experience, our workshop is equipped
-                to handle everything from routine servicing to full engine rebuilds and custom
+                to handle everything from routine servicing to custom
                 chassis fabrication.
               </p>
               <p>
-                We specialise in 4-stroke endurance kart engines including Briggs &amp; Stratton,
-                Honda GX200, and Torini. From rebuilds to race-day prep, trust the experts.
+                We service all kart engines — 2-stroke and 4-stroke — including Briggs &amp; Stratton,
+                Honda GX200, Torini, Rotax, IAME, and more. From regular servicing to race-day prep, trust the experts.
               </p>
             </div>
             <Link

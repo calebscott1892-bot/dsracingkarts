@@ -22,7 +22,7 @@ const subjectMap: Record<string, string> = {
   "Kart Servicing": "Servicing Booking",
   "Engine Tuning": "Engine Tuning",
   "Chassis Setup": "Chassis Setup",
-  "4 Stroke Endurance": "4 Stroke Endurance",
+  "Engine Servicing": "Engine Servicing",
   "Race Preparation": "Race Preparation",
   "Driver Coaching": "Driver Coaching",
   "Custom Racewear": "Custom Racewear",

@@ -116,6 +116,53 @@ export default function SponsorsPage() {
 
       <div className="chequered-stripe" />
 
+      {/* Featured Club — SEK Australia */}
+      <section className="bg-racing-black py-16 md:py-20">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center justify-center gap-3 mb-10">
+            <span className="h-[1px] w-8 bg-racing-red" />
+            <h2 className="font-heading text-2xl md:text-3xl uppercase tracking-[0.1em] text-white text-center">
+              Our <span className="text-racing-red">4-Stroke</span> Club
+            </h2>
+            <span className="h-[1px] w-8 bg-racing-red" />
+          </div>
+
+          <a
+            href="https://www.sekaustralia.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group block max-w-3xl mx-auto text-center"
+          >
+            {/* Logo — black slashes blend into page background */}
+            <div className="relative mx-auto mb-6 max-w-[560px] md:max-w-[640px]">
+              <Image
+                src="/images/history/Sek Logo.jpg"
+                alt="SEK Australia — Sportsman Enduro Karting"
+                width={640}
+                height={220}
+                className="w-full h-auto"
+                sizes="(max-width: 768px) 90vw, 640px"
+                priority
+              />
+            </div>
+
+            <p className="text-white/60 text-sm leading-relaxed mb-5 max-w-lg mx-auto">
+              SEK is the endurance karting series we proudly support and race with — operating across NSW
+              and QLD with sealed twin Honda 4-stroke engines. The ultimate balance of speed, reliability,
+              and family-friendly competition.
+            </p>
+            <span className="inline-flex items-center gap-2 text-racing-red text-sm font-heading uppercase tracking-[0.15em] group-hover:gap-3 transition-all">
+              Visit SEK Australia
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 17L17 7" /><path d="M7 7h10v10" />
+              </svg>
+            </span>
+          </a>
+        </div>
+      </section>
+
+      <div className="w-16 h-[1px] bg-racing-red/30 mx-auto" />
+
       {/* Scrolling Logo Carousel */}
       <section className="bg-racing-black py-16 md:py-24 overflow-hidden">
         <div className="max-w-5xl mx-auto px-4 mb-12 text-center">

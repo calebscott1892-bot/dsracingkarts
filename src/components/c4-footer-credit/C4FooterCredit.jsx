@@ -289,6 +289,7 @@ export default function C4FooterCredit({
   openInNewTab = true,
   showText = true,
   colorScheme = 'dark',
+  initialStage = 0,
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
 
@@ -530,7 +531,18 @@ export default function C4FooterCredit({
 
     const dormantTl = gsap.timeline({
       paused: true,
-      onComplete: () => { stageRef.current = 0; },
+      onComplete: () => {
+        stageRef.current = 0;
+        if (initialStage >= 1 && monoTlRef.current) {
+          stageRef.current = 0;
+          inFlightTlRef.current = monoTlRef.current;
+          if (monoTlRef.current.progress() >= 1) {
+            monoTlRef.current.restart();
+          } else {
+            monoTlRef.current.play();
+          }
+        }
+      },
       onReverseComplete: () => { stageRef.current = 2; },
     });
 
@@ -592,12 +604,18 @@ export default function C4FooterCredit({
 
     dormantTlRef.current = dormantTl;
 
+    /* -- If initialStage >= 1, jump to mono (Stage 1) immediately -- */
+    if (initialStage >= 1 && monoTl) {
+      monoTl.progress(1, true);
+      stageRef.current = 1;
+    }
+
     return () => {
       if (monoTlRef.current) { monoTlRef.current.kill(); monoTlRef.current = null; }
       if (colourTlRef.current) { colourTlRef.current.kill(); colourTlRef.current = null; }
       if (dormantTlRef.current) { dormantTlRef.current.kill(); dormantTlRef.current = null; }
     };
-  }, { scope: rootRef, dependencies: [prefersReducedMotion] });
+  }, { scope: rootRef, dependencies: [prefersReducedMotion, initialStage] });
 
   /* =================================================================
      HOVER + TOUCH HANDLERS — staged progressive animation
