@@ -63,7 +63,7 @@ export function DSRGrandPrix({ onExit }: Props) {
   }
 
   return (
-    <div className="relative w-full bg-black touch-none" style={{ aspectRatio: "12/7", maxWidth: "1200px", margin: "0 auto" }}>
+    <div className="relative w-full bg-black touch-none min-h-[560px] md:min-h-0" style={{ aspectRatio: "12/7", maxWidth: "1200px", margin: "0 auto" }}>
       {/* Exit button */}
       <button
         onClick={onExit}

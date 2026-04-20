@@ -173,10 +173,12 @@ export default async function ProductPage({ params }: Props) {
                 </h2>
               </div>
               <div
-                className="text-text-secondary text-sm leading-relaxed space-y-3
+                className="text-text-secondary text-sm leading-relaxed space-y-3 break-words
                            [&_strong]:text-white [&_b]:text-white
                            [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                           [&_a]:text-brand-red [&_a]:underline"
+                           [&_a]:text-brand-red [&_a]:underline
+                           [&_img]:max-w-full [&_img]:h-auto
+                           [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description, {
                   allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
                   allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt', 'width', 'height'] },

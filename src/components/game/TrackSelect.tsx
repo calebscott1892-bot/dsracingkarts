@@ -145,27 +145,28 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
   }, []);
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20 overflow-hidden">
+    <div className="absolute inset-0 bg-black z-20 overflow-y-auto overflow-x-hidden">
       {/* Background */}
-      <div className="absolute inset-0 chequered-bg opacity-5" />
-      <div className="absolute top-0 left-0 right-0 h-12 chequered-stripe opacity-30" />
-      <div className="absolute top-12 left-0 right-0 h-1 bg-racing-red" />
+      <div className="absolute inset-0 chequered-bg opacity-5 pointer-events-none" />
+      <div className="absolute top-0 left-0 right-0 h-10 md:h-12 chequered-stripe opacity-30 pointer-events-none" />
+      <div className="absolute top-10 md:top-12 left-0 right-0 h-1 bg-racing-red pointer-events-none" />
 
-      <div className="relative z-10 text-center max-w-4xl mx-auto px-4">
+      <div className="relative min-h-full flex flex-col items-center justify-center px-4 pt-16 pb-6 md:pt-14 md:pb-8">
+      <div className="relative z-10 text-center max-w-4xl mx-auto w-full">
         <h3
-          className="font-digital text-2xl md:text-3xl tracking-[0.2em] mb-2 text-racing-gold"
+          className="font-digital text-xl md:text-3xl tracking-[0.2em] mb-2 text-racing-gold"
           style={{ textShadow: "0 0 20px rgba(212,175,55,0.4)" }}
         >
           SELECT TRACK
         </h3>
-        <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-2 mb-4 md:mb-8">
           <div className="h-[1px] w-12 bg-racing-red" />
           <div className="w-1.5 h-1.5 bg-racing-red rotate-45" />
           <div className="h-[1px] w-12 bg-racing-red" />
         </div>
 
         {/* Track grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-8">
           {TRACKS.map((track, i) => {
             const isSelected = selectedTrack === i;
             const isHovered = hoveredTrack === i;
@@ -226,7 +227,7 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
         </div>
 
         {/* Lap selector */}
-        <div className="mb-8 flex items-center justify-center gap-4">
+        <div className="mb-4 md:mb-8 flex items-center justify-center gap-4 flex-wrap">
           <span className="font-digital text-xs text-text-muted tracking-wider">LAPS:</span>
           <div className="flex gap-1">
             {[3, 5, 10].map((n) => (
@@ -247,7 +248,7 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
 
         {/* CPU Difficulty selector (single player only) */}
         {showDifficulty && (
-          <div className="mb-8 flex items-center justify-center gap-4">
+          <div className="mb-5 md:mb-8 flex items-center justify-center gap-3 md:gap-4 flex-wrap">
             <span className="font-digital text-xs text-text-muted tracking-wider">CPU:</span>
             <div className="flex gap-1">
               {DIFFICULTY_OPTIONS.map((d) => (
@@ -276,13 +277,14 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
         {/* Go button */}
         <button
           onClick={() => onSelect(selectedTrack, laps, showDifficulty ? difficulty : undefined)}
-          className="font-digital text-xl px-16 py-4 bg-racing-red text-white border-2 border-racing-red
+          className="font-digital text-lg md:text-xl px-12 md:px-16 py-3 md:py-4 bg-racing-red text-white border-2 border-racing-red
                      hover:bg-racing-red/80 transition-all tracking-[0.2em]
                      shadow-[0_0_30px_rgba(230,0,18,0.4)]
                      hover:shadow-[0_0_40px_rgba(230,0,18,0.6)]"
         >
           RACE!
         </button>
+      </div>
       </div>
     </div>
   );

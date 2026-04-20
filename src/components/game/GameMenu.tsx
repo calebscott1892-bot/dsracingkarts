@@ -146,18 +146,19 @@ export function GameMenu({ onSelect }: Props) {
   const flash2p = hovered === "2p" && flashFrame % 2 === 0;
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20 overflow-hidden">
+    <div className="absolute inset-0 bg-black z-20 overflow-y-auto overflow-x-hidden">
       {/* Animated chequered background */}
-      <div className="absolute inset-0 chequered-bg opacity-8" />
+      <div className="absolute inset-0 chequered-bg opacity-8 pointer-events-none" />
 
       {/* Top chequered banner */}
-      <div className="absolute top-0 left-0 right-0 h-16 chequered-stripe opacity-40" />
-      <div className="absolute bottom-0 left-0 right-0 h-8 chequered-stripe opacity-30" />
+      <div className="absolute top-0 left-0 right-0 h-12 md:h-16 chequered-stripe opacity-40 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 right-0 h-8 chequered-stripe opacity-30 pointer-events-none" />
 
       {/* Red racing stripe accents */}
-      <div className="absolute top-16 left-0 right-0 h-1 bg-racing-red" />
-      <div className="absolute bottom-8 left-0 right-0 h-1 bg-racing-red" />
+      <div className="absolute top-12 md:top-16 left-0 right-0 h-1 bg-racing-red pointer-events-none" />
+      <div className="absolute bottom-8 left-0 right-0 h-1 bg-racing-red pointer-events-none" />
 
+      <div className="relative min-h-full flex flex-col items-center justify-center px-4 pt-16 pb-14 md:pt-20 md:pb-14">
       <div className="relative z-10 text-center">
         {/* Title with glow effect */}
         <div className="mb-2">
@@ -320,6 +321,7 @@ export function GameMenu({ onSelect }: Props) {
         <p className="font-digital text-xs tracking-[0.3em] text-text-muted animate-pulse">
           {isMobile ? "TAP 1 PLAYER TO BEGIN" : "SELECT MODE TO BEGIN"}
         </p>
+      </div>
       </div>
     </div>
   );

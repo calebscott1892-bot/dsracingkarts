@@ -64,14 +64,15 @@ export function GameOver({ state, onPlayAgain, onNewTrack, onQuit }: Props) {
   ];
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-30">
-      <div className="absolute inset-0 chequered-bg opacity-10" />
+    <div className="absolute inset-0 bg-black/95 z-30 overflow-y-auto overflow-x-hidden">
+      <div className="absolute inset-0 chequered-bg opacity-10 pointer-events-none" />
 
       {/* Top chequered banner */}
-      <div className="absolute top-0 left-0 right-0 h-10 chequered-stripe opacity-40" />
-      <div className="absolute top-10 left-0 right-0 h-1" style={{ backgroundColor: winnerColor }} />
+      <div className="absolute top-0 left-0 right-0 h-10 chequered-stripe opacity-40 pointer-events-none" />
+      <div className="absolute top-10 left-0 right-0 h-1 pointer-events-none" style={{ backgroundColor: winnerColor }} />
 
-      <div className="relative z-10 text-center max-w-lg mx-auto px-4">
+      <div className="relative min-h-full flex flex-col items-center justify-center px-4 pt-14 pb-6">
+      <div className="relative z-10 text-center max-w-lg mx-auto w-full">
         {/* Animated Trophy */}
         <div
           className={`mb-4 transition-all duration-700 ${
@@ -198,6 +199,7 @@ export function GameOver({ state, onPlayAgain, onNewTrack, onQuit }: Props) {
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

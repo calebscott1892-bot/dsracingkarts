@@ -61,7 +61,7 @@ const TIMELINE: {
   {
     year: "Championships",
     title: "Podium Moments",
-    text: "Multiple endurance race victories, ERC podiums, and SEK class wins. The results speak for themselves.",
+    text: "Multiple endurance race victories, consecutive championship wins, ERC podiums, and SEK class wins. The results speak for themselves.",
     image: { src: "/images/history/History 8.jpg", alt: "Championship moments" },
     side: "left",
   },

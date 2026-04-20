@@ -199,6 +199,9 @@ export default function ServicesPage() {
                 We service all kart engines — 2-stroke and 4-stroke — including Briggs &amp; Stratton,
                 Honda GX200, Torini, Rotax, IAME, and more. From regular servicing to race-day prep, trust the experts.
               </p>
+              <p>
+                We specialise in most 2 &amp; 4 stroke kart engine &amp; chassis servicing.
+              </p>
             </div>
             <Link
               href="/contact"
