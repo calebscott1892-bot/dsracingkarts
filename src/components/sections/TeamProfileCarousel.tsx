@@ -86,6 +86,13 @@ const teams: Team[] = [
     accentRgb: "234,179,8",
     tagline: "Maximum torque, maximum send",
   },
+  {
+    number: "",
+    name: "PostMates Racing",
+    accent: "#3b82f6",
+    accentRgb: "59,130,246",
+    tagline: "Profile coming soon",
+  },
 ];
 
 /* ── Decorative Patterns ── */
@@ -159,7 +166,7 @@ function TeamCard({ team }: { team: Team }) {
                 fontFamily: "var(--font-heading), system-ui, sans-serif",
               }}
             >
-              #{team.number}
+              {team.number ? `#${team.number}` : "TBA"}
             </div>
             <div>
               <div
@@ -433,7 +440,7 @@ export default function TeamProfileCarousel() {
               <div className="flex items-center gap-1.5 flex-wrap justify-center">
                 {teams.map((t, i) => (
                   <button
-                    key={t.number}
+                    key={t.name}
                     onClick={() => {
                       if (i === current) return;
                       setSlideDir(i > current ? "right" : "left");
@@ -473,7 +480,7 @@ export default function TeamProfileCarousel() {
                 className="text-xs uppercase tracking-[0.15em] transition-colors duration-300"
                 style={{ color: team.accent, fontFamily: "var(--font-heading), system-ui, sans-serif" }}
               >
-                #{team.number} — {team.name}
+                {team.number ? `#${team.number} — ${team.name}` : team.name}
               </span>
             </div>
           </div>

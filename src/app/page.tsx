@@ -7,6 +7,7 @@ import { NewsletterSignup } from "@/components/layout/NewsletterSignup";
 import { GameTeaser } from "@/components/sections/GameTeaser";
 import { HistorySection } from "@/components/sections/HistorySection";
 import { Speedometer } from "@/components/sections/Speedometer";
+import { ReviewsCarousel } from "@/components/sections/ReviewsCarousel";
 import { Shield, Wrench, Truck, ChevronRight } from "lucide-react";
 
 export default async function HomePage() {
@@ -136,6 +137,12 @@ export default async function HomePage() {
           <Link href="/shop" className="btn-secondary text-sm">View All Products</Link>
         </div>
       </section>
+
+      {/* ── Divider ── */}
+      <div className="max-w-7xl mx-auto px-4"><div className="racing-line" /></div>
+
+      {/* ── Reviews ── */}
+      <ReviewsCarousel />
 
       {/* ── Divider ── */}
       <div className="max-w-7xl mx-auto px-4"><div className="racing-line" /></div>

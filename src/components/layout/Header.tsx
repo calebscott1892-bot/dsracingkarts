@@ -63,7 +63,7 @@ export function Header() {
 
             {/* C4 Studios credit — desktop only */}
             <div className="hidden md:flex items-center ml-4 lg:ml-7 opacity-60 hover:opacity-100 transition-opacity">
-              <a href="https://c4studios.com.au" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 bg-black rounded-full px-3.5 py-1.5 shadow-sm hover:bg-black transition-colors">
+              <div className="flex items-center gap-2 bg-black rounded-full px-3.5 py-1.5 shadow-sm">
                 <span className="text-[9px] uppercase tracking-[0.18em] text-white/50 font-heading whitespace-nowrap">designed with</span>
                 <C4FooterCredit
                   size={32}
@@ -71,7 +71,7 @@ export function Header() {
                   colorScheme="dark"
                   initialStage={1}
                 />
-              </a>
+              </div>
             </div>
 
             {/* Logo — centered */}
