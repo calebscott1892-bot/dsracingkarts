@@ -19,7 +19,7 @@ export function Footer() {
             Go kart parts, engines &amp; expert race service. By appointment only — Long Reef Crescent, Woodbine, NSW.
           </p>
           <div className="flex gap-3">
-            <a href="https://www.facebook.com/dsracingkarts" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
               className="w-11 h-11 flex items-center justify-center bg-surface-700 hover:bg-racing-red text-text-muted hover:text-white transition-all">
               <Facebook size={18} />
             </a>
@@ -58,7 +58,7 @@ export function Footer() {
             </li>
             <li className="flex items-center gap-2.5">
               <Facebook size={14} className="text-racing-red shrink-0" />
-              <a href="https://www.facebook.com/dsracingkarts" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Message us on Facebook</a>
+              <a href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Message us on Facebook</a>
             </li>
           </ul>
         </div>

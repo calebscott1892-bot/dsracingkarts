@@ -95,7 +95,7 @@ export default async function ContactPage({ searchParams }: Props) {
               <div className="mb-8">
                 <h3 className="font-heading text-sm uppercase tracking-[0.1em] text-white mb-3">Follow Us</h3>
                 <a
-                  href="https://www.facebook.com/dsracingkarts"
+                  href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-racing-red hover:text-racing-red/80 transition-colors"
