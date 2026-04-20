@@ -10,6 +10,7 @@ const STATS = [
   { value: 500, suffix: "+", label: "Parts in Stock" },
   { value: 40, suffix: "", label: "Years in Karting" },
   { value: 1000, suffix: "+", label: "Karts Serviced" },
+  { value: 48, suffix: "", label: "Tracks Raced On Nationally" },
 ];
 
 // Real go-kart tachometer: 0-16,000 RPM, redline at 13,000+
@@ -314,7 +315,7 @@ export function Speedometer() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
           {STATS.map((stat, i) => (
             <div
               key={stat.label}

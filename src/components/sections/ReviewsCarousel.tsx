@@ -191,7 +191,7 @@ export function ReviewsCarousel() {
         </h2>
 
         {/* Review card area */}
-        <div className="relative min-h-[260px] md:min-h-[200px]">
+        <div className="relative min-h-[320px] sm:min-h-[280px] md:min-h-[220px]">
           {/* Outgoing */}
           {prevIdx !== null && (
             <div
@@ -219,7 +219,7 @@ export function ReviewsCarousel() {
         </div>
 
         {/* Progress bar */}
-        <div className="mt-12 mb-8 px-1">
+        <div className="mt-10 sm:mt-12 mb-6 sm:mb-8 px-1">
           <ProgressBar slideKey={`${current}-${timerKey}`} duration={AUTO_INTERVAL} />
         </div>
 
@@ -239,7 +239,7 @@ export function ReviewsCarousel() {
           </button>
 
           {/* Dot indicators */}
-          <div className="flex items-center gap-2 flex-wrap justify-center">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
             {REVIEWS.map((r, i) => (
               <button
                 key={r.id}
@@ -337,23 +337,23 @@ function ReviewCard({ review }: { review: (typeof REVIEWS)[number] }) {
       </div>
 
       {/* Quote text */}
-      <p className="text-white/80 text-base md:text-lg leading-[1.85] italic mb-9 max-w-2xl">
+      <p className="text-white/80 text-sm sm:text-base md:text-lg leading-[1.75] sm:leading-[1.85] italic mb-7 sm:mb-9 max-w-2xl px-1">
         &ldquo;{review.text}&rdquo;
       </p>
 
       {/* Reviewer name — pit board style */}
-      <div className="inline-flex items-center gap-4">
-        <span className="h-[1px] w-8 bg-racing-red/40" />
-        <div className="flex items-center gap-2.5 border border-white/10 bg-white/[0.04] px-5 py-2">
+      <div className="inline-flex items-center gap-3 sm:gap-4 max-w-full">
+        <span className="h-[1px] w-6 sm:w-8 bg-racing-red/40 shrink-0" />
+        <div className="flex items-center gap-2 sm:gap-2.5 border border-white/10 bg-white/[0.04] px-3 sm:px-5 py-2 min-w-0">
           <CheckeredFlag className="w-3 h-3 text-white/25 shrink-0" />
           <span
-            className="text-xs uppercase tracking-[0.28em] text-white/60"
+            className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-white/60 truncate"
             style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}
           >
             {review.name}
           </span>
         </div>
-        <span className="h-[1px] w-8 bg-racing-red/40" />
+        <span className="h-[1px] w-6 sm:w-8 bg-racing-red/40 shrink-0" />
       </div>
     </div>
   );

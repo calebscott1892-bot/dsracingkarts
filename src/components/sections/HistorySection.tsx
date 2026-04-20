@@ -20,7 +20,7 @@ const TIMELINE: {
     year: "The Early Days",
     title: "Where It All Started",
     text: "From the earliest kart tracks to backyard workshops — a lifelong obsession with speed was born.",
-    image: { src: "/images/history/History1.jpg", alt: "The early days — kart #49 on track" },
+    image: { src: "/images/history/History 3.jpg", alt: "Racing through the years" },
     side: "left",
   },
   {
@@ -34,7 +34,7 @@ const TIMELINE: {
     year: "The Grind",
     title: "Racing Through the Years",
     text: "Every weekend was race day. Every weeknight was spent in the workshop. This isn't just a business — it's a way of life.",
-    image: { src: "/images/history/History 3.jpg", alt: "Racing through the years" },
+    image: { src: "/images/history/History1.jpg", alt: "The early days — kart #49 on track" },
     side: "left",
   },
   {
