@@ -13,6 +13,7 @@ import {
   Mail,
   Flag,
   Megaphone,
+  TrendingUp,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
   { href: "/admin/team", label: "Team Profiles", icon: Flag },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+  { href: "/admin/pricing", label: "Bulk Pricing", icon: TrendingUp },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
