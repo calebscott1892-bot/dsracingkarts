@@ -30,14 +30,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   // Protect admin routes — redirect to login if not authenticated
-  if (request.nextUrl.pathname.startsWith("/admin")) {
-    if (!user) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/admin/login";
-      if (request.nextUrl.pathname !== "/admin/login") {
-        return NextResponse.redirect(url);
-      }
-    }
+  const pathname = request.nextUrl.pathname;
+  const isAdminRoute = pathname === "/admin" || pathname.startsWith("/admin/");
+  if (isAdminRoute && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin-login";
+    return NextResponse.redirect(url);
   }
 
   return supabaseResponse;

@@ -76,8 +76,8 @@ export default async function ContactPage({ searchParams }: Props) {
                   <Mail size={20} className="text-racing-red shrink-0 mt-0.5" />
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-[0.1em] text-white mb-1">Email</h3>
-                    <a href="mailto:info@dsracingkarts.com.au" className="text-sm text-white/50 hover:text-racing-red transition-colors">
-                      info@dsracingkarts.com.au
+                    <a href="mailto:dsracing@bigpond.com" className="text-sm text-white/50 hover:text-racing-red transition-colors">
+                      dsracing@bigpond.com
                     </a>
                   </div>
                 </div>

@@ -12,17 +12,20 @@ export default async function AdminLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Check admin role
-  if (user) {
-    const { data: profile } = await supabase
-      .from("admin_profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+  // Must be logged in
+  if (!user) {
+    redirect("/admin-login");
+  }
 
-    if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-      redirect("/admin/login?error=unauthorized");
-    }
+  // Must have admin role
+  const { data: profile } = await supabase
+    .from("admin_profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+    redirect("/admin-login?error=unauthorized");
   }
 
   return (

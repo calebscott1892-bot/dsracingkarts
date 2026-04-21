@@ -2,14 +2,39 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Trophy, Users, Wrench, Clock, Quote, Flag } from "lucide-react";
-import TeamProfileCarousel from "@/components/sections/TeamProfileCarousel";
+import { TeamCarouselUI, type Team } from "@/components/sections/TeamProfileCarousel";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "About Us | DS Racing Karts",
   description: "Nearly 40 years experience in karting & decades more in motorsport. Sydney's trusted kart specialists.",
 };
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  // Fetch team profiles from DB; fall back to empty (carousel uses hardcoded data)
+  let dbTeams: Team[] = [];
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("team_profiles")
+      .select("kart_number, team_name, accent_color, accent_rgb, logo_url, tagline, website_url")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("team_name");
+    if (data && data.length > 0) {
+      dbTeams = data.map((t) => ({
+        number: t.kart_number,
+        name: t.team_name,
+        accent: t.accent_color,
+        accentRgb: t.accent_rgb,
+        logo: t.logo_url || undefined,
+        tagline: t.tagline || undefined,
+        website: t.website_url || undefined,
+      }));
+    }
+  } catch {
+    // use hardcoded fallback
+  }
   return (
     <>
       {/* Hero */}
@@ -170,7 +195,7 @@ export default function AboutPage() {
           ))}
         </div>
 
-        <TeamProfileCarousel />
+        <TeamCarouselUI teams={dbTeams} />
       </section>
 
       <div className="chequered-stripe" />

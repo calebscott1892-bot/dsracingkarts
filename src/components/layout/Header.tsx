@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
@@ -7,7 +8,7 @@ import { ShoppingCart, Menu, X, Phone } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import C4FooterCredit from "../c4-footer-credit/C4FooterCredit";
 
-export function Header() {
+export function Header({ announcementSlot }: { announcementSlot?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { cart } = useCart();
@@ -130,6 +131,9 @@ export function Header() {
 
         {/* Red line under nav */}
         <div className="h-[3px] bg-racing-red" />
+
+        {/* Announcement banner — renders below nav, animates down */}
+        {announcementSlot}
 
         {/* Mobile nav overlay */}
         {mobileOpen && (

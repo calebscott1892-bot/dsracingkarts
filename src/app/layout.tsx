@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { CartProvider } from "@/hooks/useCart";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { Analytics } from "@/components/layout/Analytics";
+import { ActiveAnnouncement } from "@/components/layout/ActiveAnnouncement";
 
 const heading = Oswald({
   subsets: ["latin"],
@@ -98,7 +99,7 @@ export default function RootLayout({
       <body className="bg-racing-black text-text-primary font-body antialiased">
         <SmoothScroll>
           <CartProvider>
-            <Header />
+            <Header announcementSlot={<ActiveAnnouncement />} />
             <main className="min-h-screen">{children}</main>
             <Footer />
           </CartProvider>

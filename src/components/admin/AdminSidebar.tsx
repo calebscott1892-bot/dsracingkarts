@@ -10,6 +10,9 @@ import {
   Users,
   Settings,
   LogOut,
+  Mail,
+  Flag,
+  Megaphone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -20,6 +23,9 @@ const navItems = [
   { href: "/admin/categories", label: "Categories", icon: FolderTree },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/newsletter", label: "Newsletter", icon: Mail },
+  { href: "/admin/team", label: "Team Profiles", icon: Flag },
+  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
@@ -30,7 +36,7 @@ export function AdminSidebar() {
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/admin/login");
+    router.push("/admin-login");
   }
 
   return (

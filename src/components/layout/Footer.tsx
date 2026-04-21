@@ -54,7 +54,7 @@ export function Footer() {
             </li>
             <li className="flex items-center gap-2.5">
               <Mail size={14} className="text-racing-red shrink-0" />
-              <a href="mailto:info@dsracingkarts.com.au" className="hover:text-white transition-colors">info@dsracingkarts.com.au</a>
+              <a href="mailto:dsracing@bigpond.com" className="hover:text-white transition-colors">dsracing@bigpond.com</a>
             </li>
             <li className="flex items-center gap-2.5">
               <Facebook size={14} className="text-racing-red shrink-0" />

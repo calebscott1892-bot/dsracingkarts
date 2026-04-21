@@ -5,7 +5,7 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink } from "lucide-react";
 
 /* ── Team Data ── */
-interface Team {
+export interface Team {
   number: string;
   name: string;
   accent: string;
@@ -15,7 +15,7 @@ interface Team {
   website?: string;
 }
 
-const teams: Team[] = [
+const HARDCODED_TEAMS: Team[] = [
   {
     number: "338",
     name: "Scaff It Up",
@@ -283,12 +283,14 @@ function TeamCard({ team }: { team: Team }) {
 }
 
 /* ── Main Carousel ── */
-export default function TeamProfileCarousel() {
+export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [current, setCurrent] = useState(0);
   const [slideDir, setSlideDir] = useState<"right" | "left">("right");
   const [animKey, setAnimKey] = useState(0);
   const isAnimating = useRef(false);
+
+  const safeTeams = teams.length > 0 ? teams : HARDCODED_TEAMS;
 
   const navigate = useCallback(
     (dir: "right" | "left") => {
@@ -297,8 +299,8 @@ export default function TeamProfileCarousel() {
       setSlideDir(dir);
       setCurrent((prev) =>
         dir === "right"
-          ? (prev + 1) % teams.length
-          : (prev - 1 + teams.length) % teams.length,
+          ? (prev + 1) % safeTeams.length
+          : (prev - 1 + safeTeams.length) % safeTeams.length,
       );
       setAnimKey((k) => k + 1);
       setTimeout(() => { isAnimating.current = false; }, 350);
@@ -338,7 +340,7 @@ export default function TeamProfileCarousel() {
     touchX.current = null;
   };
 
-  const team = teams[current];
+  const team = safeTeams[current];
 
   return (
     <>
@@ -408,7 +410,7 @@ export default function TeamProfileCarousel() {
               </span>
               <span className="text-white/30 text-sm mx-2" style={{ fontFamily: "var(--font-digital), monospace" }}>/</span>
               <span className="text-white/30 text-sm" style={{ fontFamily: "var(--font-digital), monospace" }}>
-                {String(teams.length).padStart(2, "0")}
+                {String(safeTeams.length).padStart(2, "0")}
               </span>
             </div>
 
@@ -438,7 +440,7 @@ export default function TeamProfileCarousel() {
 
               {/* Dot indicators */}
               <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                {teams.map((t, i) => (
+                {safeTeams.map((t, i) => (
                   <button
                     key={t.name}
                     onClick={() => {
@@ -506,3 +508,5 @@ export default function TeamProfileCarousel() {
     </>
   );
 }
+
+export default TeamCarouselUI;
