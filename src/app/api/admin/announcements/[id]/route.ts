@@ -50,5 +50,7 @@ export async function DELETE(
 
   const { error } = await supabase.from("announcements").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath("/", "layout");
+  revalidatePath("/admin/announcements", "page");
   return NextResponse.json({ ok: true });
 }

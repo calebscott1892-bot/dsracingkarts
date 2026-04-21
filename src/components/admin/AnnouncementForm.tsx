@@ -131,8 +131,23 @@ export function AnnouncementForm({ announcement, isNew = false }: Props) {
   async function handleDelete() {
     if (!confirm(`Delete "${form.title}"? This cannot be undone.`)) return;
     setDeleting(true);
-    await fetch(`/api/admin/announcements/${announcement!.id}`, { method: "DELETE" });
-    router.push("/admin/announcements");
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/admin/announcements/${announcement!.id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || "Delete failed — please try again");
+        setDeleting(false);
+        return;
+      }
+      router.push("/admin/announcements");
+      router.refresh();
+    } catch {
+      setErrorMsg("Delete failed — please try again");
+      setDeleting(false);
+    }
   }
 
   const inputClass =
