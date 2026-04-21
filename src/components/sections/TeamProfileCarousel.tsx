@@ -367,7 +367,7 @@ export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) 
       {/* ── Modal ── */}
       {isOpen && (
         <div
-          className="fixed inset-0 flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 flex items-start justify-center pt-14 pb-6 px-4 overflow-y-auto"
           style={{ zIndex: 9999 }}
           role="dialog"
           aria-modal="true"
@@ -426,20 +426,9 @@ export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) 
             </div>
 
             {/* Navigation */}
-            <div className="flex items-center justify-between mt-6 gap-4">
-              <button
-                onClick={goPrev}
-                className="flex items-center gap-2 px-4 py-3 border border-white/10 bg-white/5
-                           hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
-                           transition-all group"
-                aria-label="Previous team"
-              >
-                <ChevronLeft size={20} strokeWidth={2} className="group-hover:-translate-x-0.5 transition-transform" />
-                <span className="text-xs uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}>Prev</span>
-              </button>
-
+            <div className="flex flex-col items-center gap-3 mt-6">
               {/* Dot indicators */}
-              <div className="flex items-center gap-1.5 flex-wrap justify-center">
+              <div className="flex items-center gap-1.5 flex-wrap justify-center px-2">
                 {safeTeams.map((t, i) => (
                   <button
                     key={t.name}
@@ -449,7 +438,7 @@ export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) 
                       setCurrent(i);
                       setAnimKey((k) => k + 1);
                     }}
-                    className="p-0.5"
+                    className="p-1"
                     aria-label={`View ${t.name}`}
                   >
                     <div
@@ -464,16 +453,30 @@ export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) 
                 ))}
               </div>
 
-              <button
-                onClick={goNext}
-                className="flex items-center gap-2 px-4 py-3 border border-white/10 bg-white/5
-                           hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
-                           transition-all group"
-                aria-label="Next team"
-              >
-                <span className="text-xs uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}>Next</span>
-                <ChevronRight size={20} strokeWidth={2} className="group-hover:translate-x-0.5 transition-transform" />
-              </button>
+              {/* Prev / Next */}
+              <div className="flex items-center justify-between w-full gap-3">
+                <button
+                  onClick={goPrev}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5
+                             hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
+                             transition-all group"
+                  aria-label="Previous team"
+                >
+                  <ChevronLeft size={20} strokeWidth={2} className="group-hover:-translate-x-0.5 transition-transform" />
+                  <span className="text-xs uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}>Prev</span>
+                </button>
+
+                <button
+                  onClick={goNext}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5
+                             hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
+                             transition-all group"
+                  aria-label="Next team"
+                >
+                  <span className="text-xs uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}>Next</span>
+                  <ChevronRight size={20} strokeWidth={2} className="group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
             </div>
 
             {/* Team label */}
