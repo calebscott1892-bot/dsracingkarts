@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
+import { ImportSquareCustomersButton } from "./ImportSquareCustomersButton";
 
 interface Props {
   searchParams: Promise<{ search?: string; page?: string }>;
@@ -36,6 +37,11 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
   return (
     <div>
       <h1 className="font-heading text-3xl uppercase tracking-wider mb-6">Customers</h1>
+
+      <div className="flex items-center justify-between mb-6">
+        <p className="text-text-muted text-sm">{count || 0} customers total</p>
+        <ImportSquareCustomersButton />
+      </div>
 
       {/* Search */}
       <div className="card p-4 mb-6">

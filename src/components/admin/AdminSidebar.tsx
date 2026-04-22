@@ -14,9 +14,14 @@ import {
   Flag,
   Megaphone,
   TrendingUp,
+  Star,
+  Car,
+  Menu,
+  X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -28,12 +33,32 @@ const navItems = [
   { href: "/admin/team", label: "Team Profiles", icon: Flag },
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/pricing", label: "Bulk Pricing", icon: TrendingUp },
+  { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/chassis-listings", label: "Chassis Listings", icon: Car },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  // Close drawer on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
+  // Prevent body scroll when drawer is open
+  useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   async function handleLogout() {
     const supabase = createClient();
@@ -41,17 +66,24 @@ export function AdminSidebar() {
     router.push("/admin-login");
   }
 
-  return (
-    <aside className="w-64 bg-surface-800 border-r border-surface-600 min-h-screen hidden lg:flex flex-col">
+  const navContent = (
+    <>
       {/* Logo */}
-      <div className="p-6 border-b border-surface-600">
+      <div className="p-6 border-b border-surface-600 flex items-center justify-between">
         <Link href="/admin" className="font-heading text-xl uppercase tracking-wider">
           DSR <span className="text-brand-red">Admin</span>
         </Link>
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden text-text-muted hover:text-white transition-colors"
+          aria-label="Close menu"
+        >
+          <X size={20} />
+        </button>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isActive =
             item.href === "/admin"
@@ -91,6 +123,41 @@ export function AdminSidebar() {
           ← View Store
         </Link>
       </div>
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="w-64 bg-surface-800 border-r border-surface-600 min-h-screen hidden lg:flex flex-col shrink-0">
+        {navContent}
+      </aside>
+
+      {/* Mobile hamburger button */}
+      <button
+        onClick={() => setMobileOpen(true)}
+        className="lg:hidden fixed top-3 left-3 z-40 p-2 bg-surface-800 border border-surface-600 rounded text-text-secondary hover:text-white transition-colors"
+        aria-label="Open menu"
+      >
+        <Menu size={20} />
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile slide-out drawer */}
+      <aside
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-surface-800 border-r border-surface-600 flex flex-col
+          transition-transform duration-200 ease-in-out
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        {navContent}
+      </aside>
+    </>
   );
 }

@@ -62,19 +62,36 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
     setForm((prev) => ({ ...prev, accent_color: hex, accent_rgb: rgb }));
   }
 
+  function hexToRgb(hex: string): string {
+    const clean = hex.replace("#", "");
+    const r = parseInt(clean.slice(0, 2), 16);
+    const g = parseInt(clean.slice(2, 4), 16);
+    const b = parseInt(clean.slice(4, 6), 16);
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return form.accent_rgb;
+    return `${r},${g},${b}`;
+  }
+
   async function handleLogoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !team?.id) return;
     setUploading(true);
+    setErrorMsg("");
     const formData = new FormData();
     formData.append("file", file);
-    const res = await fetch(`/api/admin/team/${team.id}/logo`, {
-      method: "POST",
-      body: formData,
-    });
-    if (res.ok) {
-      const { url } = await res.json();
-      setField("logo_url", url);
+    try {
+      const res = await fetch(`/api/admin/team/${team.id}/logo`, {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const { url } = await res.json();
+        setField("logo_url", url);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setErrorMsg(data.error || "Upload failed — please try again");
+      }
+    } catch {
+      setErrorMsg("Upload failed — network error");
     }
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -217,7 +234,10 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
             <input
               type="color"
               value={form.accent_color}
-              onChange={(e) => setField("accent_color", e.target.value)}
+              onChange={(e) => {
+                const hex = e.target.value;
+                setForm((prev) => ({ ...prev, accent_color: hex, accent_rgb: hexToRgb(hex) }));
+              }}
               className="w-8 h-8 rounded cursor-pointer bg-transparent border-0"
             />
           </div>
@@ -258,7 +278,7 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
             </div>
           </div>
         ) : (
-          <div>
+          <div className="space-y-3">
             {isNew ? (
               <p className="text-sm text-text-muted">Save the team first, then upload a logo.</p>
             ) : (
@@ -271,9 +291,22 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
                 <Upload size={16} /> {uploading ? "Uploading…" : "Upload Logo"}
               </button>
             )}
-            <p className="text-xs text-text-muted mt-2">PNG or JPEG, max 2MB. Square logos work best.</p>
+            <p className="text-xs text-text-muted">PNG or JPEG, max 2MB. Square logos work best.</p>
           </div>
         )}
+
+        <div className="space-y-1.5">
+          <label className={labelClass}>Or paste a URL / public path</label>
+          <input
+            className={inputClass}
+            value={form.logo_url}
+            onChange={(e) => setField("logo_url", e.target.value)}
+            placeholder="/images/history/ScaffItUp.png or https://..."
+          />
+          <p className="text-xs text-text-muted">
+            Use this if the image is already in the <code className="text-text-secondary">/public</code> folder. Changes save with the form.
+          </p>
+        </div>
 
         <input
           type="file"

@@ -119,7 +119,7 @@ export default function PrivacyPage() {
             <ul className="list-none space-y-1 mt-2 text-white/60">
               <li>Email: <a href="mailto:dsracing@bigpond.com" className="text-racing-red hover:underline">dsracing@bigpond.com</a></li>
               <li>Location: Long Reef Crescent, Woodbine, NSW, Australia</li>
-              <li>Facebook: <a href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="text-racing-red hover:underline">@dsracingkarts</a></li>
+              <li>Facebook: <a href="https://www.facebook.com/dsracingkarts" target="_blank" rel="noopener noreferrer" className="text-racing-red hover:underline">@dsracingkarts</a></li>
             </ul>
           </div>
 

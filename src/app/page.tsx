@@ -31,6 +31,13 @@ export default async function HomePage() {
     .order("name")
     .limit(8);
 
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select("id, author_name, text, platform, rating")
+    .eq("is_visible", true)
+    .order("sort_order")
+    .order("created_at");
+
   return (
     <>
       {/* ── Hero Video Sequence ── */}
@@ -79,7 +86,7 @@ export default async function HomePage() {
             </h2>
           </div>
           <Link
-            href="/#categories"
+            href="/shop"
             className="hidden md:flex items-center gap-1 font-heading text-xs uppercase tracking-[0.15em]
                        text-text-muted hover:text-racing-red transition-colors"
           >
@@ -142,7 +149,7 @@ export default async function HomePage() {
       <div className="max-w-7xl mx-auto px-4"><div className="racing-line" /></div>
 
       {/* ── Reviews ── */}
-      <ReviewsCarousel />
+      <ReviewsCarousel reviews={reviews ?? []} />
 
       {/* ── Divider ── */}
       <div className="max-w-7xl mx-auto px-4"><div className="racing-line" /></div>
@@ -162,7 +169,7 @@ export default async function HomePage() {
             name: "DS Racing Karts",
             url: process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au",
             description: "Go kart parts supplier and service centre in Sydney, Australia.",
-            telephone: "+61-2-XXXX-XXXX",
+            telephone: "+61492454854",
             address: { "@type": "PostalAddress", addressLocality: "Sydney", addressRegion: "NSW", addressCountry: "AU" },
             openingHoursSpecification: {
               "@type": "OpeningHoursSpecification",

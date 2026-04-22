@@ -215,15 +215,15 @@ export function GameMenu({ onSelect }: Props) {
                 className={`relative z-10 w-28 h-28 md:w-36 md:h-36 border-2 p-2 transition-all duration-200 ${
                   selected === "1p"
                     ? "border-racing-gold bg-racing-gold/10 scale-110"
-                    : hovered === "1p"
-                    ? "border-white/60 bg-white/5"
+                    : (hovered === "1p" || isMobile)
+                    ? "border-racing-red/80 bg-racing-red/5"
                     : "border-surface-600 bg-surface-900/80"
                 }`}
                 style={{ imageRendering: "pixelated" }}
               >
                 <PixelKartTrophy
                   color="#e60012"
-                  active={hovered === "1p" || selected === "1p"}
+                  active={hovered === "1p" || selected === "1p" || isMobile}
                 />
               </div>
             </div>
@@ -233,7 +233,7 @@ export function GameMenu({ onSelect }: Props) {
                 className={`font-digital text-sm md:text-base tracking-[0.15em] transition-all ${
                   selected === "1p"
                     ? "text-racing-gold"
-                    : hovered === "1p"
+                    : (hovered === "1p" || isMobile)
                     ? "text-white"
                     : "text-text-muted"
                 }`}

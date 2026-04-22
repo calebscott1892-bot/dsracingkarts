@@ -83,6 +83,10 @@ export default async function ProductPage({ params }: Props) {
   const categories = (product.product_categories || []).map(
     (pc: any) => pc.categories
   );
+  const variationPrices = variations
+    .map((v: any) => v.sale_price || v.price)
+    .filter((price: number | null) => typeof price === "number" && Number.isFinite(price));
+  const hasVariations = variations.length > 0;
 
   variations.sort((a: any, b: any) => a.sort_order - b.sort_order);
 
@@ -137,7 +141,11 @@ export default async function ProductPage({ params }: Props) {
 
           {/* Price range */}
           <div className="mb-6 pb-6 border-b border-surface-600/50">
-            {variations.length === 1 ? (
+            {!hasVariations ? (
+              <p className="text-sm text-text-muted font-heading uppercase tracking-wider">
+                Contact us for pricing
+              </p>
+            ) : variations.length === 1 ? (
               <p className="text-3xl font-heading tracking-wide">
                 {variations[0].sale_price ? (
                   <>
@@ -154,7 +162,7 @@ export default async function ProductPage({ params }: Props) {
               <p className="text-3xl font-heading tracking-wide">
                 <span className="text-text-muted text-sm font-body mr-1">From</span>
                 <span className="text-white">
-                  {formatPrice(Math.min(...variations.map((v: any) => v.sale_price || v.price)))}
+                  {formatPrice(Math.min(...variationPrices))}
                 </span>
               </p>
             )}
@@ -198,22 +206,22 @@ export default async function ProductPage({ params }: Props) {
                 description: product.description_plain,
                 sku: product.sku,
                 image: images[0]?.url,
-                offers: {
-                  "@type": "AggregateOffer",
-                  lowPrice: Math.min(
-                    ...variations.map((v: any) => v.sale_price || v.price)
-                  ),
-                  highPrice: Math.max(
-                    ...variations.map((v: any) => v.price)
-                  ),
-                  priceCurrency: "AUD",
-                  availability:
-                    variations.some(
-                      (v: any) => v.inventory?.stock_status === "in_stock"
-                    )
-                      ? "https://schema.org/InStock"
-                      : "https://schema.org/OutOfStock",
-                },
+                offers: hasVariations
+                  ? {
+                      "@type": "AggregateOffer",
+                      lowPrice: Math.min(...variationPrices),
+                      highPrice: Math.max(
+                        ...variations.map((v: any) => v.price)
+                      ),
+                      priceCurrency: "AUD",
+                      availability:
+                        variations.some(
+                          (v: any) => v.inventory?.stock_status === "in_stock"
+                        )
+                          ? "https://schema.org/InStock"
+                          : "https://schema.org/OutOfStock",
+                    }
+                  : undefined,
               }),
             }}
           />

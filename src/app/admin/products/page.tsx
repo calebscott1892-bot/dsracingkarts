@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Search, ExternalLink } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
 interface Props {
@@ -42,9 +42,14 @@ export default async function AdminProductsPage({ searchParams }: Props) {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="font-heading text-3xl uppercase tracking-wider">Products</h1>
-        <Link href="/admin/products/new" className="btn-primary flex items-center gap-2 text-sm">
-          <Plus size={16} /> Add Product
-        </Link>
+        <a
+          href="https://squareup.com/dashboard/items/library"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <ExternalLink size={16} /> Manage in Square
+        </a>
       </div>
 
       {/* Filters bar */}

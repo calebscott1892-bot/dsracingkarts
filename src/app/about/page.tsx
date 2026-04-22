@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Trophy, Users, Wrench, Clock, Quote, Flag } from "lucide-react";
+import { Trophy, Users, Wrench, Clock, Quote, Flag, Timer } from "lucide-react";
 import { TeamCarouselUI, type Team } from "@/components/sections/TeamProfileCarousel";
 import { createClient } from "@/lib/supabase/server";
 
@@ -201,26 +201,114 @@ export default async function AboutPage() {
       <div className="chequered-stripe" />
 
       {/* ── Section 3: Results ── */}
-      <section className="max-w-4xl mx-auto px-4 py-16 md:py-20">
-        <div className="flex items-center gap-3 mb-10">
+      <section className="max-w-5xl mx-auto px-4 py-16 md:py-20">
+        <div className="flex items-center gap-3 mb-3">
           <span className="h-[1px] w-8 bg-racing-red" />
           <h2 className="font-heading text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
-            <span className="text-racing-red">Results</span>
+            Endurance Karting <span className="text-racing-red">Results</span>
           </h2>
         </div>
-        <div className="space-y-3">
-          {[
-            { year: "2024", achievement: "ERC Podium Finishes" },
-            { year: "2023", achievement: "Multiple Endurance Race Victories" },
-            { year: "2021", achievement: "SEK Class Wins" },
-            { year: "Ongoing", achievement: "DSR Predator Chassis Development" },
-            { year: "All Time", achievement: "Hundreds of race wins across sprint & endurance karting" },
-          ].map((item) => (
-            <div key={item.year} className="flex gap-4 p-4 bg-white/5 border-l-[3px] border-l-racing-red">
-              <span className="font-digital text-sm text-racing-red min-w-[70px]">{item.year}</span>
-              <span className="text-sm text-white/70">{item.achievement}</span>
-            </div>
-          ))}
+        <p className="text-white/50 text-sm mb-10 ml-[44px]">DSR Predator Chassis · Series & Championship Finishes</p>
+
+        {/* Championship results timeline */}
+        <div className="grid md:grid-cols-[1fr_1px_1fr] gap-0 mb-16">
+          {/* Left column */}
+          <div className="space-y-0">
+            {[
+              { year: "2009", result: "2nd in Series" },
+              { year: "2010", result: "2nd in Series" },
+              { year: "2011", result: "1st Victoria · 3rd ACT · 3rd NSW — 4th National · 2nd NSW" },
+              { year: "2012", result: "2nd in Series — Horsepower Racing (#777)" },
+              { year: "2013", result: "2nd in Series — Bell Pipes (#23)  ·  3rd in Series — Horsepower Racing (#777)" },
+              { year: "2014", result: "1st in Series — Bell Pipes (#23)" },
+              { year: "2015", result: "1st in Series — Horsepower Racing (#777)" },
+              { year: "2016", result: "Did not contest full series — a number of podium finishes" },
+              { year: "2017", result: "Did not contest full series — a number of podium finishes" },
+            ].map((item) => (
+              <div key={item.year} className="group flex gap-0 items-stretch">
+                <div className="flex flex-col items-center mr-4">
+                  <div className="w-[3px] bg-racing-red/20 group-first:rounded-t flex-1 group-first:mt-2" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-racing-red shrink-0 my-1" />
+                  <div className="w-[3px] bg-racing-red/20 flex-1 group-last:mb-2" />
+                </div>
+                <div className="py-3 pr-4">
+                  <span className="font-digital text-racing-red text-sm block mb-0.5">{item.year}</span>
+                  <span className="text-sm text-white/70 leading-snug">{item.result}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Vertical divider */}
+          <div className="hidden md:block bg-racing-red/10 mx-6" />
+
+          {/* Right column */}
+          <div className="space-y-0 mt-8 md:mt-0">
+            {[
+              { year: "2018", result: "Did not contest full series — a number of podium finishes" },
+              { year: "2019", result: "Did not contest full series — a number of podium finishes" },
+              { year: "2020", result: "Did not contest full series — a number of podium finishes" },
+              { year: "2021", result: "1st in Series — Horsepower Racing (#777) Sportsman · 1st in Series HP Max" },
+              { year: "2022", result: "2nd in Series — HP Max" },
+              { year: "2023", result: "1st Maxx — Kart #333 CGR · 2nd Sportsman — Claw Racing (#555) · 1st — Polaris Marine (#23)" },
+              { year: "2024", result: "2nd & 3rd A Grade — Karts #333 ARK & #49 DSR · 2nd B Grade — Kart #555 Claw Racing · Pole Position 24hr — Kart #71 EDTWARP · 1st C Grade 24hr — Kart #12 Unbeatables" },
+              { year: "2025", result: "Australian Championship Sportsman — Venom Racing (#272) · SportsmanClass Club Champions SEK" },
+            ].map((item) => (
+              <div key={item.year} className="group flex gap-0 items-stretch">
+                <div className="flex flex-col items-center mr-4">
+                  <div className="w-[3px] bg-racing-red/20 group-first:rounded-t flex-1 group-first:mt-2" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-racing-red shrink-0 my-1" />
+                  <div className="w-[3px] bg-racing-red/20 flex-1 group-last:mb-2" />
+                </div>
+                <div className="py-3 pr-4">
+                  <span className="font-digital text-racing-red text-sm block mb-0.5">{item.year}</span>
+                  <span className="text-sm text-white/70 leading-snug">{item.result}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 24hr race distances */}
+        <div className="border border-white/10 bg-white/[0.02]">
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-white/10">
+            <Timer size={16} className="text-racing-red shrink-0" />
+            <h3 className="font-heading text-sm uppercase tracking-[0.2em] text-white">24hr Race Distances</h3>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10">
+                  <th className="px-6 py-3 text-left font-heading text-xs uppercase tracking-[0.15em] text-racing-red">Year</th>
+                  <th className="px-4 py-3 text-left font-heading text-xs uppercase tracking-[0.15em] text-racing-red">Venue</th>
+                  <th className="px-4 py-3 text-right font-heading text-xs uppercase tracking-[0.15em] text-racing-red">Distance</th>
+                  <th className="px-6 py-3 text-right font-heading text-xs uppercase tracking-[0.15em] text-racing-red">Laps</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  { year: "2007", venue: "Wollongong", km: "1,411 km", laps: "2,613" },
+                  { year: "2008", venue: "Eastern Creek", km: "1,573 km", laps: "1,536" },
+                  { year: "2009", venue: "Ipswich", km: "1,535 km", laps: "1,413" },
+                  { year: "2010", venue: "Ipswich", km: "1,532 km", laps: "1,411" },
+                  { year: "2011", venue: "Ipswich", km: "1,402 km", laps: "1,291" },
+                  { year: "2012", venue: "Tamworth", km: "1,543 km", laps: "2,026" },
+                  { year: "2014", venue: "Eastern Creek", km: "1,724 km ★", laps: "1,684" },
+                  { year: "2015", venue: "Eastern Creek", km: "1,507 km", laps: "1,472" },
+                  { year: "2019", venue: "Eastern Creek", km: "1,065 km", laps: "1,040" },
+                  { year: "2024", venue: "Eastern Creek", km: "1,662 km", laps: "1,623" },
+                ].map((row, i) => (
+                  <tr key={row.year} className={`border-b border-white/5 ${i % 2 === 0 ? "" : "bg-white/[0.02]"}`}>
+                    <td className="px-6 py-3 font-digital text-racing-red">{row.year}</td>
+                    <td className="px-4 py-3 text-white/70">{row.venue}</td>
+                    <td className="px-4 py-3 text-right text-white/70 tabular-nums">{row.km}</td>
+                    <td className="px-6 py-3 text-right text-white/50 tabular-nums">{row.laps}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="px-6 py-3 text-xs text-white/30 border-t border-white/10">★ Track record at time of race</p>
         </div>
       </section>
 

@@ -254,33 +254,88 @@ export default function ServicesPage() {
           Custom-designed race suits, gloves, and gear tailored to your team colours. Here&apos;s some of the racewear we&apos;ve produced.
         </p>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[
-            { src: "/images/history/Racewear1.jpeg", alt: "Custom race suit design" },
-            { src: "/images/history/racewear2.webp", alt: "Team racewear" },
-            { src: "/images/history/racewear3.webp", alt: "Custom race gear" },
-            { src: "/images/history/racewear4.webp", alt: "Race suit design" },
-            { src: "/images/history/racewear4irl.jpg", alt: "Race suit in action" },
-            { src: "/images/history/racewear5.jpg", alt: "Team race suit" },
-            { src: "/images/history/racewear6.webp", alt: "Custom karting gear" },
-            { src: "/images/history/racewear7.webp", alt: "Race suit front" },
-            { src: "/images/history/racewear7gloves.webp", alt: "Custom racing gloves" },
-            { src: "/images/history/racewear8.jpg", alt: "Team branded racewear" },
-            { src: "/images/history/racewear9.webp", alt: "Custom race gear design" },
-            { src: "/images/history/racewearDRS.webp", alt: "DSR branded race suit" },
-          ].map(({ src, alt }) => (
-            <div key={src} className="relative aspect-[3/4] bg-racing-dark border border-white/10 overflow-hidden group">
-              <Image
-                src={src}
-                alt={alt}
-                fill
-                className="object-cover transition-transform duration-500 group-hover:scale-105"
-                sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/*
+          RACEWEAR_GROUPS — each group is one client/team.
+          Images within a group are displayed adjacent (design first, then IRL photo).
+          To add new racewear: add a new group object. The layout handles itself.
+        */}
+        {[
+          {
+            label: "Wilson / Enhanced HVAC",
+            images: [
+              { src: "/images/history/Racewear1.jpeg", alt: "Wilson – Enhanced HVAC race suit design render" },
+            ],
+          },
+          {
+            label: "NCR – No Chance Racing",
+            images: [
+              { src: "/images/history/racewear2.webp", alt: "NCR No Chance Racing – race suit design render" },
+              { src: "/images/history/racewear6.webp", alt: "NCR No Chance Racing – finished suit on driver" },
+            ],
+          },
+          {
+            label: "Stratco",
+            images: [
+              { src: "/images/history/racewear3.webp", alt: "Stratco / Lawrence & Hanson – race suit design render" },
+            ],
+          },
+          {
+            label: "DSR Racing Suit",
+            images: [
+              { src: "/images/history/racewear4.webp", alt: "DSR race suit – design render (front & back)" },
+              { src: "/images/history/racewear4irl.jpg", alt: "DSR race suit – finished suit on driver" },
+            ],
+          },
+          {
+            label: "RK Racing Studio – HR42",
+            images: [
+              { src: "/images/history/racewear9.webp", alt: "HR42 RK Racing Studio – finished race suit" },
+              { src: "/images/history/racewear7.webp", alt: "HR42 – custom race boots" },
+              { src: "/images/history/racewear7gloves.webp", alt: "HR42 – custom racing gloves" },
+            ],
+          },
+          {
+            label: "STC Motorsport",
+            images: [
+              { src: "/images/history/racewear5.jpg", alt: "STC Motorsport – Chloe Ford in custom race suit" },
+            ],
+          },
+          {
+            label: "BARBEN Architectural Hardware",
+            images: [
+              { src: "/images/history/racewear8.jpg", alt: "BARBEN Architectural Hardware – team race suits at Eastern Creek" },
+            ],
+          },
+          {
+            label: "DSR Branded Apparel",
+            images: [
+              { src: "/images/history/racewearDRS.webp", alt: "DSR custom hoodie – front" },
+              { src: "/images/history/RacewearDRSback.webp", alt: "DSR racing jersey – at the track" },
+            ],
+          },
+        ].map((group) => (
+          <div key={group.label} className="mb-8">
+            <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-heading mb-2">{group.label}</p>
+            <div className={`grid gap-3 ${
+              group.images.length === 1 ? "grid-cols-1 max-w-[320px]" :
+              group.images.length === 2 ? "grid-cols-2" :
+              "grid-cols-3"
+            }`}>
+              {group.images.map(({ src, alt }) => (
+                <div key={src} className="relative aspect-[3/4] bg-racing-dark border border-white/10 overflow-hidden group/img">
+                  <Image
+                    src={src}
+                    alt={alt}
+                    fill
+                    className="object-cover transition-transform duration-500 group-hover/img:scale-105"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover/img:opacity-100 transition-opacity duration-300" />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
 
         <div className="text-center mt-6">
           <Link

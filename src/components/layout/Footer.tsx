@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Facebook, Mail, MapPin } from "lucide-react";
+import { Facebook, Mail, MapPin, Phone } from "lucide-react";
 import { AppointmentAddress } from "./AppointmentPopup";
 import C4FooterCredit from "../c4-footer-credit/C4FooterCredit";
 
@@ -19,7 +19,7 @@ export function Footer() {
             Go kart parts, engines &amp; expert race service. By appointment only — Long Reef Crescent, Woodbine, NSW.
           </p>
           <div className="flex gap-3">
-            <a href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
+            <a href="https://www.facebook.com/dsracingkarts" target="_blank" rel="noopener noreferrer"
               className="w-11 h-11 flex items-center justify-center bg-surface-700 hover:bg-racing-red text-text-muted hover:text-white transition-all">
               <Facebook size={18} />
             </a>
@@ -32,6 +32,8 @@ export function Footer() {
             <li><Link href="/shop" className="text-text-secondary hover:text-white hover:pl-1 transition-all">All Products</Link></li>
             <li><Link href="/#categories" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Categories</Link></li>
             <li><Link href="/shop?stock=in_stock" className="text-text-secondary hover:text-white hover:pl-1 transition-all">In Stock</Link></li>
+            <li><Link href="/gift-card" className="text-text-secondary hover:text-white hover:pl-1 transition-all">E-Gift Card</Link></li>
+            <li><Link href="/predator-chassis" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Predator Chassis</Link></li>
           </ul>
         </div>
 
@@ -57,8 +59,12 @@ export function Footer() {
               <a href="mailto:dsracing@bigpond.com" className="hover:text-white transition-colors">dsracing@bigpond.com</a>
             </li>
             <li className="flex items-center gap-2.5">
+              <Phone size={14} className="text-racing-red shrink-0" />
+              <a href="tel:+61492454854" className="hover:text-white transition-colors">0492 454 854</a>
+            </li>
+            <li className="flex items-center gap-2.5">
               <Facebook size={14} className="text-racing-red shrink-0" />
-              <a href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Message us on Facebook</a>
+              <a href="https://www.facebook.com/dsracingkarts" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Message us on Facebook</a>
             </li>
           </ul>
         </div>

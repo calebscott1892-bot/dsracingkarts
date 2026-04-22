@@ -34,6 +34,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     { href: "/about", label: "About" },
     { href: "/services", label: "Services" },
     { href: "/shop", label: "Shop" },
+    { href: "/predator-chassis", label: "Predator Chassis" },
     { href: "/sponsors", label: "Sponsors" },
     { href: "/#categories", label: "Categories" },
   ];

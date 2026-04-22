@@ -3,75 +3,13 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Star, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 
-/* ── Review data ── */
-const REVIEWS = [
-  {
-    id: 1,
-    name: "Liam Cockcroft",
-    text: "These guys are really solid. Bel is super helpful and Dion knows his stuff. DSR can provide top level technical support if you are looking at getting in to, or progressing at karting. I can't thank them or recommend them highly enough. Much love, DSR.",
-    stars: 5,
-  },
-  {
-    id: 2,
-    name: "Riley Schwarz",
-    text: "Dion and Bel have looked after us for a number of years. The work they've done for our kart is amazing, not to mention the amazing chassis that they built and custom powder coated for us. Could not be happier or recommend more!",
-    stars: 5,
-  },
-  {
-    id: 3,
-    name: "AOR Specialised Transport Services NSW",
-    text: "Absolutely amazing to deal with. I've recently purchased a complete enduro kart from the DSR team and I couldn't be happier. A weapon on the track and the tech & mechanical support that comes with it all is priceless. Thanks guys. Team Promove Motosport.",
-    stars: 5,
-  },
-  {
-    id: 4,
-    name: "Jeffrey Thompson",
-    text: "We purchased our endurance kart from DS Racing Karts in 2022. Dion and Bel have delivered excellent customer service for parts and repairs and have also been very generous with their time and advice. This has enabled us to get the most from our kart and helped us to 1st in class and 3rd outright in the 2024 ERC 12hr at Eastern Creek. Thank you Bel and Dion.",
-    stars: 5,
-  },
-  {
-    id: 5,
-    name: "Keith Gillan",
-    text: "Got into ERC endurance karting series thanks to DSR. I didn't know it at the time, but DSR are a top tier team and we were extremely lucky to have their support during the season. They will do anything to ensure you are enjoying yourself on track and provide you with the goods to run at the front of the pack. From the go kart chassis, spare parts, and service I can't fault them. They work so hard to help out anyone at the track. 5 stars!",
-    stars: 5,
-  },
-  {
-    id: 6,
-    name: "Dilly Jathoul",
-    text: "Very good and thorough with their work. Dion works really hard to help, fix and guide you with your kart and to save you money on them as well. The best in my opinion.",
-    stars: 5,
-  },
-  {
-    id: 7,
-    name: "Steve McAlister",
-    text: "I raced with DSR for about 12 months in the local enduro kart series, great team to work with, friendly, knowledgeable and very professional. I'm pretty picky when it comes to mechanical stuff and in the world of endurance karting, not having mechanical failures is a major thing. Highly recommend if you either want parts or advice!",
-    stars: 5,
-  },
-  {
-    id: 8,
-    name: "Mick Kerslake",
-    text: "First time using DS Racing for repairs. Dropped kart off on Saturday and was finished Monday. New seat fitted and engine problem solved. Highly recommend.",
-    stars: 5,
-  },
-  {
-    id: 9,
-    name: "Ryley Morgan",
-    text: "Awesome to deal with, supplied us with a fast kart for the Eastern Creek 24hr!",
-    stars: 5,
-  },
-  {
-    id: 10,
-    name: "John Markwick",
-    text: "Massive shout out to Dion at DS Racing Karts. Always available to offer advice and answer any questions I have. Super competitive pricing with prompt shipping of parts. Won't shop anywhere else now.",
-    stars: 5,
-  },
-  {
-    id: 11,
-    name: "Annie White",
-    text: "Massive thanks to Dion & Bel for all the advice and guidance. Customer service is second to none. Nothing is too much trouble and their knowledge of all things karting/motorsport is unbelievable. Highly recommended!",
-    stars: 5,
-  },
-];
+export interface ReviewItem {
+  id: string;
+  author_name: string;
+  text: string;
+  platform: string;
+  rating: number;
+}
 
 const AUTO_INTERVAL = 9000;
 const GOOGLE_REVIEW_URL =
@@ -120,17 +58,22 @@ function Stars({ count }: { count: number }) {
   );
 }
 
-export function ReviewsCarousel() {
+export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
+  if (reviews.length === 0) {
+    return null;
+  }
+
   const [current, setCurrent]   = useState(0);
   const [prevIdx, setPrevIdx]   = useState<number | null>(null);
   const [dir, setDir]           = useState<"next" | "prev">("next");
   const [animating, setAnimating] = useState(false);
   const [timerKey, setTimerKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMultipleReviews = reviews.length > 1;
 
   const go = useCallback(
     (nextIdx: number, direction: "next" | "prev") => {
-      if (animating || nextIdx === current) return;
+      if (!hasMultipleReviews || animating || nextIdx === current) return;
       if (timerRef.current) clearTimeout(timerRef.current);
       setDir(direction);
       setPrevIdx(current);
@@ -138,17 +81,18 @@ export function ReviewsCarousel() {
       setCurrent(nextIdx);
       setTimerKey((k) => k + 1);
     },
-    [animating, current],
+    [animating, current, hasMultipleReviews],
   );
 
-  const goNext = useCallback(() => go((current + 1) % REVIEWS.length, "next"), [go, current]);
-  const goPrev = useCallback(() => go((current - 1 + REVIEWS.length) % REVIEWS.length, "prev"), [go, current]);
+  const goNext = useCallback(() => go((current + 1) % reviews.length, "next"), [go, current, reviews.length]);
+  const goPrev = useCallback(() => go((current - 1 + reviews.length) % reviews.length, "prev"), [go, current, reviews.length]);
 
   /* Auto-advance */
   useEffect(() => {
+    if (!hasMultipleReviews) return;
     timerRef.current = setTimeout(goNext, AUTO_INTERVAL);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [timerKey, goNext]);
+  }, [timerKey, goNext, hasMultipleReviews]);
 
   /* Clear prevIdx after transition */
   useEffect(() => {
@@ -157,7 +101,7 @@ export function ReviewsCarousel() {
     return () => clearTimeout(t);
   }, [animating]);
 
-  const review   = REVIEWS[current];
+  const review = reviews[current] ?? reviews[0];
   const enterFrom = dir === "next" ? "60px" : "-60px";
   const exitTo    = dir === "next" ? "-60px" : "60px";
 
@@ -202,7 +146,7 @@ export function ReviewsCarousel() {
                 "--exit-to": exitTo,
               } as React.CSSProperties}
             >
-              <ReviewCard review={REVIEWS[prevIdx]} />
+              <ReviewCard review={reviews[prevIdx]} />
             </div>
           )}
           {/* Incoming */}
@@ -230,9 +174,10 @@ export function ReviewsCarousel() {
           <button
             onClick={goPrev}
             aria-label="Previous review"
+            disabled={!hasMultipleReviews}
             className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5
                        hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white
-                       transition-all group shrink-0"
+                       transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ChevronLeft size={18} strokeWidth={2} className="group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-xs uppercase tracking-[0.15em] hidden sm:inline font-heading">Prev</span>
@@ -240,11 +185,12 @@ export function ReviewsCarousel() {
 
           {/* Dot indicators */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-center">
-            {REVIEWS.map((r, i) => (
+            {reviews.map((r, i) => (
               <button
                 key={r.id}
                 onClick={() => go(i, i > current ? "next" : "prev")}
-                aria-label={`View review from ${r.name}`}
+                aria-label={`View review from ${r.author_name}`}
+                disabled={!hasMultipleReviews}
                 className="p-1"
               >
                 <div
@@ -264,9 +210,10 @@ export function ReviewsCarousel() {
           <button
             onClick={goNext}
             aria-label="Next review"
+            disabled={!hasMultipleReviews}
             className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5
                        hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white
-                       transition-all group shrink-0"
+                       transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="text-xs uppercase tracking-[0.15em] hidden sm:inline font-heading">Next</span>
             <ChevronRight size={18} strokeWidth={2} className="group-hover:translate-x-0.5 transition-transform" />
@@ -328,12 +275,12 @@ export function ReviewsCarousel() {
 }
 
 /* ── Individual review card ── */
-function ReviewCard({ review }: { review: (typeof REVIEWS)[number] }) {
+function ReviewCard({ review }: { review: ReviewItem }) {
   return (
     <div className="w-full h-full flex flex-col items-center text-center px-2 md:px-10">
       {/* Stars */}
       <div className="mb-7">
-        <Stars count={review.stars} />
+        <Stars count={review.rating} />
       </div>
 
       {/* Quote text */}
@@ -350,7 +297,7 @@ function ReviewCard({ review }: { review: (typeof REVIEWS)[number] }) {
             className="text-[10px] sm:text-xs uppercase tracking-[0.2em] sm:tracking-[0.28em] text-white/60 truncate"
             style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}
           >
-            {review.name}
+            {review.author_name}
           </span>
         </div>
         <span className="h-[1px] w-6 sm:w-8 bg-racing-red/40 shrink-0" />

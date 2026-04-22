@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
+import { createHash } from "crypto";
 
 const rateLimit = new Map<string, number[]>();
 const RATE_WINDOW = 15 * 60 * 1000; // 15 minutes
@@ -28,28 +29,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email" }, { status: 400 });
     }
 
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     // Save to Supabase
-    await supabase
+    const { error: subscriberError } = await supabase
       .from("newsletter_subscribers")
       .upsert({ email: trimmed, subscribed: true }, { onConflict: "email" });
+
+    if (subscriberError) {
+      console.error("Newsletter subscriber save failed:", subscriberError);
+      return NextResponse.json({ error: "Failed to save subscriber" }, { status: 500 });
+    }
 
     // Sync to Mailchimp if configured — failures must not block subscription
     if (process.env.MAILCHIMP_API_KEY && process.env.MAILCHIMP_LIST_ID) {
       try {
         const dc = process.env.MAILCHIMP_API_KEY.split("-").pop();
+        const subscriberHash = createHash("md5").update(trimmed.toLowerCase()).digest("hex");
         const response = await fetch(
-          `https://${dc}.api.mailchimp.com/3.0/lists/${process.env.MAILCHIMP_LIST_ID}/members`,
+          `https://${dc}.api.mailchimp.com/3.0/lists/${process.env.MAILCHIMP_LIST_ID}/members/${subscriberHash}`,
           {
-            method: "POST",
+            method: "PUT",
             headers: {
               Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              email_address: email,
-              status: "pending",
+              email_address: trimmed,
+              status_if_new: "pending",
             }),
           }
         );

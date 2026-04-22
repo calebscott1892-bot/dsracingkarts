@@ -25,6 +25,8 @@ import { Resend } from "resend";
 const rateLimit = new Map<string, number[]>();
 const RATE_WINDOW = 5 * 60 * 1000; // 5 minutes
 const RATE_MAX = 10;
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_CART_LINE_QTY = 20;
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,10 +42,25 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const { sourceId, idempotencyKey, cart, customer } = body;
+    const cartItems = Array.isArray(cart?.items) ? cart.items : [];
+    const customerEmail = String(customer?.email || "").trim().toLowerCase().slice(0, 320);
+    const customerName = String(customer?.name || "").trim().slice(0, 160);
+    const customerPhone = String(customer?.phone || "").trim().slice(0, 40);
+    const shippingLine1 = String(customer?.address?.line1 || "").trim().slice(0, 200);
+    const shippingCity = String(customer?.address?.city || "").trim().slice(0, 120);
+    const shippingState = String(customer?.address?.state || "").trim().slice(0, 32);
+    const shippingPostcode = String(customer?.address?.postcode || "").trim().slice(0, 20);
 
-    if (!sourceId || !cart?.items?.length || !customer?.email) {
+    if (!sourceId || cartItems.length === 0 || !customerEmail) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+      return NextResponse.json(
+        { error: "Invalid customer or shipping details" },
         { status: 400 }
       );
     }
@@ -52,11 +69,23 @@ export async function POST(request: NextRequest) {
     const square = getSquareClient();
 
     // ---- 1. Validate cart against DB ----
-    const variationIds = cart.items.map((item: any) => item.variation_id);
+    const variationIds = Array.from(new Set(
+      cartItems.map((item: any) => String(item?.variation_id || "")).filter(Boolean)
+    ));
+
+    if (variationIds.length !== cartItems.length) {
+      return NextResponse.json(
+        { error: "Cart contains duplicate or invalid items" },
+        { status: 400 }
+      );
+    }
+
     const { data: dbVariations } = await supabase
       .from("product_variations")
       .select(`
-        id, price, sale_price, name, sku, product_id
+        id, price, sale_price, name, sku, product_id,
+        inventory ( quantity ),
+        products ( name )
       `)
       .in("id", variationIds);
 
@@ -71,7 +100,15 @@ export async function POST(request: NextRequest) {
     let verifiedSubtotal = 0;
     const orderItems: any[] = [];
 
-    for (const cartItem of cart.items) {
+    for (const cartItem of cartItems) {
+      const quantity = Number(cartItem?.quantity);
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_CART_LINE_QTY) {
+        return NextResponse.json(
+          { error: "Invalid cart quantity" },
+          { status: 400 }
+        );
+      }
+
       const dbVar = dbVariations.find(
         (v: any) => v.id === cartItem.variation_id
       );
@@ -82,18 +119,25 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const unitPrice = dbVar.sale_price || dbVar.price;
+      const availableQty = dbVar.inventory?.[0]?.quantity;
+      if (typeof availableQty === "number" && quantity > availableQty) {
+        return NextResponse.json(
+          { error: `Only ${availableQty} left for ${(dbVar.products as unknown as { name: string } | null)?.name || "this item"}` },
+          { status: 400 }
+        );
+      }
 
-      const lineTotal = unitPrice * cartItem.quantity;
+      const unitPrice = dbVar.sale_price || dbVar.price;
+      const lineTotal = unitPrice * quantity;
       verifiedSubtotal += lineTotal;
 
       orderItems.push({
         product_id: dbVar.product_id,
         variation_id: dbVar.id,
-        product_name: cartItem.product_name,
+        product_name: (dbVar.products as unknown as { name: string } | null)?.name || "Unknown Product",
         variation_name: dbVar.name,
         sku: dbVar.sku,
-        quantity: cartItem.quantity,
+        quantity,
         unit_price: unitPrice,
         total_price: lineTotal,
       });
@@ -109,24 +153,31 @@ export async function POST(request: NextRequest) {
     let { data: dbCustomer } = await supabase
       .from("customers")
       .select("id")
-      .eq("email", customer.email)
-      .single();
+      .eq("email", customerEmail)
+      .maybeSingle();
 
     if (!dbCustomer) {
-      const { data: newCustomer } = await supabase
+      const { data: newCustomer, error: customerError } = await supabase
         .from("customers")
         .insert({
-          email: customer.email,
-          first_name: customer.name?.split(" ")[0] || null,
-          last_name: customer.name?.split(" ").slice(1).join(" ") || null,
-          phone: customer.phone || null,
-          address_line1: customer.address?.line1 || null,
-          city: customer.address?.city || null,
-          state: customer.address?.state || null,
-          postcode: customer.address?.postcode || null,
+          email: customerEmail,
+          first_name: customerName.split(" ")[0] || null,
+          last_name: customerName.split(" ").slice(1).join(" ") || null,
+          phone: customerPhone || null,
+          address_line1: shippingLine1 || null,
+          city: shippingCity || null,
+          state: shippingState || null,
+          postcode: shippingPostcode || null,
         })
         .select("id")
         .single();
+      if (customerError || !newCustomer) {
+        console.error("Customer creation failed:", customerError);
+        return NextResponse.json(
+          { error: "Customer creation failed" },
+          { status: 500 }
+        );
+      }
       dbCustomer = newCustomer;
     }
 
@@ -139,11 +190,11 @@ export async function POST(request: NextRequest) {
         shipping_cost: shipping,
         tax,
         total,
-        shipping_name: customer.name,
-        shipping_line1: customer.address?.line1,
-        shipping_city: customer.address?.city,
-        shipping_state: customer.address?.state,
-        shipping_postcode: customer.address?.postcode,
+        shipping_name: customerName,
+        shipping_line1: shippingLine1,
+        shipping_city: shippingCity,
+        shipping_state: shippingState,
+        shipping_postcode: shippingPostcode,
         shipping_country: "AU",
       })
       .select("id, order_number")
@@ -162,7 +213,15 @@ export async function POST(request: NextRequest) {
       ...item,
       order_id: order.id,
     }));
-    await supabase.from("order_items").insert(itemsToInsert);
+    const { error: orderItemsError } = await supabase.from("order_items").insert(itemsToInsert);
+    if (orderItemsError) {
+      await supabase.from("orders").delete().eq("id", order.id);
+      console.error("Order item creation failed:", orderItemsError);
+      return NextResponse.json(
+        { error: "Order item creation failed" },
+        { status: 500 }
+      );
+    }
 
     // ---- 3. Process Square payment ----
     // Square amounts are in cents (smallest currency unit)
@@ -178,7 +237,7 @@ export async function POST(request: NextRequest) {
           currency: "AUD",
         },
         locationId: SQUARE_LOCATION_ID,
-        buyerEmailAddress: customer.email,
+        buyerEmailAddress: customerEmail,
         note: `DS Racing Karts — Order #${order.order_number}`,
       });
       paymentResult = squareResponse.result;
@@ -208,7 +267,7 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- 4. Update order to paid ----
-    await supabase
+    const { error: paidUpdateError } = await supabase
       .from("orders")
       .update({
         status: "paid",
@@ -217,12 +276,19 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", order.id);
 
+    if (paidUpdateError) {
+      console.error("Order payment update failed:", paidUpdateError);
+    }
+
     // ---- 5. Decrement inventory ----
-    for (const cartItem of cart.items) {
-      await supabase.rpc("decrement_inventory", {
-        p_variation_id: cartItem.variation_id,
-        p_quantity: cartItem.quantity,
+    for (const item of orderItems) {
+      const { error: inventoryError } = await supabase.rpc("decrement_inventory", {
+        p_variation_id: item.variation_id,
+        p_quantity: item.quantity,
       });
+      if (inventoryError) {
+        console.error("Inventory decrement failed:", inventoryError);
+      }
     }
 
     // ---- 6. Send confirmation email ----
@@ -241,7 +307,7 @@ export async function POST(request: NextRequest) {
 
       await resend.emails.send({
         from: "DS Racing Karts <orders@dsracingkarts.com.au>",
-        to: customer.email,
+        to: customerEmail,
         subject: `Order Confirmed — #${order.order_number}`,
         html: `
           <div style="background:#0a0a0a;padding:32px;font-family:Arial,sans-serif;max-width:600px;margin:0 auto">

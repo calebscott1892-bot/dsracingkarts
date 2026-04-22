@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Image from "next/image";
-import { MapPin, Mail, Clock, AlertTriangle } from "lucide-react";
+import { MapPin, Mail, Clock, AlertTriangle, Phone } from "lucide-react";
 import ContactForm from "@/components/ContactForm";
 import { Suspense } from "react";
 
@@ -83,6 +83,16 @@ export default async function ContactPage({ searchParams }: Props) {
                 </div>
 
                 <div className="flex items-start gap-4">
+                  <Phone size={20} className="text-racing-red shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-heading text-sm uppercase tracking-[0.1em] text-white mb-1">Phone</h3>
+                    <a href="tel:+61492454854" className="text-sm text-white/50 hover:text-racing-red transition-colors">
+                      0492 454 854
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4">
                   <Clock size={20} className="text-racing-red shrink-0 mt-0.5" />
                   <div>
                     <h3 className="font-heading text-sm uppercase tracking-[0.1em] text-white mb-1">Hours</h3>
@@ -95,7 +105,7 @@ export default async function ContactPage({ searchParams }: Props) {
               <div className="mb-8">
                 <h3 className="font-heading text-sm uppercase tracking-[0.1em] text-white mb-3">Follow Us</h3>
                 <a
-                  href="https://www.facebook.com/share/14bJDefgYtR/?mibextid=wwXIfr"
+                  href="https://www.facebook.com/dsracingkarts"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-sm text-racing-red hover:text-racing-red/80 transition-colors"

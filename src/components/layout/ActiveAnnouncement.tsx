@@ -1,9 +1,9 @@
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient } from "@/lib/supabase/server";
 import { AnnouncementBanner } from "./AnnouncementBanner";
 
 export async function ActiveAnnouncement() {
   try {
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     // Fetch all active announcements and filter date window in JS
     // — avoids PostgREST .or() timestamp parsing issues

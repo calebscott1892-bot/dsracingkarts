@@ -1,22 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatPrice, formatDate } from "@/lib/utils";
+import { OrderStatusSelect } from "./OrderStatusSelect";
 
 interface Props {
   searchParams: Promise<{ page?: string }>;
 }
 
 const PAGE_SIZE = 25;
-
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-900/30 text-yellow-400",
-  paid: "bg-blue-900/30 text-blue-400",
-  processing: "bg-blue-900/30 text-blue-400",
-  shipped: "bg-green-900/30 text-green-400",
-  delivered: "bg-green-900/30 text-green-400",
-  cancelled: "bg-red-900/30 text-red-400",
-  refunded: "bg-red-900/30 text-red-400",
-};
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -75,13 +66,10 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                     {formatPrice(order.total)}
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={`text-xs px-2 py-1 rounded ${
-                        statusColors[order.status] || "bg-surface-600 text-text-muted"
-                      }`}
-                    >
-                      {order.status}
-                    </span>
+                    <OrderStatusSelect
+                      orderId={order.id}
+                      initialStatus={order.status}
+                    />
                   </td>
                   <td className="px-4 py-3 text-text-muted text-xs">
                     {formatDate(order.created_at)}

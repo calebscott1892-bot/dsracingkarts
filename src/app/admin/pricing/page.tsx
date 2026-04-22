@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { Fragment, useState } from "react";
 import { TrendingUp, Eye, CheckCircle, AlertCircle, Loader2 } from "lucide-react";
@@ -179,7 +179,7 @@ export default function AdminPricingPage() {
             <strong className="text-white">
               {preview.length} product{preview.length !== 1 ? "s" : ""}
             </strong>{" "}
-            â€” a <strong className="text-brand-red">{percentage}% increase</strong>. These are the
+            — a <strong className="text-brand-red">{percentage}% increase</strong>. These are the
             live Square prices. Click{" "}
             <span className="text-white font-medium">Apply to Square</span> above to confirm.
           </p>
