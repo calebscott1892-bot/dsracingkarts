@@ -29,14 +29,12 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     return () => { document.body.style.overflow = ""; };
   }, [mobileOpen]);
 
-  // 5 nav links — Shop in the middle (index 2)
   const navLinks = [
+    { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/services", label: "Services" },
     { href: "/shop", label: "Shop" },
-    { href: "/predator-chassis", label: "Predator Chassis" },
     { href: "/sponsors", label: "Sponsors" },
-    { href: "/#categories", label: "Categories" },
   ];
 
   return (

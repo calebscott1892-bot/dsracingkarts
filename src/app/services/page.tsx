@@ -202,6 +202,12 @@ export default function ServicesPage() {
               <p>
                 We specialise in most 2 &amp; 4 stroke kart engine &amp; chassis servicing.
               </p>
+              <p className="text-white/50 text-sm">
+                Looking for a chassis?{" "}
+                <Link href="/predator-chassis" className="text-racing-red hover:text-racing-red/80 underline underline-offset-2 transition-colors">
+                  Browse our chassis marketplace →
+                </Link>
+              </p>
             </div>
             <Link
               href="/contact"
