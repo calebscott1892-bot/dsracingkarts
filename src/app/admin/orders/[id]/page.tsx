@@ -41,7 +41,7 @@ export default async function OrderDetailPage({ params }: Props) {
 
   if (!order) notFound();
 
-  const cust = order.customers as { id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null } | null;
+  const cust = order.customers as unknown as { id: string; first_name: string | null; last_name: string | null; email: string; phone: string | null } | null;
   const items = (order.order_items as { id: string; product_name: string; variation_name: string | null; sku: string | null; quantity: number; unit_price: number; total_price: number }[]) ?? [];
 
   const STATUS_COLORS: Record<string, string> = {
