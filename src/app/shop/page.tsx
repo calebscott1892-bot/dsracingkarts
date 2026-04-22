@@ -34,7 +34,7 @@ export default async function ShopPage({ searchParams }: Props) {
     .select(`
       id, name, slug, base_price, primary_image_url,
       product_variations ( price, sale_price ),
-      product_categories!inner ( category_id, categories!inner ( slug ) )
+      product_categories ( category_id, categories ( slug ) )
     `, { count: "exact" })
     .eq("status", "active")
     .eq("visibility", "visible");
