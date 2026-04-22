@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Download, Users } from "lucide-react";
+import { NewsletterTable } from "./NewsletterTable";
 
 interface Props {
   searchParams: Promise<{ page?: string; status?: string }>;
@@ -101,48 +102,7 @@ export default async function AdminNewsletterPage({ searchParams }: Props) {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-surface-700">
-            <tr>
-              <th className="px-4 py-3 text-left text-text-muted font-medium">Email</th>
-              <th className="px-4 py-3 text-left text-text-muted font-medium">Status</th>
-              <th className="px-4 py-3 text-left text-text-muted font-medium">Source</th>
-              <th className="px-4 py-3 text-left text-text-muted font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-surface-700">
-            {subscribers && subscribers.length > 0 ? (
-              subscribers.map((sub) => (
-                <tr key={sub.id} className="hover:bg-surface-700/50 transition-colors">
-                  <td className="px-4 py-3 text-white">{sub.email}</td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        sub.subscribed
-                          ? "bg-green-500/10 text-green-400"
-                          : "bg-surface-600 text-text-muted"
-                      }`}
-                    >
-                      {sub.subscribed ? "Subscribed" : "Unsubscribed"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-text-secondary capitalize">{sub.source || "website"}</td>
-                  <td className="px-4 py-3 text-text-muted">
-                    {new Date(sub.created_at).toLocaleDateString("en-AU")}
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={4} className="px-4 py-12 text-center text-text-muted">
-                  No subscribers yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <NewsletterTable initialSubscribers={subscribers ?? []} />
 
       {/* Pagination */}
       {totalPages > 1 && (

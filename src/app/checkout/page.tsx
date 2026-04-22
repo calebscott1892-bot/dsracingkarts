@@ -235,7 +235,7 @@ export default function CheckoutPage() {
           <h2 className="font-heading text-xl uppercase tracking-wider">Payment</h2>
           <div
             ref={cardRef}
-            className="bg-surface-700 border border-surface-600 rounded p-4 min-h-[100px]"
+            className="bg-surface-700 border border-surface-600 rounded p-4 min-h-[120px] sm:min-h-[100px]"
           />
 
           {error && (

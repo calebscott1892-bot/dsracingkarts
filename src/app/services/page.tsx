@@ -353,6 +353,95 @@ export default function ServicesPage() {
         </div>
       </section>
 
+      <div className="chequered-stripe" />
+
+      {/* ── Chassis Knowledge ── */}
+      <section className="max-w-4xl mx-auto px-4 py-16 md:py-20">
+        <div className="flex items-center gap-3 mb-10">
+          <span className="h-[1px] w-8 bg-racing-red" />
+          <h2 className="font-heading text-2xl md:text-3xl uppercase tracking-[0.1em] text-white">
+            Know Your <span className="text-racing-red">Chassis</span>
+          </h2>
+        </div>
+
+        {/* Sprint chassis */}
+        <div className="mb-12">
+          <h3 className="font-heading text-lg uppercase tracking-[0.1em] text-white mb-4">
+            What is a Sprint Go Kart Chassis?
+          </h3>
+          <p className="text-white/70 leading-relaxed mb-6">
+            A sprint go kart chassis is a lightweight, open-wheel frame designed for sprint racing on
+            short, bitumen circuits. It differs from oval or enduro kart chassis in its construction,
+            handling characteristics, and intended use.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-4 mb-6">
+            {[
+              { label: "Tubular Frame", detail: "Made of steel tubing, typically 28mm–32mm in diameter, with no suspension — flex in the chassis itself aids handling." },
+              { label: "Wheelbase", detail: "Generally around 1040mm–1060mm for adult karts and shorter for junior karts." },
+              { label: "Adjustability", detail: "Many chassis allow for adjustments in camber, caster, ride height, and seat position to optimise handling." },
+              { label: "Braking System", detail: "Hydraulic disc brakes, usually only on the rear axle, though some high-end models have front brakes for advanced classes." },
+              { label: "Steering", detail: "Direct steering with a simple tie rod and spindle setup." },
+              { label: "Axle", detail: "Hollow metal axle (typically 30mm–50mm in diameter) with various levels of stiffness to affect handling." },
+              { label: "Tyres & Wheels", detail: "Slick or wet tyres depending on weather conditions, mounted on lightweight aluminium or magnesium wheels." },
+            ].map((spec) => (
+              <div key={spec.label} className="p-4 bg-white/5 border-l-[3px] border-l-racing-red">
+                <h4 className="font-heading text-xs uppercase tracking-[0.15em] text-white mb-1">{spec.label}</h4>
+                <p className="text-sm text-white/60 leading-relaxed">{spec.detail}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-white/70 leading-relaxed">
+            In most cases these will have a 2-stroke engine from Yamaha or more powerful versions like
+            a Leopard or a Rotax. The choice of chassis and engine depends on the age of the driver,
+            their weight, and what they intend to do with the go kart in terms of racing category.
+          </p>
+        </div>
+
+        {/* Endurance chassis */}
+        <div className="mb-12">
+          <h3 className="font-heading text-lg uppercase tracking-[0.1em] text-white mb-4">
+            What is an Endurance Go Kart Chassis?
+          </h3>
+          <p className="text-white/70 leading-relaxed mb-4">
+            An endurance go kart chassis in many instances is the same as a sprint chassis but most
+            likely will have a 4-stroke engine fitted to it. It will use similar plastics, seat,
+            steering wheel, rims and tyres but have the less powerful but more reliable 4-stroke motor fitted.
+          </p>
+          <p className="text-white/70 leading-relaxed">
+            For some categories a twin engine endurance go kart chassis will be used where there is an
+            engine on the left and right of the rear of the kart, typically a Honda GX200 or Briggs
+            &amp; Stratton L206 or Animal engine. This type of go kart is used for endurance racing
+            with races of 2, 3, 6 or 24 hours in length.
+          </p>
+        </div>
+
+        {/* DSR Predator */}
+        <div className="relative overflow-hidden bg-racing-black">
+          <video
+            src="/images/history/chasis.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover opacity-25"
+          />
+          <div className="relative z-10 p-8 md:p-10">
+            <h3 className="font-heading text-lg uppercase tracking-[0.1em] text-white mb-4">
+              Can You Buy an Australian Designed Endurance Go Kart Chassis?
+            </h3>
+            <p className="text-text-secondary leading-relaxed mb-6">
+              The Predator Chassis is an Australian design that is manufactured in Sydney to be used for
+              twin engine endurance go karting events. Designed by experienced race car driver Dion, it
+              is a chassis used by many teams that has won numerous titles and races.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link href="/contact" className="btn-primary px-8">Enquire About the Predator</Link>
+              <Link href="/predator-chassis" className="btn-secondary px-8">Looking to Buy Second-Hand?</Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="max-w-3xl mx-auto px-4 py-16 text-center">
         <h2 className="font-heading text-2xl uppercase tracking-[0.1em] text-white mb-4">

@@ -20,7 +20,7 @@ async function verifyAdmin() {
   return true;
 }
 
-// PATCH /api/admin/orders/[id] — update order status
+// PATCH /api/admin/orders/[id] — update order status and/or admin notes
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -30,23 +30,32 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const { status } = body;
+  const { status, admin_notes } = body;
 
-  if (!VALID_STATUSES.includes(status as OrderStatus)) {
+  if (status !== undefined && !VALID_STATUSES.includes(status as OrderStatus)) {
     return NextResponse.json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}` }, { status: 400 });
+  }
+
+  const update: Record<string, unknown> = {};
+  if (status !== undefined) update.status = status;
+  if (admin_notes !== undefined) update.admin_notes = String(admin_notes).trim().slice(0, 2000) || null;
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
   }
 
   const service = createServiceClient();
   const { data, error } = await service
     .from("orders")
-    .update({ status })
+    .update(update)
     .eq("id", id)
-    .select("id, status")
+    .select("id, status, admin_notes")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Order not found" }, { status: 404 });
 
   revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${id}`);
   return NextResponse.json(data);
 }

@@ -51,9 +51,17 @@ export async function POST(request: NextRequest) {
     const shippingState = String(customer?.address?.state || "").trim().slice(0, 32);
     const shippingPostcode = String(customer?.address?.postcode || "").trim().slice(0, 20);
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!sourceId || cartItems.length === 0 || !customerEmail) {
       return NextResponse.json(
         { error: "Missing required fields" },
+        { status: 400 }
+      );
+    }
+
+    if (!idempotencyKey || !UUID_REGEX.test(String(idempotencyKey))) {
+      return NextResponse.json(
+        { error: "Invalid or missing idempotency key" },
         { status: 400 }
       );
     }
@@ -119,13 +127,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const availableQty = dbVar.inventory?.[0]?.quantity;
-      if (typeof availableQty === "number" && quantity > availableQty) {
-        return NextResponse.json(
-          { error: `Only ${availableQty} left for ${(dbVar.products as unknown as { name: string } | null)?.name || "this item"}` },
-          { status: 400 }
-        );
-      }
+      // Note: stock check intentionally skipped — all products can be ordered regardless of
+      // on-hand quantity, as items can be sourced within a day.
 
       const unitPrice = dbVar.sale_price || dbVar.price;
       const lineTotal = unitPrice * quantity;
@@ -231,7 +234,7 @@ export async function POST(request: NextRequest) {
     try {
       const squareResponse = await square.paymentsApi.createPayment({
         sourceId,
-        idempotencyKey: idempotencyKey || randomUUID(),
+        idempotencyKey: String(idempotencyKey),
         amountMoney: {
           amount: BigInt(amountCents),
           currency: "AUD",

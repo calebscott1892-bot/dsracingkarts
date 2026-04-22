@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Mail, Key, Globe } from "lucide-react";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 export default async function AdminSettingsPage() {
   const supabase = await createClient();
@@ -81,21 +82,10 @@ export default async function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Change password note */}
+      {/* Change password */}
       <div className="card p-6">
-        <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted mb-2">Password</h2>
-        <p className="text-sm text-text-muted">
-          To change your password, go to your{" "}
-          <a
-            href="https://supabase.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-brand-red hover:underline"
-          >
-            Supabase dashboard
-          </a>{" "}
-          → Authentication → Users, or ask your developer.
-        </p>
+        <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted mb-4">Change Password</h2>
+        <ChangePasswordForm />
       </div>
     </div>
   );

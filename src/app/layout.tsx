@@ -7,6 +7,7 @@ import { CartProvider } from "@/hooks/useCart";
 import { SmoothScroll } from "@/components/layout/SmoothScroll";
 import { Analytics } from "@/components/layout/Analytics";
 import { ActiveAnnouncement } from "@/components/layout/ActiveAnnouncement";
+import { BackButton } from "@/components/layout/BackButton";
 
 const heading = Oswald({
   subsets: ["latin"],
@@ -100,7 +101,10 @@ export default function RootLayout({
         <SmoothScroll>
           <CartProvider>
             <Header announcementSlot={<ActiveAnnouncement />} />
-            <main className="min-h-screen">{children}</main>
+            <main className="min-h-screen">
+              <BackButton />
+              {children}
+            </main>
             <Footer />
           </CartProvider>
         </SmoothScroll>

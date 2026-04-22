@@ -181,7 +181,7 @@ export default function CartPage() {
 
         {/* Order summary */}
         <div className="lg:col-span-1">
-          <div className="bg-surface-800 border border-surface-600 p-6 sticky top-28">
+          <div className="bg-surface-800 border border-surface-600 p-6 sticky top-20 lg:top-28">
             <div className="h-1 bg-racing-red -mt-6 -mx-6 mb-5" />
             <h2 className="font-heading text-sm uppercase tracking-[0.15em] text-white mb-5">
               Order Summary

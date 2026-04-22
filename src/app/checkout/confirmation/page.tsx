@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CheckCircle, ArrowRight, Phone } from "lucide-react";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 
 function ConfirmationContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const orderNumber = searchParams.get("order");
+
+  useEffect(() => {
+    if (!orderNumber) {
+      router.replace("/shop");
+    }
+  }, [orderNumber, router]);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-16 md:py-24 text-center">

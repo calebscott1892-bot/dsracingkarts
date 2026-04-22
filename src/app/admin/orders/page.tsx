@@ -54,7 +54,9 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   className="border-t border-surface-600/50 hover:bg-surface-700/30"
                 >
                   <td className="px-4 py-3 font-mono text-brand-red font-medium">
-                    {order.order_number}
+                    <Link href={`/admin/orders/${order.id}`} className="hover:underline">
+                      {order.order_number}
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-white">{name}</div>

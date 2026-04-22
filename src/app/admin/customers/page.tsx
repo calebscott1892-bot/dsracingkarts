@@ -76,10 +76,12 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
               return (
                 <tr
                   key={cust.id}
-                  className="border-t border-surface-600/50 hover:bg-surface-700/30"
+                  className="border-t border-surface-600/50 hover:bg-surface-700/30 cursor-pointer"
                 >
-                  <td className="px-4 py-3 text-white font-medium">{name}</td>
-                  <td className="px-4 py-3 text-text-secondary">{cust.email}</td>
+                  <td className="px-4 py-3 text-white font-medium">
+                    <a href={`/admin/customers/${cust.id}`} className="hover:text-brand-red transition-colors">{name}</a>
+                  </td>
+                  <td className="px-4 py-3 text-text-secondary"><a href={`/admin/customers/${cust.id}`} className="hover:text-white transition-colors">{cust.email}</a></td>
                   <td className="px-4 py-3 text-text-muted">{cust.phone || "—"}</td>
                   <td className="px-4 py-3">
                     <span
