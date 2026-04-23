@@ -18,6 +18,7 @@ import {
   Car,
   Menu,
   X,
+  BarChart2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -35,6 +36,7 @@ const navItems = [
   { href: "/admin/pricing", label: "Bulk Pricing", icon: TrendingUp },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/chassis-listings", label: "Chassis Listings", icon: Car },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

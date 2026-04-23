@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Send, CheckCircle, Loader2, ChevronDown } from "lucide-react";
+import { useState, useRef } from "react";
+import { Send, CheckCircle, Loader2, ChevronDown, Camera, X } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 
 const CONDITIONS = [
   { value: "new", label: "New / Unused" },
@@ -21,6 +22,7 @@ interface Listing {
   chassis_year: number | null;
   condition: string | null;
   created_at: string;
+  image_url?: string | null;
 }
 
 interface Props { approvedListings: Listing[] }
@@ -37,11 +39,36 @@ export function PredatorChassisClient({ approvedListings }: Props) {
     chassis_year: "",
     condition: "",
   });
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
 
   function setField(key: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Photo must be under 5 MB.");
+      return;
+    }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setErrorMsg("Only JPG, PNG or WebP photos are accepted.");
+      return;
+    }
+    setErrorMsg("");
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  function removePhoto() {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,6 +77,20 @@ export function PredatorChassisClient({ approvedListings }: Props) {
     setErrorMsg("");
 
     try {
+      // Upload photo to Supabase Storage if one was selected
+      let imageUrl: string | undefined;
+      if (photoFile) {
+        const supabase = createClient();
+        const ext = photoFile.name.split(".").pop() ?? "jpg";
+        const path = `listings/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("chassis-photos")
+          .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
+        if (uploadErr) throw new Error(`Photo upload failed: ${uploadErr.message}`);
+        const { data: urlData } = supabase.storage.from("chassis-photos").getPublicUrl(path);
+        imageUrl = urlData.publicUrl;
+      }
+
       const payload: Record<string, unknown> = {
         listing_type: tab,
         contact_name: form.contact_name,
@@ -58,6 +99,7 @@ export function PredatorChassisClient({ approvedListings }: Props) {
         description: form.description,
         chassis_year: form.chassis_year ? parseInt(form.chassis_year) : undefined,
         condition: form.condition || undefined,
+        image_url: imageUrl,
       };
       if (tab === "sell" && form.asking_price) {
         payload.asking_price = parseFloat(form.asking_price);
@@ -85,6 +127,8 @@ export function PredatorChassisClient({ approvedListings }: Props) {
         chassis_year: "",
         condition: "",
       });
+      setPhotoFile(null);
+      setPhotoPreview(null);
     } catch (e: unknown) {
       setErrorMsg(e instanceof Error ? e.message : "Submission failed. Please try again.");
       setStatus("error");
@@ -104,6 +148,14 @@ export function PredatorChassisClient({ approvedListings }: Props) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {approvedListings.map((listing) => (
               <div key={listing.id} className="card p-5">
+                {listing.image_url && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={listing.image_url}
+                    alt="Chassis photo"
+                    className="w-full h-40 object-cover rounded mb-4 border border-surface-600"
+                  />
+                )}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <span className={`text-xs px-2.5 py-1 rounded font-heading uppercase tracking-wider ${
                     listing.listing_type === "sell" ? "bg-brand-red/20 text-brand-red" : "bg-blue-900/30 text-blue-400"
@@ -283,6 +335,49 @@ export function PredatorChassisClient({ approvedListings }: Props) {
                   : "Budget, preferred year, condition requirements, location…"}
               />
             </div>
+
+            {/* Photo upload — for sell listings */}
+            {tab === "sell" && (
+              <div>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">
+                  Photo (optional — 1 photo, max 5 MB)
+                </label>
+                {photoPreview ? (
+                  <div className="relative inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={photoPreview}
+                      alt="Chassis photo preview"
+                      className="max-h-48 rounded border border-surface-600 object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={removePhoto}
+                      className="absolute top-1 right-1 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-brand-red transition-colors"
+                      aria-label="Remove photo"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 border border-dashed border-surface-500 hover:border-brand-red/60 bg-surface-800/50 text-text-muted hover:text-white transition-colors px-4 py-3 text-sm w-full justify-center"
+                  >
+                    <Camera size={16} />
+                    Add a photo
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="sr-only"
+                  onChange={handlePhotoChange}
+                />
+              </div>
+            )}
 
             <p className="text-xs text-text-muted">
               Your contact details will only be shared with DS Racing Karts, not displayed publicly.

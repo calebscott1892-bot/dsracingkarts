@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const {
     listing_type, contact_name, contact_email, contact_phone,
-    description, asking_price, chassis_year, condition,
+    description, asking_price, chassis_year, condition, image_url,
   } = body;
 
   const trimmedName = String(contact_name || "").trim().slice(0, MAX_NAME_LENGTH);
@@ -75,6 +75,18 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Validate image_url — must be a URL from our own Supabase storage bucket, or omitted.
+  // This prevents arbitrary URLs being stored via a direct API call.
+  const SUPABASE_STORAGE_PREFIX = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/chassis-photos/`;
+  let trimmedImageUrl: string | null = null;
+  if (image_url) {
+    const candidate = String(image_url).trim();
+    if (!candidate.startsWith(SUPABASE_STORAGE_PREFIX)) {
+      return NextResponse.json({ error: "Invalid image_url" }, { status: 400 });
+    }
+    trimmedImageUrl = candidate.slice(0, 500);
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("chassis_listings")
@@ -87,6 +99,7 @@ export async function POST(request: NextRequest) {
       asking_price: listing_type === "sell" ? parsedPrice : null,
       chassis_year: parsedYear,
       condition: listing_type === "sell" ? normalizedCondition || null : null,
+      image_url: trimmedImageUrl,
       status: "pending",
     })
     .select("id")

@@ -17,7 +17,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
   const searchParams = useSearchParams();
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  function updateParam(key: string, value: string | undefined) {
+  function updateParam(key: string, value: string | undefined, closePanel = false) {
     const params = new URLSearchParams(searchParams.toString());
     if (value) {
       params.set(key, value);
@@ -25,6 +25,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
       params.delete(key);
     }
     params.delete("page");
+    if (closePanel) setFiltersOpen(false);
     router.push(`/shop?${params.toString()}`);
   }
 
@@ -47,7 +48,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
         <ul className="space-y-0.5">
           <li>
             <button
-              onClick={() => updateParam("category", undefined)}
+              onClick={() => updateParam("category", undefined, true)}
               className={`text-sm w-full text-left px-3 py-1.5 transition-all ${
                 !currentCategory
                   ? "text-white bg-brand-red/10 border-l-2 border-brand-red"
@@ -60,7 +61,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
           {parentCats.map((cat) => (
             <li key={cat.id}>
               <button
-                onClick={() => updateParam("category", cat.slug)}
+                onClick={() => updateParam("category", cat.slug, true)}
                 className={`text-sm w-full text-left px-3 py-1.5 transition-all ${
                   currentCategory === cat.slug
                     ? "text-white bg-brand-red/10 border-l-2 border-brand-red"
@@ -74,7 +75,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
                   {childrenOf(cat.id).map((child) => (
                     <li key={child.id}>
                       <button
-                        onClick={() => updateParam("category", child.slug)}
+                        onClick={() => updateParam("category", child.slug, true)}
                         className={`text-xs w-full text-left px-3 py-1 transition-all ${
                           currentCategory === child.slug
                             ? "text-brand-red border-l border-brand-red"

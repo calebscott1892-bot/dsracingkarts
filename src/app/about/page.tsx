@@ -336,7 +336,7 @@ export default async function AboutPage() {
         <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
             { icon: Clock, value: "40", label: "Years in Karting" },
-            { icon: Wrench, value: "500+", label: "Parts in Stock" },
+            { icon: Wrench, value: "3,500+", label: "Parts in Stock" },
             { icon: Trophy, value: "100s", label: "Race Wins" },
             { icon: Users, value: "1000+", label: "Karts Serviced" },
           ].map(({ icon: Icon, value, label }) => (

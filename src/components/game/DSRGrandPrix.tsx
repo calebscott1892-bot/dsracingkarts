@@ -62,8 +62,16 @@ export function DSRGrandPrix({ onExit }: Props) {
     onExit();
   }
 
+  // During menu/track-select the container needs height for the overlay content.
+  // During racing/countdown/game-over it must match the canvas exactly so HUD
+  // panels and touch controls land on the correct pixel positions.
+  const needsMinHeight = state.phase === "menu" || state.phase === "track_select";
+
   return (
-    <div className="relative w-full bg-black touch-none min-h-[560px] md:min-h-0" style={{ aspectRatio: "12/7", maxWidth: "1200px", margin: "0 auto" }}>
+    <div
+      className={`relative w-full bg-black touch-none${needsMinHeight ? " min-h-[500px] md:min-h-0" : ""}`}
+      style={{ aspectRatio: "12/7", maxWidth: "1200px", margin: "0 auto" }}
+    >
       {/* Exit button */}
       <button
         onClick={onExit}

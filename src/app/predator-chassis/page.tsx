@@ -3,7 +3,7 @@ import { PredatorChassisClient } from "./PredatorChassisClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "DSR Predator Chassis | DS Racing Karts",
+  title: "Preloved Predator Chassis Available | DS Racing Karts",
   description: "The DSR Predator — Australian-built enduro kart chassis designed and tuned by DS Racing Karts. Buy or sell a used Predator through our community board.",
 };
 
@@ -14,7 +14,7 @@ const FEATURES = [
   },
   {
     heading: "Enduro Proven",
-    body: "Multiple podiums at Eastern Creek ERC events. The Predator is built to run flat-out for 12–24 hours.",
+    body: "Multiple podiums at Eastern Creek endurance karting events. The Predator is built to run flat-out for 12–24 hours.",
   },
   {
     heading: "Custom Setup",
@@ -38,7 +38,7 @@ export default async function PredatorChassisPage() {
   const supabase = await createClient();
   const { data: listings } = await supabase
     .from("chassis_listings")
-    .select("id, listing_type, description, asking_price, chassis_year, condition, created_at")
+    .select("id, listing_type, description, asking_price, chassis_year, condition, created_at, image_url")
     .eq("status", "approved")
     .order("created_at", { ascending: false });
 
@@ -69,7 +69,7 @@ export default async function PredatorChassisPage() {
             DSR <span className="text-brand-red">Predator</span>
           </h1>
           <p className="text-text-secondary text-lg max-w-xl leading-relaxed">
-            Australian-built. Enduro-proven. The chassis of choice for serious ERC competitors across NSW.
+            Australian-built. Enduro-proven. The chassis of choice for serious endurance karting competitors across NSW.
           </p>
           <a
             href="#submit-listing"

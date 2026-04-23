@@ -29,6 +29,32 @@ export default async function ShopPage({ searchParams }: Props) {
   const page = parseInt(params.page || "1", 10);
   const offset = (page - 1) * PAGE_SIZE;
 
+  // Resolve category slug → product IDs before building the main query.
+  // Filtering on nested relations (product_categories.categories.slug) in
+  // Supabase PostgREST doesn't filter parent rows — we do it explicitly here.
+  let categoryProductIds: string[] | null = null;
+  if (params.category) {
+    // Find the category (and any child categories) matching the slug
+    const { data: allCats } = await supabase
+      .from("categories")
+      .select("id, parent_id, slug");
+
+    const matchedCat = allCats?.find((c) => c.slug === params.category);
+    if (matchedCat) {
+      const catIds = [
+        matchedCat.id,
+        ...(allCats?.filter((c) => c.parent_id === matchedCat.id).map((c) => c.id) ?? []),
+      ];
+      const { data: pcRows } = await supabase
+        .from("product_categories")
+        .select("product_id")
+        .in("category_id", catIds);
+      categoryProductIds = pcRows?.map((r) => r.product_id) ?? [];
+    } else {
+      categoryProductIds = []; // unknown slug → no results
+    }
+  }
+
   let query = supabase
     .from("products")
     .select(`
@@ -39,8 +65,13 @@ export default async function ShopPage({ searchParams }: Props) {
     .eq("status", "active")
     .eq("visibility", "visible");
 
-  if (params.category) {
-    query = query.eq("product_categories.categories.slug", params.category);
+  if (categoryProductIds !== null) {
+    if (categoryProductIds.length === 0) {
+      // No products in this category — force empty result
+      query = query.in("id", ["00000000-0000-0000-0000-000000000000"]);
+    } else {
+      query = query.in("id", categoryProductIds);
+    }
   }
 
   if (params.search) {

@@ -4,7 +4,9 @@ import { getSquareClient } from "@/lib/square";
 import { createHmac, timingSafeEqual } from "crypto";
 
 const WEBHOOK_SECRET = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
-const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/square`;
+// This must exactly match the Notification URL registered in the Square Developer portal.
+// In Vercel, set NEXT_PUBLIC_SITE_URL=https://dsracingkarts.com.au (no trailing slash).
+const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dsracingkarts.com.au"}/api/webhooks/square`;
 
 function verifySignature(body: string, signature: string): boolean {
   if (!WEBHOOK_SECRET) return false;

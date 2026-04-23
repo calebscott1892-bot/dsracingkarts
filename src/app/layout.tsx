@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     "karting solutions",
     "karting direct",
     "endurance racing club",
-    "ERC",
+    "endurance karting",
     "sportsman enduro karting",
     "SEK",
     "the endurance karting association",

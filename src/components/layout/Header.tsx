@@ -33,6 +33,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/shop", label: "Shop" },
+    { href: "/predator-chassis", label: "Used Chassis" },
     { href: "/services", label: "Services" },
     { href: "/sponsors", label: "Sponsors" },
   ];
@@ -142,15 +143,6 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
         {/* Mobile nav */}
         {mobileOpen && (
           <nav className="md:hidden bg-surface-800 border-t border-surface-600 px-4 py-4 space-y-0.5 animate-fade-in relative z-50 shadow-xl max-h-[70vh] overflow-y-auto">
-            <Link
-              href="/"
-              className="block font-heading text-sm uppercase tracking-[0.1em] text-text-secondary
-                         hover:text-white py-2.5 px-3 border-l-2 border-transparent
-                         hover:border-brand-red hover:bg-surface-700 transition-all"
-              onClick={() => setMobileOpen(false)}
-            >
-              Home
-            </Link>
             {navLinks.map((link) => (
               <Link
                 key={link.href}

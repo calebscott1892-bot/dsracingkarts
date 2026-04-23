@@ -33,7 +33,7 @@ export function Footer() {
             <li><Link href="/#categories" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Categories</Link></li>
             <li><Link href="/shop?stock=in_stock" className="text-text-secondary hover:text-white hover:pl-1 transition-all">In Stock</Link></li>
             <li><Link href="/gift-card" className="text-text-secondary hover:text-white hover:pl-1 transition-all">E-Gift Card</Link></li>
-            <li><Link href="/predator-chassis" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Predator Chassis</Link></li>
+            <li><Link href="/predator-chassis" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Preloved Predator Chassis Available</Link></li>
           </ul>
         </div>
 
