@@ -2,7 +2,8 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { SlidersHorizontal, Gift } from "lucide-react";
 import type { Category } from "@/types/database";
 
 interface Props {
@@ -107,6 +108,27 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
           <option value="price_asc">Price: Low to High</option>
           <option value="price_desc">Price: High to Low</option>
         </select>
+      </div>
+
+      {/* Gift card — sits apart from categories so it stays easy to spot */}
+      <div>
+        <label className="font-heading text-xs uppercase tracking-[0.3em] text-brand-red block mb-3">
+          Gift Cards
+        </label>
+        <Link
+          href="/gift-card"
+          className="flex items-center gap-3 px-3 py-2.5 border border-racing-red/40 bg-racing-red/10 hover:bg-racing-red/15 hover:border-racing-red transition-colors"
+        >
+          <Gift size={18} className="text-racing-red shrink-0" strokeWidth={1.5} />
+          <span className="flex-1 min-w-0">
+            <span className="block font-heading text-xs uppercase tracking-[0.15em] text-white">
+              Buy an E-Gift Card
+            </span>
+            <span className="block text-[11px] text-white/60 mt-0.5">
+              $50 – $500 or custom
+            </span>
+          </span>
+        </Link>
       </div>
     </>
   );

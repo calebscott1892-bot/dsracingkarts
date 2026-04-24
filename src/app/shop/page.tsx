@@ -2,9 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
-import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, Gift } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
+
+const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 
 export const metadata: Metadata = {
   title: "Shop All Products",
@@ -63,7 +65,9 @@ export default async function ShopPage({ searchParams }: Props) {
       product_categories ( category_id, categories ( slug ) )
     `, { count: "exact" })
     .eq("status", "active")
-    .eq("visibility", "visible");
+    .eq("visibility", "visible")
+    // Gift card has its own dedicated page and shop call-out — keep it out of the grid.
+    .neq("slug", GIFT_CARD_SLUG);
 
   if (categoryProductIds !== null) {
     if (categoryProductIds.length === 0) {
@@ -134,18 +138,42 @@ export default async function ShopPage({ searchParams }: Props) {
         )}
       </div>
 
-      <div className="mb-8 border border-white/10 bg-white/[0.03] px-4 py-4 md:px-5 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
-            Looking For Second-Hand Chassis?
-          </p>
-          <p className="text-white/65 text-sm leading-relaxed max-w-2xl">
-            Browse our preloved Predator chassis board if you&apos;re chasing a used enduro setup, or want to list one for sale.
-          </p>
-        </div>
-        <Link href="/predator-chassis" className="btn-secondary shrink-0 text-sm px-5 self-start md:self-auto">
-          Browse Preloved Chassis
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Gift card — prominent, first so it's easy to spot */}
+        <Link
+          href="/gift-card"
+          className="group relative border border-racing-red/40 bg-gradient-to-br from-racing-red/15 via-racing-red/5 to-transparent px-4 py-4 md:px-5 md:py-4 flex items-center gap-4 hover:border-racing-red transition-colors"
+        >
+          <div className="shrink-0 p-3 border border-racing-red/40 bg-racing-red/10 rounded">
+            <Gift size={28} className="text-racing-red" strokeWidth={1.5} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
+              E-Gift Card
+            </p>
+            <p className="text-white/85 text-sm leading-relaxed">
+              Give the gift of speed — $50, $100, $200, $500 or custom.
+            </p>
+          </div>
+          <span className="hidden sm:inline-flex shrink-0 font-heading text-[11px] uppercase tracking-[0.15em] text-racing-red group-hover:text-white transition-colors">
+            Buy Now →
+          </span>
         </Link>
+
+        {/* Preloved chassis call-out */}
+        <div className="border border-white/10 bg-white/[0.03] px-4 py-4 md:px-5 md:py-4 flex flex-col md:flex-row md:items-center gap-4">
+          <div className="flex-1 min-w-0">
+            <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
+              Looking For Second-Hand Chassis?
+            </p>
+            <p className="text-white/65 text-sm leading-relaxed">
+              Browse our preloved Predator chassis board if you&apos;re chasing a used enduro setup, or want to list one for sale.
+            </p>
+          </div>
+          <Link href="/predator-chassis" className="btn-secondary shrink-0 text-sm px-5 self-start md:self-auto">
+            Browse Preloved Chassis
+          </Link>
+        </div>
       </div>
 
       {/* Appointment Only Notice */}
