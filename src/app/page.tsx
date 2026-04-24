@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { ProductCard } from "@/components/shop/ProductCard";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { HeroVideo } from "@/components/layout/HeroVideo";
 import { NewsletterSignup } from "@/components/layout/NewsletterSignup";
@@ -8,21 +7,10 @@ import { GameTeaser } from "@/components/sections/GameTeaser";
 import { HistorySection } from "@/components/sections/HistorySection";
 import { Speedometer } from "@/components/sections/Speedometer";
 import { ReviewsCarousel } from "@/components/sections/ReviewsCarousel";
-import { Shield, Wrench, Truck, ChevronRight } from "lucide-react";
+import { Shield, Wrench, Truck } from "lucide-react";
 
 export default async function HomePage() {
   const supabase = await createClient();
-
-  const { data: featuredProducts } = await supabase
-    .from("products")
-    .select(`
-      id, name, slug, base_price, primary_image_url,
-      product_variations ( price, sale_price )
-    `)
-    .eq("status", "active")
-    .eq("visibility", "visible")
-    .order("created_at", { ascending: false })
-    .limit(8);
 
   const { data: categories } = await supabase
     .from("categories")
@@ -107,46 +95,6 @@ export default async function HomePage() {
 
       {/* ── Speedometer ── */}
       <Speedometer />
-
-      {/* ── Chequered Divider ── */}
-      <div className="chequered-stripe-sm" />
-
-      {/* ── Featured Products ── */}
-      <section className="max-w-7xl mx-auto px-4 py-16 md:py-20">
-        <div className="flex items-end justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-3 mb-3">
-              <span className="h-[1px] w-8 bg-racing-gold" />
-              <span className="font-heading text-xs tracking-[0.4em] text-racing-gold uppercase">New In</span>
-            </div>
-            <h2 className="section-heading">
-              Latest <span className="text-racing-red">Products</span>
-            </h2>
-          </div>
-          <Link
-            href="/shop"
-            className="hidden md:flex items-center gap-1 font-heading text-xs uppercase tracking-[0.15em]
-                       text-text-muted hover:text-racing-red transition-colors"
-          >
-            View All <ChevronRight size={14} />
-          </Link>
-        </div>
-        <div className="product-grid">
-          {featuredProducts?.map((product, idx) => (
-            <ProductCard
-              key={product.id}
-              product={product as any}
-              priority={idx < 4}
-            />
-          ))}
-        </div>
-        <div className="mt-8 text-center md:hidden">
-          <Link href="/shop" className="btn-secondary text-sm">View All Products</Link>
-        </div>
-      </section>
-
-      {/* ── Divider ── */}
-      <div className="max-w-7xl mx-auto px-4"><div className="racing-line" /></div>
 
       {/* ── Reviews ── */}
       <ReviewsCarousel reviews={reviews ?? []} />

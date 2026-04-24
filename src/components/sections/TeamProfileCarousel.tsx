@@ -2,9 +2,21 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
 
 /* ── Team Data ── */
+export interface TeamResult {
+  id: string;
+  event_date: string;
+  event_name: string;
+  track: string;
+  class: string;
+  position: number | null;
+  best_lap_time: string;
+  top_speed_kmh: number | null;
+  notes: string;
+}
+
 export interface Team {
   number: string;
   name: string;
@@ -13,6 +25,7 @@ export interface Team {
   logo?: string;
   tagline?: string;
   website?: string;
+  results?: TeamResult[];
 }
 
 const HARDCODED_TEAMS: Team[] = [
@@ -132,6 +145,15 @@ function SpeedLines({ color }: { color: string }) {
 
 /* ── Single Team Card ── */
 function TeamCard({ team }: { team: Team }) {
+  const [showResults, setShowResults] = useState(false);
+  const hasResults = team.results && team.results.length > 0;
+
+  function ordinal(n: number) {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
   return (
     <div className="w-full max-w-[420px] mx-auto">
       <div
@@ -249,6 +271,59 @@ function TeamCard({ team }: { team: Team }) {
             ))}
           </div>
         </div>
+
+        {/* Race Results collapsible */}
+        {hasResults && (
+          <div style={{ borderColor: `rgba(${team.accentRgb}, 0.15)` }} className="border-t">
+            <button
+              onClick={() => setShowResults((v) => !v)}
+              className="w-full flex items-center justify-between px-6 py-3 hover:brightness-110 transition-all text-left"
+              style={{ background: `rgba(${team.accentRgb}, 0.04)` }}
+            >
+              <div className="flex items-center gap-2">
+                <Timer size={13} style={{ color: team.accent }} strokeWidth={1.5} />
+                <span className="text-xs uppercase tracking-[0.15em]" style={{ color: team.accent, fontFamily: "var(--font-heading), system-ui, sans-serif" }}>
+                  Race Results ({team.results!.length})
+                </span>
+              </div>
+              {showResults
+                ? <ChevronUp size={13} style={{ color: team.accent }} />
+                : <ChevronDown size={13} style={{ color: team.accent }} />}
+            </button>
+            {showResults && (
+              <div className="px-4 pb-3 overflow-x-auto" style={{ background: `rgba(${team.accentRgb}, 0.02)` }}>
+                <table className="w-full text-[11px] min-w-[340px]">
+                  <thead>
+                    <tr className="border-b" style={{ borderColor: `rgba(${team.accentRgb}, 0.12)` }}>
+                      <th className="text-left py-1.5 pr-2 text-white/30 font-medium">Date</th>
+                      <th className="text-left py-1.5 pr-2 text-white/30 font-medium">Event</th>
+                      <th className="text-left py-1.5 pr-2 text-white/30 font-medium">Class</th>
+                      <th className="text-left py-1.5 pr-2 text-white/30 font-medium">Pos.</th>
+                      <th className="text-left py-1.5 text-white/30 font-medium">Best Lap</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team.results!.map((r) => (
+                      <tr key={r.id} className="border-b" style={{ borderColor: `rgba(${team.accentRgb}, 0.07)` }}>
+                        <td className="py-1.5 pr-2 text-white/40 whitespace-nowrap">{r.event_date}</td>
+                        <td className="py-1.5 pr-2 text-white/70">{r.event_name || (r.track || "—")}</td>
+                        <td className="py-1.5 pr-2 text-white/50">{r.class || "—"}</td>
+                        <td className="py-1.5 pr-2">
+                          {r.position != null ? (
+                            <span className="font-bold" style={{ color: r.position === 1 ? "#fbbf24" : r.position <= 3 ? team.accent : "rgba(255,255,255,0.5)" }}>
+                              {ordinal(r.position)}
+                            </span>
+                          ) : "—"}
+                        </td>
+                        <td className="py-1.5 text-white/50 font-mono">{r.best_lap_time || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Website CTA */}
         {team.website && (

@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Trophy, Users, Wrench, Clock, Quote, Flag, Timer } from "lucide-react";
-import { TeamCarouselUI, type Team } from "@/components/sections/TeamProfileCarousel";
+import { TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -15,14 +15,24 @@ export default async function AboutPage() {
   let dbTeams: Team[] = [];
   try {
     const supabase = await createClient();
-    const { data } = await supabase
-      .from("team_profiles")
-      .select("kart_number, team_name, accent_color, accent_rgb, logo_url, tagline, website_url")
-      .eq("is_active", true)
-      .order("sort_order")
-      .order("team_name");
-    if (data && data.length > 0) {
-      dbTeams = data.map((t) => ({
+    const [{ data: teamData }, { data: resultsData }] = await Promise.all([
+      supabase
+        .from("team_profiles")
+        .select("id, kart_number, team_name, accent_color, accent_rgb, logo_url, tagline, website_url")
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("team_name"),
+      supabase
+        .from("team_results")
+        .select("id, team_profile_id, event_date, event_name, track, class, position, best_lap_time, top_speed_kmh, notes")
+        .order("event_date", { ascending: false }),
+    ]);
+    if (teamData && teamData.length > 0) {
+      const resultsByTeam = (resultsData ?? []).reduce<Record<string, TeamResult[]>>((acc, r) => {
+        (acc[r.team_profile_id] ??= []).push(r as TeamResult);
+        return acc;
+      }, {});
+      dbTeams = teamData.map((t) => ({
         number: t.kart_number,
         name: t.team_name,
         accent: t.accent_color,
@@ -30,6 +40,7 @@ export default async function AboutPage() {
         logo: t.logo_url || undefined,
         tagline: t.tagline || undefined,
         website: t.website_url || undefined,
+        results: resultsByTeam[t.id] ?? [],
       }));
     }
   } catch {

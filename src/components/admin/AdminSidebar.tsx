@@ -16,6 +16,7 @@ import {
   TrendingUp,
   Star,
   Car,
+  Shirt,
   Menu,
   X,
   BarChart2,
@@ -36,6 +37,7 @@ const navItems = [
   { href: "/admin/pricing", label: "Bulk Pricing", icon: TrendingUp },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/chassis-listings", label: "Chassis Listings", icon: Car },
+  { href: "/admin/racewear", label: "Racewear Gallery", icon: Shirt },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];

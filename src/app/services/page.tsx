@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import ServiceExpandGrid from "@/components/sections/ServiceExpandGrid";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Our Services | DS Racing Karts",
@@ -130,7 +131,40 @@ const services = [
   },
 ];
 
-export default function ServicesPage() {
+// Fallback hardcoded entries used before the DB table is seeded or if the query fails
+const FALLBACK_GALLERY = [
+  { id: "1", group_label: "Wilson / Enhanced HVAC", image_url: "/images/history/Racewear1.jpeg", alt_text: "Wilson \u2013 Enhanced HVAC race suit design render" },
+  { id: "2", group_label: "NCR \u2013 No Chance Racing", image_url: "/images/history/racewear2.webp", alt_text: "NCR No Chance Racing \u2013 race suit design render" },
+  { id: "3", group_label: "NCR \u2013 No Chance Racing", image_url: "/images/history/racewear6.webp", alt_text: "NCR No Chance Racing \u2013 finished suit on driver" },
+  { id: "4", group_label: "Stratco", image_url: "/images/history/racewear3.webp", alt_text: "Stratco / Lawrence & Hanson \u2013 race suit design render" },
+  { id: "5", group_label: "DSR Racing Suit", image_url: "/images/history/racewear4.webp", alt_text: "DSR race suit \u2013 design render (front & back)" },
+  { id: "6", group_label: "DSR Racing Suit", image_url: "/images/history/racewear4irl.jpg", alt_text: "DSR race suit \u2013 finished suit on driver" },
+  { id: "7", group_label: "RK Racing Studio \u2013 HR42", image_url: "/images/history/racewear9.webp", alt_text: "HR42 RK Racing Studio \u2013 finished race suit" },
+  { id: "8", group_label: "RK Racing Studio \u2013 HR42", image_url: "/images/history/racewear7.webp", alt_text: "HR42 \u2013 custom race boots" },
+  { id: "9", group_label: "RK Racing Studio \u2013 HR42", image_url: "/images/history/racewear7gloves.webp", alt_text: "HR42 \u2013 custom racing gloves" },
+  { id: "10", group_label: "STC Motorsport", image_url: "/images/history/racewear5.jpg", alt_text: "STC Motorsport \u2013 Chloe Ford in custom race suit" },
+  { id: "11", group_label: "BARBEN Architectural Hardware", image_url: "/images/history/racewear8.jpg", alt_text: "BARBEN Architectural Hardware \u2013 team race suits at Eastern Creek" },
+  { id: "12", group_label: "DSR Branded Apparel", image_url: "/images/history/racewearDRS.webp", alt_text: "DSR custom hoodie \u2013 front" },
+  { id: "13", group_label: "DSR Branded Apparel", image_url: "/images/history/RacewearDRSback.webp", alt_text: "DSR racing jersey \u2013 at the track" },
+];
+
+export default async function ServicesPage() {
+  const supabase = await createClient();
+  const { data: dbGallery } = await supabase
+    .from("racewear_gallery")
+    .select("id, group_label, image_url, alt_text")
+    .eq("is_active", true)
+    .order("sort_order")
+    .order("created_at");
+
+  const galleryEntries = (dbGallery && dbGallery.length > 0) ? dbGallery : FALLBACK_GALLERY;
+
+  // Build grouped structure from flat list
+  const racewearGroups = galleryEntries.reduce<Record<string, { src: string; alt: string }[]>>((acc, entry) => {
+    (acc[entry.group_label] ??= []).push({ src: entry.image_url, alt: entry.alt_text });
+    return acc;
+  }, {});
+
   return (
     <>
       {/* Hero */}
@@ -260,74 +294,15 @@ export default function ServicesPage() {
           Custom-designed race suits, gloves, and gear tailored to your team colours. Here&apos;s some of the racewear we&apos;ve produced.
         </p>
 
-        {/*
-          RACEWEAR_GROUPS — each group is one client/team.
-          Images within a group are displayed adjacent (design first, then IRL photo).
-          To add new racewear: add a new group object. The layout handles itself.
-        */}
-        {[
-          {
-            label: "Wilson / Enhanced HVAC",
-            images: [
-              { src: "/images/history/Racewear1.jpeg", alt: "Wilson – Enhanced HVAC race suit design render" },
-            ],
-          },
-          {
-            label: "NCR – No Chance Racing",
-            images: [
-              { src: "/images/history/racewear2.webp", alt: "NCR No Chance Racing – race suit design render" },
-              { src: "/images/history/racewear6.webp", alt: "NCR No Chance Racing – finished suit on driver" },
-            ],
-          },
-          {
-            label: "Stratco",
-            images: [
-              { src: "/images/history/racewear3.webp", alt: "Stratco / Lawrence & Hanson – race suit design render" },
-            ],
-          },
-          {
-            label: "DSR Racing Suit",
-            images: [
-              { src: "/images/history/racewear4.webp", alt: "DSR race suit – design render (front & back)" },
-              { src: "/images/history/racewear4irl.jpg", alt: "DSR race suit – finished suit on driver" },
-            ],
-          },
-          {
-            label: "RK Racing Studio – HR42",
-            images: [
-              { src: "/images/history/racewear9.webp", alt: "HR42 RK Racing Studio – finished race suit" },
-              { src: "/images/history/racewear7.webp", alt: "HR42 – custom race boots" },
-              { src: "/images/history/racewear7gloves.webp", alt: "HR42 – custom racing gloves" },
-            ],
-          },
-          {
-            label: "STC Motorsport",
-            images: [
-              { src: "/images/history/racewear5.jpg", alt: "STC Motorsport – Chloe Ford in custom race suit" },
-            ],
-          },
-          {
-            label: "BARBEN Architectural Hardware",
-            images: [
-              { src: "/images/history/racewear8.jpg", alt: "BARBEN Architectural Hardware – team race suits at Eastern Creek" },
-            ],
-          },
-          {
-            label: "DSR Branded Apparel",
-            images: [
-              { src: "/images/history/racewearDRS.webp", alt: "DSR custom hoodie – front" },
-              { src: "/images/history/RacewearDRSback.webp", alt: "DSR racing jersey – at the track" },
-            ],
-          },
-        ].map((group) => (
-          <div key={group.label} className="mb-8">
-            <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-heading mb-2">{group.label}</p>
+        {Object.entries(racewearGroups).map(([label, images]) => (
+          <div key={label} className="mb-8">
+            <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-heading mb-2">{label}</p>
             <div className={`grid gap-3 ${
-              group.images.length === 1 ? "grid-cols-1 max-w-[320px]" :
-              group.images.length === 2 ? "grid-cols-2" :
+              images.length === 1 ? "grid-cols-1 max-w-[320px]" :
+              images.length === 2 ? "grid-cols-2" :
               "grid-cols-3"
             }`}>
-              {group.images.map(({ src, alt }) => (
+              {images.map(({ src, alt }) => (
                 <div key={src} className="relative aspect-[3/4] bg-racing-dark border border-white/10 overflow-hidden group/img">
                   <Image
                     src={src}

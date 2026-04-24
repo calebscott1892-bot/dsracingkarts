@@ -63,77 +63,108 @@ export function DSRGrandPrix({ onExit }: Props) {
   }
 
   // During menu/track-select the container needs height for the overlay content.
-  // During racing/countdown/game-over it must match the canvas exactly so HUD
-  // panels and touch controls land on the correct pixel positions.
+  // During racing/countdown/game-over it must match the canvas exactly so HUD lands correctly.
   const needsMinHeight = state.phase === "menu" || state.phase === "track_select";
+  const isPlaying = state.phase === "countdown" || state.phase === "racing";
 
   return (
-    <div
-      className={`relative w-full bg-black touch-none${needsMinHeight ? " min-h-[500px] md:min-h-0" : ""}`}
-      style={{ aspectRatio: "12/7", maxWidth: "1200px", margin: "0 auto" }}
-    >
-      {/* Exit button */}
-      <button
-        onClick={onExit}
-        className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center
-                   bg-black/60 text-text-muted hover:text-white transition-colors"
+    // Outer wrapper: not aspect-ratio constrained — allows mobile controls below canvas
+    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
+      {/* Canvas container — maintains aspect ratio */}
+      <div
+        className={`relative w-full bg-black touch-none${needsMinHeight ? " min-h-[500px] md:min-h-0" : ""}`}
+        style={{ aspectRatio: "12/7" }}
       >
-        <X size={16} />
-      </button>
+        {/* Exit button */}
+        <button
+          onClick={onExit}
+          className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center
+                     bg-black/60 text-text-muted hover:text-white transition-colors"
+        >
+          <X size={16} />
+        </button>
 
-      {/* Canvas — always rendered for game loop */}
-      {(state.phase === "countdown" || state.phase === "racing" || state.phase === "game_over") && (
-        <GameCanvas state={state} onStateChange={handleStateChange} />
-      )}
+        {/* Canvas — always rendered for game loop */}
+        {(state.phase === "countdown" || state.phase === "racing" || state.phase === "game_over") && (
+          <GameCanvas state={state} onStateChange={handleStateChange} />
+        )}
 
-      {/* Overlays based on phase */}
-      {state.phase === "menu" && (
-        <GameMenu onSelect={handleModeSelect} />
-      )}
+        {/* Overlays based on phase */}
+        {state.phase === "menu" && (
+          <GameMenu onSelect={handleModeSelect} />
+        )}
 
-      {state.phase === "track_select" && (
-        <TrackSelect onSelect={handleTrackSelect} showDifficulty={!state.isMultiplayer} />
-      )}
+        {state.phase === "track_select" && (
+          <TrackSelect onSelect={handleTrackSelect} showDifficulty={!state.isMultiplayer} />
+        )}
 
-      {(state.phase === "racing" || state.phase === "countdown") && (
-        <GameHUD state={state} />
-      )}
+        {/* HUD: hidden on mobile (shown in the strip below instead) */}
+        {isPlaying && (
+          <div className="hidden md:block">
+            <GameHUD state={state} />
+          </div>
+        )}
 
-      {state.phase === "game_over" && (
-        <GameOver
-          state={state}
-          onPlayAgain={handlePlayAgain}
-          onNewTrack={handleNewTrack}
-          onQuit={handleQuit}
-        />
-      )}
+        {state.phase === "game_over" && (
+          <GameOver
+            state={state}
+            onPlayAgain={handlePlayAgain}
+            onNewTrack={handleNewTrack}
+            onQuit={handleQuit}
+          />
+        )}
 
-      {/* Touch controls for mobile — during gameplay */}
-      {(state.phase === "countdown" || state.phase === "racing") && (
-        <div className="md:hidden absolute inset-0 z-30 pointer-events-none" onContextMenu={(e) => e.preventDefault()}>
+        {/* Leader banner — visible on mobile inside canvas (compact, top-centre) */}
+        {isPlaying && (
+          <div className="md:hidden absolute top-1 left-0 right-0 flex justify-center pointer-events-none z-20">
+            <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
+              LAP {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)} / {state.totalLaps}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Mobile-only strip below canvas: GAS | stats | BRAKE */}
+      {isPlaying && (
+        <div
+          className="md:hidden flex items-stretch bg-black border-t border-surface-700 touch-none"
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {/* GAS */}
           <button
-            className="absolute right-2 top-[12%] w-16 h-24 pointer-events-auto touch-none select-none
-                       bg-green-600/30 border-2 border-green-400/50 rounded-xl
-                       flex items-center justify-center active:bg-green-500/60
-                       backdrop-blur-sm"
+            className="flex-1 py-4 bg-green-900/40 border-r border-surface-700 active:bg-green-600/60
+                       flex flex-col items-center justify-center gap-1 select-none touch-none"
             onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' })); }}
             onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); }}
             onTouchCancel={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            <span className="font-digital text-xs text-green-200 text-center leading-tight">▲<br/>GAS</span>
+            <span className="font-digital text-green-400 text-lg leading-none">▲</span>
+            <span className="font-digital text-[10px] text-green-300 tracking-widest">GAS</span>
           </button>
+
+          {/* Centre: P1 mini stats */}
+          <div className="flex-[2] px-3 py-2 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
+            <span className="font-digital text-[9px] text-text-muted tracking-wider uppercase">P1 · RED</span>
+            <span className="font-digital text-xs text-white tabular-nums">
+              {Math.round((state.car1.speed / 6) * 110)} km/h
+            </span>
+            <span className="font-digital text-[9px] text-text-muted tabular-nums">
+              Lap {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)}/{state.totalLaps}
+            </span>
+          </div>
+
+          {/* BRAKE */}
           <button
-            className="absolute right-2 bottom-[12%] w-16 h-24 pointer-events-auto touch-none select-none
-                       bg-red-600/30 border-2 border-red-400/50 rounded-xl
-                       flex items-center justify-center active:bg-red-500/60
-                       backdrop-blur-sm"
+            className="flex-1 py-4 bg-red-900/40 border-l border-surface-700 active:bg-red-600/60
+                       flex flex-col items-center justify-center gap-1 select-none touch-none"
             onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyS' })); }}
             onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyS' })); }}
             onTouchCancel={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyS' })); }}
             onContextMenu={(e) => e.preventDefault()}
           >
-            <span className="font-digital text-xs text-red-200 text-center leading-tight">▼<br/>BRAKE</span>
+            <span className="font-digital text-red-400 text-lg leading-none">▼</span>
+            <span className="font-digital text-[10px] text-red-300 tracking-widest">BRAKE</span>
           </button>
         </div>
       )}

@@ -106,7 +106,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
   const exitTo    = dir === "next" ? "-60px" : "60px";
 
   return (
-    <section className="relative overflow-hidden bg-[#0a0a0a]">
+    <section id="reviews" className="relative overflow-hidden bg-[#0a0a0a]">
       {/* Carbon fibre backdrop */}
       <div className="absolute inset-0 carbon-fiber opacity-60" />
 
