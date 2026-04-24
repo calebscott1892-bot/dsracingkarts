@@ -1,13 +1,14 @@
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Trophy, Users, Wrench, Clock, Quote, Flag, Timer } from "lucide-react";
+import { Quote, Flag, Timer } from "lucide-react";
 import { TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createClient } from "@/lib/supabase/server";
+import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 export const metadata: Metadata = {
   title: "About Us | DS Racing Karts",
-  description: "Nearly 40 years experience in karting & decades more in motorsport. Sydney's trusted kart specialists.",
+  description: "Decades of karting and motorsport experience. Sydney's trusted kart specialists.",
 };
 
 export default async function AboutPage() {
@@ -37,7 +38,7 @@ export default async function AboutPage() {
         name: t.team_name,
         accent: t.accent_color,
         accentRgb: t.accent_rgb,
-        logo: t.logo_url || undefined,
+        logo: normalizeTeamLogoUrl(t.logo_url, t.team_name),
         tagline: t.tagline || undefined,
         website: t.website_url || undefined,
         results: resultsByTeam[t.id] ?? [],
@@ -60,8 +61,8 @@ export default async function AboutPage() {
             DS Racing <span className="text-racing-red">Karts</span>
           </h1>
           <p className="text-text-secondary text-lg leading-relaxed max-w-2xl mx-auto">
-            With nearly 40 years of experience in karting alone — and even longer in motorsport in general —
-            DS Racing Karts is Sydney&apos;s most trusted name in kart sales, servicing, and race preparation.
+            With decades of hands-on karting and motorsport experience,
+            DS Racing Karts is Sydney&apos;s trusted name in kart sales, servicing, and race preparation.
           </p>
         </div>
       </section>
@@ -341,26 +342,6 @@ export default async function AboutPage() {
           </div>
         </div>
       </section>
-
-      {/* Stats */}
-      <section className="bg-racing-black carbon-fiber py-16">
-        <div className="max-w-5xl mx-auto px-4 grid grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { icon: Clock, value: "40", label: "Years in Karting" },
-            { icon: Wrench, value: "3,500+", label: "Parts in Stock" },
-            { icon: Trophy, value: "100s", label: "Race Wins" },
-            { icon: Users, value: "1000+", label: "Karts Serviced" },
-          ].map(({ icon: Icon, value, label }) => (
-            <div key={label} className="text-center">
-              <Icon size={28} className="text-racing-red mx-auto mb-3" strokeWidth={1.5} />
-              <div className="font-digital text-3xl text-white mb-1">{value}</div>
-              <div className="font-heading text-xs uppercase tracking-[0.2em] text-text-muted">{label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <div className="chequered-stripe" />
 
       {/* CTA */}
       <section className="max-w-3xl mx-auto px-4 py-16 text-center">

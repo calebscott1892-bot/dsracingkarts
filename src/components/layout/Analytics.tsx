@@ -2,6 +2,7 @@
 
 import Script from "next/script";
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 function CookieConsent({ onAccept, onDecline }: { onAccept: () => void; onDecline: () => void }) {
   return (
@@ -32,7 +33,11 @@ function CookieConsent({ onAccept, onDecline }: { onAccept: () => void; onDeclin
 
 export function Analytics() {
   const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+  const pathname = usePathname();
   const [consent, setConsent] = useState<"granted" | "denied" | null>(null);
+  const isAdminRoute = pathname === "/admin-login" || pathname.startsWith("/admin");
+
+  if (isAdminRoute || !gaId) return null;
 
   useEffect(() => {
     const stored = localStorage.getItem("dsr-cookie-consent");
@@ -50,8 +55,6 @@ export function Analytics() {
     localStorage.setItem("dsr-cookie-consent", "denied");
     setConsent("denied");
   }
-
-  if (!gaId) return null;
 
   // Show consent banner if no choice has been made
   if (consent === null) {

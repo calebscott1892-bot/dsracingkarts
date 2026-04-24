@@ -62,15 +62,30 @@ async function syncCatalogItem(itemId: string) {
   const square = getSquareClient();
   const supabase = createServiceClient();
 
-  // Fetch the full item from Square
+  // Fetch the catalog object from Square. Webhook changes can reference
+  // either ITEM or ITEM_VARIATION IDs.
   const { result } = await square.catalogApi.retrieveCatalogObject(itemId, true);
-  const item = result.object;
+  let item = result.object;
+  let relatedObjects = result.relatedObjects || [];
+
+  if (item?.type === "ITEM_VARIATION") {
+    const parentItemId = item.itemVariationData?.itemId;
+    if (!parentItemId) return;
+    const parent = await square.catalogApi.retrieveCatalogObject(parentItemId, true);
+    item = parent.result.object;
+    relatedObjects = parent.result.relatedObjects || [];
+  }
+
   if (!item || item.type !== "ITEM" || !item.itemData) return;
 
   const itemData = item.itemData;
   const name = itemData.name || "Unnamed Product";
   const description = itemData.descriptionHtml || itemData.description || "";
   const squareToken = item.id;
+  const primaryImageId = itemData.imageIds?.[0];
+  const primaryImageUrl = primaryImageId
+    ? relatedObjects.find((obj: any) => obj.id === primaryImageId && obj.type === "IMAGE")?.imageData?.url || null
+    : null;
 
   // Check existing product
   const { data: existing } = await supabase
@@ -103,6 +118,7 @@ async function syncCatalogItem(itemId: string) {
     slug,
     description,
     description_plain: stripHtml(description),
+    primary_image_url: primaryImageUrl,
     square_token: squareToken,
     status: "active" as const,
     updated_at: new Date().toISOString(),

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
+import { SCAFF_LOGO_URL } from "@/lib/teamLogos";
 
 /* ── Team Data ── */
 export interface TeamResult {
@@ -34,6 +35,7 @@ const HARDCODED_TEAMS: Team[] = [
     name: "Scaff It Up",
     accent: "#f97316",
     accentRgb: "249,115,22",
+    logo: SCAFF_LOGO_URL,
     tagline: "Building speed from the ground up",
   },
   {

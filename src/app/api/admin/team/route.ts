@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -38,7 +39,8 @@ export async function POST(request: NextRequest) {
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const body = await request.json();
-  const { kart_number, team_name, tagline, accent_color, accent_rgb, website_url, sort_order, is_active } = body;
+  const { kart_number, team_name, tagline, accent_color, accent_rgb, logo_url, website_url, sort_order, is_active } = body;
+  const normalizedLogoUrl = normalizeTeamLogoUrl(logo_url, team_name);
 
   if (!kart_number || !team_name) {
     return NextResponse.json({ error: "kart_number and team_name are required" }, { status: 400 });
@@ -46,7 +48,17 @@ export async function POST(request: NextRequest) {
 
   const { data: team, error } = await supabase
     .from("team_profiles")
-    .insert({ kart_number, team_name, tagline, accent_color, accent_rgb, website_url, sort_order, is_active })
+    .insert({
+      kart_number,
+      team_name,
+      tagline,
+      accent_color,
+      accent_rgb,
+      logo_url: normalizedLogoUrl,
+      website_url,
+      sort_order,
+      is_active,
+    })
     .select()
     .single();
 

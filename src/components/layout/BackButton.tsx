@@ -24,7 +24,7 @@ export function BackButton() {
     <div className="max-w-7xl mx-auto px-4 pt-6">
       <button
         onClick={() => router.back()}
-        className="inline-flex items-center gap-2 text-sm text-white/50 hover:text-racing-red transition-colors group"
+        className="inline-flex items-center gap-2 min-h-[44px] px-2 -ml-2 text-sm text-white/50 hover:text-racing-red transition-colors group"
         aria-label="Go back"
       >
         <ArrowLeft

@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Save, Trash2, Upload, X, CheckCircle, AlertCircle } from "lucide-react";
+import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 interface TeamProfile {
   id?: string;
@@ -48,7 +49,7 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
     tagline: team?.tagline || "",
     accent_color: team?.accent_color || "#ef4444",
     accent_rgb: team?.accent_rgb || "239,68,68",
-    logo_url: team?.logo_url || "",
+    logo_url: normalizeTeamLogoUrl(team?.logo_url, team?.team_name) || "",
     website_url: team?.website_url || "",
     sort_order: team?.sort_order ?? 0,
     is_active: team?.is_active ?? true,
@@ -131,8 +132,19 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
   async function handleDelete() {
     if (!confirm(`Delete "${form.team_name}"? This cannot be undone.`)) return;
     setDeleting(true);
-    await fetch(`/api/admin/team/${team!.id}`, { method: "DELETE" });
-    router.push("/admin/team");
+    setErrorMsg("");
+    try {
+      const res = await fetch(`/api/admin/team/${team!.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Delete failed — please try again");
+      }
+      router.push("/admin/team");
+      router.refresh();
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : "Delete failed — please try again");
+      setDeleting(false);
+    }
   }
 
   const inputClass =

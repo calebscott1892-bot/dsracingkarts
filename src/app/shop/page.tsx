@@ -134,6 +134,20 @@ export default async function ShopPage({ searchParams }: Props) {
         )}
       </div>
 
+      <div className="mb-8 border border-white/10 bg-white/[0.03] px-4 py-4 md:px-5 md:py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
+            Looking For Second-Hand Chassis?
+          </p>
+          <p className="text-white/65 text-sm leading-relaxed max-w-2xl">
+            Browse our preloved Predator chassis board if you&apos;re chasing a used enduro setup, or want to list one for sale.
+          </p>
+        </div>
+        <Link href="/predator-chassis" className="btn-secondary shrink-0 text-sm px-5 self-start md:self-auto">
+          Browse Preloved Chassis
+        </Link>
+      </div>
+
       {/* Appointment Only Notice */}
       <div className="mb-6 border border-racing-red/20 bg-racing-red/5 px-4 py-3 flex items-start gap-3">
         <AlertTriangle size={16} className="text-racing-red shrink-0 mt-0.5" />

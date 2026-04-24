@@ -2,6 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { stripHtml, slugify } from "@/lib/utils";
 
+async function verifyAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false as const, status: 401, error: "Unauthorized" };
+  }
+
+  const { data: profile } = await supabase
+    .from("admin_profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+    return { ok: false as const, status: 403, error: "Forbidden" };
+  }
+
+  return { ok: true as const };
+}
+
 /**
  * PUT /api/admin/products/[id]
  * Updates a product, its variations, inventory, and category links.
@@ -12,23 +34,9 @@ export async function PUT(
 ) {
   const { id } = await params;
 
-  // Verify admin
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: profile } = await supabase
-    .from("admin_profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !["admin", "super_admin"].includes(profile.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const auth = await verifyAdmin();
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
   }
 
   const body = await request.json();
@@ -66,7 +74,7 @@ export async function PUT(
   if (body.variations) {
     for (const v of body.variations) {
       if (v.id) {
-        await service
+        const { error: variationError } = await service
           .from("product_variations")
           .update({
             name: v.name,
@@ -75,9 +83,12 @@ export async function PUT(
             sale_price: v.sale_price || null,
           })
           .eq("id", v.id);
+        if (variationError) {
+          return NextResponse.json({ error: variationError.message }, { status: 500 });
+        }
 
         // Update inventory
-        await service
+        const { error: inventoryError } = await service
           .from("inventory")
           .update({
             quantity: v.quantity,
@@ -85,6 +96,9 @@ export async function PUT(
             low_stock_threshold: v.low_stock_threshold,
           })
           .eq("variation_id", v.id);
+        if (inventoryError) {
+          return NextResponse.json({ error: inventoryError.message }, { status: 500 });
+        }
       }
     }
   }
@@ -92,15 +106,24 @@ export async function PUT(
   // Update categories
   if (body.categories) {
     // Remove existing
-    await service.from("product_categories").delete().eq("product_id", id);
+    const { error: deleteCategoriesError } = await service
+      .from("product_categories")
+      .delete()
+      .eq("product_id", id);
+    if (deleteCategoriesError) {
+      return NextResponse.json({ error: deleteCategoriesError.message }, { status: 500 });
+    }
     // Re-insert
     if (body.categories.length > 0) {
-      await service.from("product_categories").insert(
+      const { error: insertCategoriesError } = await service.from("product_categories").insert(
         body.categories.map((catId: string) => ({
           product_id: id,
           category_id: catId,
         }))
       );
+      if (insertCategoriesError) {
+        return NextResponse.json({ error: insertCategoriesError.message }, { status: 500 });
+      }
     }
   }
 

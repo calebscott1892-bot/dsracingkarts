@@ -7,7 +7,7 @@ import { GameTeaser } from "@/components/sections/GameTeaser";
 import { HistorySection } from "@/components/sections/HistorySection";
 import { Speedometer } from "@/components/sections/Speedometer";
 import { ReviewsCarousel } from "@/components/sections/ReviewsCarousel";
-import { Shield, Wrench, Truck } from "lucide-react";
+import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 
 export default async function HomePage() {
   const supabase = await createClient();

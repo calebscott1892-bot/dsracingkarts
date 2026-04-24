@@ -296,7 +296,7 @@ export function Speedometer() {
     <section ref={sectionRef} className="relative py-24 md:py-32 bg-racing-dark carbon-fiber overflow-hidden">
       <div className="relative z-10 max-w-5xl mx-auto px-4">
         {/* Title */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-14 md:mb-16">
           <div className="flex items-center justify-center gap-3 mb-4">
             <span className="h-[1px] w-8 bg-racing-red" />
             <span className="font-heading text-xs tracking-[0.4em] text-racing-red uppercase">
@@ -310,16 +310,16 @@ export function Speedometer() {
         </div>
 
         {/* Tachometer — React-controlled, never flies off */}
-        <div className="mb-16">
+        <div className="max-w-3xl mx-auto mb-28 md:mb-36">
           <TachometerSVG rpm={rpm} />
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-8">
+        <div className="max-w-4xl mx-auto pt-10 md:pt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-7 lg:gap-9">
           {STATS.map((stat, i) => (
             <div
               key={stat.label}
-              className={`stat-${i} text-center p-6 bg-racing-black/50 border border-surface-600/30`}
+              className={`stat-${i} text-center p-6 md:p-7 bg-racing-black/50 border border-surface-600/30`}
             >
               <div className="font-digital text-4xl md:text-5xl font-bold text-racing-red mb-2">
                 {counters[i].toLocaleString()}{stat.suffix}

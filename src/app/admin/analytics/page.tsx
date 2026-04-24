@@ -95,10 +95,10 @@ export default function AnalyticsPage() {
 
       {/* Setup guide for deeper integration */}
       <div className="card p-6">
-        <h2 className="font-heading text-lg uppercase tracking-wider mb-4">Enable In-Panel Analytics</h2>
+        <h2 className="font-heading text-lg uppercase tracking-wider mb-4">Future In-Panel Analytics</h2>
         <p className="text-text-muted text-sm mb-4">
-          To display live visitor data directly in this panel (no need to open Google Analytics separately),
-          a Google service account with read access to your GA4 property is required. Here&apos;s how to set it up:
+          This admin page currently links out to Google Analytics rather than rendering live metrics directly.
+          If you want to add in-panel reporting later, a Google service account with read access to your GA4 property would be the next step:
         </p>
         <ol className="space-y-3 text-sm text-text-muted list-decimal list-inside">
           <li>
@@ -124,8 +124,7 @@ GOOGLE_SA_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n...\\n-----END PRIVATE KEY-
             </pre>
           </li>
           <li>
-            Once set, this page will automatically display live metrics: page views, sessions,
-            top pages, referrers, and session duration — all without leaving the admin panel.
+            Once those credentials are available, the admin panel can be extended to show GA4 metrics directly here.
           </li>
         </ol>
       </div>

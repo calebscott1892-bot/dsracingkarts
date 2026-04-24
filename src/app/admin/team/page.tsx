@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Pencil, Flag } from "lucide-react";
+import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 export default async function AdminTeamPage() {
   const supabase = await createClient();
@@ -33,7 +34,10 @@ export default async function AdminTeamPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700">
-              {teams.map((team) => (
+              {teams.map((team) => {
+                const logoUrl = normalizeTeamLogoUrl(team.logo_url, team.team_name);
+
+                return (
                 <tr key={team.id} className="hover:bg-surface-700/50 transition-colors">
                   <td className="px-4 py-3">
                     <div
@@ -45,9 +49,9 @@ export default async function AdminTeamPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      {team.logo_url && (
+                      {logoUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={team.logo_url} alt={team.team_name} className="w-8 h-8 rounded object-cover" />
+                        <img src={logoUrl} alt={team.team_name} className="w-8 h-8 rounded object-cover" />
                       )}
                       <div>
                         <p className="text-white font-medium">{team.team_name}</p>
@@ -77,7 +81,8 @@ export default async function AdminTeamPage() {
                     </Link>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         ) : (

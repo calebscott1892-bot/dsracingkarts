@@ -190,11 +190,10 @@ export function HistorySection() {
             const card = cardRefs.current[i];
             if (!node || !dot) return;
 
-            /* Dot position relative to timeline container top.
-               We use the NODE (which is never scaled) to get the
-               dot's Y, not the dot itself (which may be scale:0). */
-            const nodeRect = node.getBoundingClientRect();
-            const dotY = nodeRect.top + 24 - tlRect.top; /* 24px = top-6 (1.5rem) */
+            /* Dot center position relative to timeline container top.
+              This keeps branch/trunk reveal anchored exactly at dot center. */
+            const dotRect = dot.getBoundingClientRect();
+            const dotY = dotRect.top + dotRect.height / 2 - tlRect.top;
 
             const shouldShow = h >= dotY;
 
@@ -331,10 +330,10 @@ export function HistorySection() {
                   {/* ── Branch line (desktop) — grows from trunk outward ── */}
                   <div
                     ref={(el) => { branchRefs.current[i] = el; }}
-                    className={`hidden md:block absolute top-[26px] h-[2px] bg-racing-red/50 w-[calc(50%-2rem)] ${
+                    className={`hidden md:block absolute top-8 h-[2px] bg-racing-red/50 w-[calc(50%-1.75rem)] ${
                       isLeft
-                        ? "right-1/2 mr-2 origin-right"
-                        : "left-1/2 ml-2 origin-left"
+                        ? "right-1/2 origin-right"
+                        : "left-1/2 origin-left"
                     }`}
                   />
 

@@ -21,8 +21,14 @@ export async function POST() {
   const supabase = await verifyAdmin();
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  if (!process.env.SQUARE_ACCESS_TOKEN) {
+    return NextResponse.json({ error: "Square access token is missing" }, { status: 500 });
+  }
+
   const square = getSquareClient();
-  const serviceClient = createServiceClient();
+  const writeClient = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createServiceClient()
+    : supabase;
 
   let cursor: string | undefined;
   let imported = 0;
@@ -31,12 +37,12 @@ export async function POST() {
 
   try {
     do {
-      const response = await square.customersApi.listCustomers(
-        cursor,
-        100, // max per page
-        undefined,
-        undefined
-      );
+      // Square SDK v38 builds invalid query strings when optional params are
+      // passed alongside `undefined`. Cursor-only pagination avoids the malformed
+      // `&&&` query parameters while still returning the default 100 customers.
+      const response = cursor
+        ? await square.customersApi.listCustomers(cursor)
+        : await square.customersApi.listCustomers();
 
       const customers = response.result.customers || [];
       cursor = response.result.cursor;
@@ -54,12 +60,15 @@ export async function POST() {
           last_name: c.familyName || null,
           phone: c.phoneNumber || null,
           address_line1: c.address?.addressLine1 || null,
+          address_line2: c.address?.addressLine2 || null,
           city: c.address?.locality || null,
           state: c.address?.administrativeDistrictLevel1 || null,
           postcode: c.address?.postalCode || null,
+          country: c.address?.country || "AU",
+          square_customer_id: c.id || null,
         };
 
-        const { error } = await serviceClient
+        const { error } = await writeClient
           .from("customers")
           .upsert(payload, { onConflict: "email", ignoreDuplicates: false });
 
@@ -73,8 +82,21 @@ export async function POST() {
 
     return NextResponse.json({ imported, skipped, errors });
   } catch (err: any) {
+    let errorBody = err?.body;
+    if (typeof err?.body === "string") {
+      try {
+        errorBody = JSON.parse(err.body);
+      } catch {
+        errorBody = undefined;
+      }
+    }
+    const squareMessage = errorBody?.errors
+      ?.map((entry: { detail?: string; code?: string }) => entry.detail || entry.code)
+      .filter(Boolean)
+      .join(" | ");
+
     return NextResponse.json(
-      { error: err?.message || "Square API error" },
+      { error: squareMessage || err?.message || "Square API error" },
       { status: 500 }
     );
   }

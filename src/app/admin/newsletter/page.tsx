@@ -33,6 +33,10 @@ export default async function AdminNewsletterPage({ searchParams }: Props) {
     .select("*", { count: "exact", head: true })
     .eq("subscribed", true);
 
+  const { count: totalSignupCount } = await supabase
+    .from("newsletter_subscribers")
+    .select("*", { count: "exact", head: true });
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -53,7 +57,7 @@ export default async function AdminNewsletterPage({ searchParams }: Props) {
         </div>
         <div className="card p-6">
           <p className="text-text-muted text-sm">Total Signups</p>
-          <p className="font-heading text-4xl text-blue-400">{count || 0}</p>
+          <p className="font-heading text-4xl text-blue-400">{totalSignupCount || 0}</p>
         </div>
       </div>
 

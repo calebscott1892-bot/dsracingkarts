@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -28,10 +29,21 @@ export async function PATCH(
 
   const body = await request.json();
   const { kart_number, team_name, tagline, accent_color, accent_rgb, logo_url, website_url, sort_order, is_active } = body;
+  const normalizedLogoUrl = normalizeTeamLogoUrl(logo_url, team_name);
 
   const { data: team, error } = await supabase
     .from("team_profiles")
-    .update({ kart_number, team_name, tagline, accent_color, accent_rgb, logo_url, website_url, sort_order, is_active })
+    .update({
+      kart_number,
+      team_name,
+      tagline,
+      accent_color,
+      accent_rgb,
+      logo_url: normalizedLogoUrl,
+      website_url,
+      sort_order,
+      is_active,
+    })
     .eq("id", id)
     .select()
     .single();

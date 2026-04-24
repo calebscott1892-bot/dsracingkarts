@@ -33,7 +33,6 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/shop", label: "Shop" },
-    { href: "/predator-chassis", label: "Preloved Chassis" },
     { href: "/#reviews", label: "Customer Reviews" },
     { href: "/services", label: "Services" },
     { href: "/sponsors", label: "Sponsors" },
@@ -56,7 +55,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Mobile menu toggle */}
             <button
-              className="md:hidden p-2 -ml-2 text-racing-black hover:text-racing-red transition-colors"
+              className="md:hidden -ml-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-racing-black hover:text-racing-red transition-colors"
               onClick={() => setMobileOpen(!mobileOpen)}
               aria-label="Toggle menu"
             >

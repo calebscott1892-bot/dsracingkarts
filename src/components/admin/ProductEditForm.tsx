@@ -3,8 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Save, Trash2, Plus, ImagePlus, Star, Upload, X } from "lucide-react";
-import { formatPrice } from "@/lib/utils";
+import { Save, ExternalLink, Star, Upload, X } from "lucide-react";
 
 interface Props {
   product: any;
@@ -403,9 +402,14 @@ export function ProductEditForm({ product, allCategories }: Props) {
           <Save size={16} />
           {saving ? "Saving…" : "Save Product"}
         </button>
-        <button className="btn-secondary flex items-center gap-2 text-red-400 hover:text-red-300">
-          <Trash2 size={16} /> Delete
-        </button>
+        <a
+          href="https://squareup.com/dashboard/items/library"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary flex items-center gap-2"
+        >
+          <ExternalLink size={16} /> Manage in Square
+        </a>
       </div>
     </div>
   );
