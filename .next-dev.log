@@ -1,0 +1,24 @@
+
+> dsracingkarts@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3001
+  - Environments: .env.local
+  - Experiments (use with caution):
+    · instrumentationHook
+
+ ✓ Starting...
+ ○ Compiling /instrumentation ...
+ ✓ Compiled /instrumentation in 1486ms (1188 modules)
+ ✓ Ready in 3.7s
+ ✓ Compiled /src/middleware in 275ms (841 modules)
+ ○ Compiling /about ...
+ ✓ Compiled /about in 5.4s (3666 modules)
+ GET /about 200 in 6212ms
+ GET / 200 in 6484ms
+ GET /shop 200 in 6783ms
+ GET /shop 200 in 7175ms
+ ○ Compiling /manifest.webmanifest ...
+ ✓ Compiled /manifest.webmanifest in 3.5s (2905 modules)
+ GET /manifest.webmanifest 200 in 3601ms
