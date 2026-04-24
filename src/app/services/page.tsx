@@ -318,12 +318,18 @@ export default async function ServicesPage() {
           </div>
         ))}
 
-        <div className="text-center mt-6">
+        <div className="text-center mt-6 flex flex-col sm:flex-row items-center justify-center gap-3">
           <Link
             href="/contact"
             className="inline-block bg-racing-red text-white font-heading text-sm uppercase tracking-[0.15em] px-8 py-3 hover:bg-racing-red/90 transition-colors"
           >
             Enquire About Custom Racewear
+          </Link>
+          <Link
+            href="/services/racewear-gallery"
+            className="inline-block border border-white/20 text-white font-heading text-sm uppercase tracking-[0.15em] px-8 py-3 hover:border-racing-red hover:text-racing-red transition-colors"
+          >
+            See More
           </Link>
         </div>
       </section>

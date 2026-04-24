@@ -157,6 +157,45 @@ function CarRacingIcon(props: IconProps) {
   );
 }
 
+function ChassisIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <rect x="10" y="18" width="44" height="26" rx="3" />
+      <path d="M16 24h32" />
+      <path d="M16 30h32" />
+      <path d="M16 36h20" />
+      <circle cx="20" cy="48" r="4" />
+      <circle cx="44" cy="48" r="4" />
+    </svg>
+  );
+}
+
+function ChassisComponentsIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <circle cx="24" cy="24" r="8" />
+      <circle cx="24" cy="24" r="3" />
+      <path d="M30 30l10 10" />
+      <rect x="40" y="40" width="12" height="8" rx="1" />
+      <path d="M10 44h20" />
+      <path d="M14 50h12" />
+    </svg>
+  );
+}
+
+function EngineIcon(props: IconProps) {
+  return (
+    <svg {...baseProps} {...props}>
+      <rect x="12" y="22" width="28" height="20" rx="2" />
+      <path d="M40 26h10v12H40" />
+      <path d="M18 22v-6h16v6" />
+      <circle cx="20" cy="32" r="2" />
+      <circle cx="32" cy="32" r="2" />
+      <path d="M14 46h24" />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   "steering-components": SteeringIcon,
   "chains": ChainsIcon,
@@ -164,6 +203,9 @@ const ICONS: Record<string, (props: IconProps) => JSX.Element> = {
   "axles-components": AxlesIcon,
   "stub-axles-accessories": StubAxlesIcon,
   "bearings": BearingsIcon,
+  "chassis": ChassisIcon,
+  "chassis-components": ChassisComponentsIcon,
+  "engines-accessories": EngineIcon,
   "racewear": RacewearIcon,
   "miscellaneous": MiscIcon,
   "fuel-tank-accessories": FuelIcon,

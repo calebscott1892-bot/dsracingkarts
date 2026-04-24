@@ -92,7 +92,7 @@ export default async function ShopPage({ searchParams }: Props) {
       query = query.order("name", { ascending: true });
       break;
     default:
-      query = query.order("created_at", { ascending: false });
+      query = query.order("name", { ascending: true });
   }
 
   query = query.range(offset, offset + PAGE_SIZE - 1);

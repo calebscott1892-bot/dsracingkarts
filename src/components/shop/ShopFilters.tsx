@@ -36,7 +36,7 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
   const activeFilterCount =
     (currentCategory ? 1 : 0) +
     (currentSearch ? 1 : 0) +
-    (currentSort && currentSort !== "newest" ? 1 : 0);
+    (currentSort && currentSort !== "name_asc" ? 1 : 0);
 
   const filterContent = (
     <>
@@ -99,14 +99,13 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
           Sort By
         </label>
         <select
-          value={currentSort || "newest"}
+          value={currentSort || "name_asc"}
           onChange={(e) => updateParam("sort", e.target.value)}
           className="input-dark text-sm"
         >
-          <option value="newest">Newest</option>
+          <option value="name_asc">Name: A to Z</option>
           <option value="price_asc">Price: Low to High</option>
           <option value="price_desc">Price: High to Low</option>
-          <option value="name_asc">Name: A to Z</option>
         </select>
       </div>
     </>

@@ -36,7 +36,7 @@ const navItems = [
   { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
   { href: "/admin/pricing", label: "Bulk Pricing", icon: TrendingUp },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/chassis-listings", label: "Chassis Listings", icon: Car },
+  { href: "/admin/chassis-listings", label: "Buy/Sell Requests", icon: Car },
   { href: "/admin/racewear", label: "Racewear Gallery", icon: Shirt },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart2 },
   { href: "/admin/settings", label: "Settings", icon: Settings },

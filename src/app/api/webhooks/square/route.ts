@@ -54,19 +54,103 @@ function bigintToDollars(amount: bigint | number | null | undefined): number {
 // ── Catalog sync ─────────────────────────────────────────────
 
 /**
+ * Upserts a Square CATEGORY into Supabase categories by square_id and returns the DB row id.
+ */
+async function upsertCategoryFromSquare(squareCategoryId: string): Promise<string | null> {
+  const square = getSquareClient();
+  const supabase = createServiceClient();
+
+  try {
+    const { result } = await square.catalogApi.retrieveCatalogObject(squareCategoryId, false);
+    const obj = result.object;
+    if (!obj || obj.type !== "CATEGORY" || !obj.categoryData) return null;
+
+    const name = obj.categoryData.name || "Uncategorised";
+    const slug = slugify(name) || squareCategoryId.toLowerCase();
+
+    // Match on square_id first (stable key), fall back to slug
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("square_id", squareCategoryId)
+      .maybeSingle();
+
+    if (existing) {
+      await supabase
+        .from("categories")
+        .update({ name, updated_at: new Date().toISOString() })
+        .eq("id", existing.id);
+      return existing.id;
+    }
+
+    // Insert; tolerate slug collision by suffixing
+    let finalSlug = slug;
+    const { data: slugCheck } = await supabase
+      .from("categories")
+      .select("slug")
+      .ilike("slug", `${slug}%`);
+    const taken = new Set((slugCheck || []).map((r: any) => r.slug));
+    let counter = 2;
+    while (taken.has(finalSlug)) {
+      finalSlug = `${slug}-${counter++}`;
+    }
+
+    const { data: created, error } = await supabase
+      .from("categories")
+      .insert({ name, slug: finalSlug, square_id: squareCategoryId })
+      .select("id")
+      .single();
+
+    if (error || !created) {
+      console.error(`[catalog-sync] Category upsert failed for ${squareCategoryId}:`, error?.message);
+      return null;
+    }
+    return created.id;
+  } catch (err) {
+    console.error(`[catalog-sync] Category retrieve failed for ${squareCategoryId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Replaces product_categories for a product with the resolved DB category IDs.
+ */
+async function syncProductCategories(productId: string, squareCategoryIds: string[]) {
+  const supabase = createServiceClient();
+  const dbCategoryIds: string[] = [];
+  for (const sqCatId of squareCategoryIds) {
+    const dbId = await upsertCategoryFromSquare(sqCatId);
+    if (dbId) dbCategoryIds.push(dbId);
+  }
+
+  // Replace associations atomically (delete + insert; join table has no generated columns)
+  await supabase.from("product_categories").delete().eq("product_id", productId);
+  if (dbCategoryIds.length > 0) {
+    const rows = dbCategoryIds.map((category_id) => ({ product_id: productId, category_id }));
+    await supabase.from("product_categories").insert(rows);
+  }
+}
+
+/**
  * Syncs a single Square catalog item (product) into Supabase.
  * Creates the product if it doesn't exist, updates it if it does.
- * Upserts all variations and their inventory.
+ * Upserts all variations and their inventory. Honours isDeleted by archiving.
  */
 async function syncCatalogItem(itemId: string) {
   const square = getSquareClient();
   const supabase = createServiceClient();
 
   // Fetch the catalog object from Square. Webhook changes can reference
-  // either ITEM or ITEM_VARIATION IDs.
+  // ITEM, ITEM_VARIATION, or CATEGORY IDs.
   const { result } = await square.catalogApi.retrieveCatalogObject(itemId, true);
   let item = result.object;
   let relatedObjects = result.relatedObjects || [];
+
+  // Category updates: keep the Supabase category row in step, then return.
+  if (item?.type === "CATEGORY") {
+    await upsertCategoryFromSquare(item.id);
+    return;
+  }
 
   if (item?.type === "ITEM_VARIATION") {
     const parentItemId = item.itemVariationData?.itemId;
@@ -77,6 +161,13 @@ async function syncCatalogItem(itemId: string) {
   }
 
   if (!item || item.type !== "ITEM" || !item.itemData) return;
+
+  // Honour soft-delete: if Square marks the object deleted via an update event,
+  // archive the product on our side rather than resurrecting it.
+  if (item.isDeleted) {
+    await archiveCatalogItem(item.id);
+    return;
+  }
 
   const itemData = item.itemData;
   const name = itemData.name || "Unnamed Product";
@@ -191,7 +282,44 @@ async function syncCatalogItem(itemId: string) {
       .eq("id", productId);
   }
 
-  console.log(`[catalog-sync] Synced: "${name}" (${variations.length} variation(s))`);
+  // Sync Square categories for this item. Square exposes both the legacy single
+  // `categoryId` and the newer `categories[]` list — merge and dedupe.
+  const squareCategoryIds = Array.from(
+    new Set(
+      [
+        ...(itemData.categoryId ? [itemData.categoryId] : []),
+        ...((itemData.categories || []).map((c: any) => c?.id).filter(Boolean) as string[]),
+      ]
+    )
+  );
+  if (squareCategoryIds.length > 0) {
+    await syncProductCategories(productId, squareCategoryIds).catch((err) =>
+      console.error(`[catalog-sync] Category sync failed for "${name}":`, err)
+    );
+  }
+
+  console.log(`[catalog-sync] Synced: "${name}" (${variations.length} variation(s), ${squareCategoryIds.length} category link(s))`);
+}
+
+/**
+ * Syncs inventory for a single Square ITEM_VARIATION token into Supabase.
+ * Called from inventory.count.updated webhook events so Square POS sales
+ * decrement the site's stock in near-real-time.
+ */
+async function syncInventoryForVariation(squareVariationToken: string, quantity: number) {
+  const supabase = createServiceClient();
+
+  const { data: variation } = await supabase
+    .from("product_variations")
+    .select("id")
+    .eq("square_token", squareVariationToken)
+    .maybeSingle();
+
+  if (!variation) return; // Variation not mapped yet; catalog sync will handle on next catalog event.
+
+  await supabase
+    .from("inventory")
+    .upsert({ variation_id: variation.id, quantity }, { onConflict: "variation_id" });
 }
 
 /**
@@ -268,10 +396,23 @@ export async function POST(request: NextRequest) {
     // ── Catalog item deleted ──
     if (eventType === "catalog.version.deleted") {
       const deletedIds: string[] = event.data?.object?.deleted_object_ids ?? [];
-      const supabase = createServiceClient();
       for (const id of deletedIds) {
         await archiveCatalogItem(id).catch((err) =>
           console.error(`[catalog-sync] Error archiving ${id}:`, err)
+        );
+      }
+    }
+
+    // ── Inventory changed (Square POS sale, manual adjustment, receive stock) ──
+    // Event shape: data.object.inventory_counts: [{ catalog_object_id, quantity, ... }]
+    if (eventType === "inventory.count.updated") {
+      const counts: any[] = event.data?.object?.inventory_counts ?? [];
+      for (const c of counts) {
+        const variationToken: string | undefined = c?.catalog_object_id;
+        const qty = parseInt(c?.quantity ?? "0", 10);
+        if (!variationToken || Number.isNaN(qty)) continue;
+        await syncInventoryForVariation(variationToken, qty).catch((err) =>
+          console.error(`[inventory-sync] Error syncing ${variationToken}:`, err)
         );
       }
     }

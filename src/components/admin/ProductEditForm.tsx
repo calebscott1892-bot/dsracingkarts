@@ -140,8 +140,30 @@ export function ProductEditForm({ product, allCategories }: Props) {
     );
   }
 
+  const isSquareSynced = Boolean(product.square_token);
+
   return (
     <div className="space-y-8">
+      {isSquareSynced && (
+        <div className="card p-4 border-l-4 border-l-amber-500 bg-amber-500/5">
+          <p className="text-amber-300 text-sm font-medium mb-1">
+            Square is the source of truth for this product
+          </p>
+          <p className="text-text-muted text-xs leading-relaxed">
+            Changes to <span className="text-white">name</span>, <span className="text-white">description</span>, <span className="text-white">variation price/SKU</span>, and <span className="text-white">stock quantity</span> will be overwritten the next time Square sends a catalog or inventory update. Edit those in the{" "}
+            <a
+              href={`https://squareup.com/dashboard/items/library/${product.square_token}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-amber-300 underline hover:text-amber-200"
+            >
+              Square Dashboard
+            </a>{" "}
+            or use <span className="text-white">Bulk Pricing</span> for global % price changes. Status, visibility, SEO, categories, images, and low-stock thresholds remain site-only and stick.
+          </p>
+        </div>
+      )}
+
       {/* Basic info */}
       <div className="card p-6 space-y-4">
         <h2 className="font-heading text-lg uppercase tracking-wider">Basic Information</h2>

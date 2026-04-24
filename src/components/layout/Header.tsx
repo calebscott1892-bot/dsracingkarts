@@ -33,10 +33,12 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     { href: "/", label: "Home" },
     { href: "/about", label: "About" },
     { href: "/shop", label: "Shop" },
-    { href: "/#reviews", label: "Customer Reviews" },
     { href: "/services", label: "Services" },
     { href: "/sponsors", label: "Sponsors" },
   ];
+  const leftNavLinks = navLinks.slice(0, 2);
+  const centerNavLink = navLinks[2];
+  const rightNavLinks = navLinks.slice(3);
 
   return (
     <>
@@ -82,6 +84,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
                 alt="DS Racing Karts"
                 width={80}
                 height={50}
+                sizes="(min-width: 768px) 80px, 64px"
                 className="h-10 md:h-12 w-auto object-contain"
                 priority
               />
@@ -111,20 +114,39 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
         {/* Desktop navigation — 5 links, Shop highlighted in centre */}
         <nav className="hidden md:block border-t border-gray-200">
           <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-center gap-0.5 h-11">
-              {navLinks.map((link) => (
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center h-11">
+              <div className="flex items-center justify-end gap-0.5 pr-3 lg:pr-5">
+                {leftNavLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative font-heading text-[11px] uppercase tracking-[0.12em] text-racing-black/70 hover:text-racing-red px-3 lg:px-5 py-2 transition-colors whitespace-nowrap"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+
+              <div className="flex justify-center">
                 <Link
-                  key={link.href}
-                  href={link.href}
-                  className={
-                    link.label === "Shop"
-                      ? "relative font-heading text-[11px] uppercase tracking-[0.12em] bg-racing-red text-white hover:bg-racing-red/90 px-6 py-1.5 transition-colors whitespace-nowrap"
-                      : "relative font-heading text-[11px] uppercase tracking-[0.12em] text-racing-black/70 hover:text-racing-red px-3 lg:px-5 py-2 transition-colors whitespace-nowrap"
-                  }
+                  href={centerNavLink.href}
+                  className="relative font-heading text-[11px] uppercase tracking-[0.12em] bg-racing-red text-white hover:bg-racing-red/90 px-6 py-1.5 transition-colors whitespace-nowrap"
                 >
-                  {link.label}
+                  {centerNavLink.label}
                 </Link>
-              ))}
+              </div>
+
+              <div className="flex items-center justify-start gap-0.5 pl-3 lg:pl-5">
+                {rightNavLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className="relative font-heading text-[11px] uppercase tracking-[0.12em] text-racing-black/70 hover:text-racing-red px-3 lg:px-5 py-2 transition-colors whitespace-nowrap"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </div>
           </div>
         </nav>

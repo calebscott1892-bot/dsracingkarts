@@ -319,12 +319,12 @@ export function Speedometer() {
           {STATS.map((stat, i) => (
             <div
               key={stat.label}
-              className={`stat-${i} text-center p-6 md:p-7 bg-racing-black/50 border border-surface-600/30`}
+              className={`stat-${i} text-center p-6 md:p-7 min-h-[170px] md:min-h-[190px] bg-racing-black/50 border border-surface-600/30 flex flex-col items-center justify-center`}
             >
-              <div className="font-digital text-4xl md:text-5xl font-bold text-racing-red mb-2">
+              <div className="font-digital text-4xl md:text-5xl font-bold leading-none text-racing-red mb-3">
                 {counters[i].toLocaleString()}{stat.suffix}
               </div>
-              <div className="font-heading text-xs uppercase tracking-[0.2em] text-text-muted">
+              <div className="font-heading text-xs uppercase tracking-[0.2em] text-text-muted max-w-[16ch] mx-auto leading-relaxed">
                 {stat.label}
               </div>
             </div>

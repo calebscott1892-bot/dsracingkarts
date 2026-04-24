@@ -205,7 +205,7 @@ export function ChassisListingsManager({ initialListings }: Props) {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-heading text-3xl uppercase tracking-wider">Chassis Listings</h1>
-          <p className="text-text-muted text-sm mt-1">DSR Predator buy &amp; sell board</p>
+          <p className="text-text-muted text-sm mt-1">Website submissions from "I want to Buy" and "I want to Sell" appear here.</p>
         </div>
         <div className="flex items-center gap-3">
           {counts.pending > 0 && (
