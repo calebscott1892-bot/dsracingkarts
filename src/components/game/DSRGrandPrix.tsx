@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { GameCanvas } from "./GameCanvas";
 import { GameMenu } from "./GameMenu";
 import { TrackSelect } from "./TrackSelect";
 import { GameHUD } from "./GameHUD";
 import { GameOver } from "./GameOver";
+import { ArcadeControls } from "./ArcadeControls";
+import { OrientationHint } from "./OrientationHint";
 import { createInitialState, type GameState, type AIDifficulty } from "./engine/state";
 import { X } from "lucide-react";
 
@@ -45,6 +47,7 @@ export function DSRGrandPrix({ onExit }: Props) {
       trackIndex: prev.trackIndex,
       totalLaps: prev.totalLaps,
       isMultiplayer: prev.isMultiplayer,
+      aiDifficulty: prev.aiDifficulty,
       phase: "countdown",
       countdownStartTime: 0,
     }));
@@ -62,24 +65,72 @@ export function DSRGrandPrix({ onExit }: Props) {
     onExit();
   }
 
+  // ── Pause ── Pausing freezes physics; the game loop in GameCanvas honours
+  // state.paused. We shift currentLapStart / raceStartTime on resume so on-screen
+  // timers don't inflate by the paused duration.
+  const togglePause = useCallback(() => {
+    setState(prev => {
+      if (prev.phase !== "racing") return prev;
+      const now = Date.now();
+      if (!prev.paused) {
+        return { ...prev, paused: true, pauseStartedAt: now };
+      }
+      // Resume — shift timestamps forward by the paused interval.
+      const pausedFor = now - prev.pauseStartedAt;
+      const car1 = { ...prev.car1, currentLapStart: prev.car1.currentLapStart > 0 ? prev.car1.currentLapStart + pausedFor : prev.car1.currentLapStart };
+      const car2 = { ...prev.car2, currentLapStart: prev.car2.currentLapStart > 0 ? prev.car2.currentLapStart + pausedFor : prev.car2.currentLapStart };
+      return {
+        ...prev,
+        paused: false,
+        pauseStartedAt: 0,
+        totalPausedMs: prev.totalPausedMs + pausedFor,
+        raceStartTime: prev.raceStartTime + pausedFor,
+        car1,
+        car2,
+      };
+    });
+  }, []);
+
+  // Esc to pause on desktop
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.code === "Escape" && state.phase === "racing") {
+        togglePause();
+        e.preventDefault();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [state.phase, togglePause]);
+
   // During menu/track-select the container needs height for the overlay content.
   // During racing/countdown/game-over it must match the canvas exactly so HUD lands correctly.
   const needsMinHeight = state.phase === "menu" || state.phase === "track_select";
   const isPlaying = state.phase === "countdown" || state.phase === "racing";
+  const isRacing = state.phase === "racing";
 
   return (
-    // Outer wrapper: not aspect-ratio constrained — allows mobile controls below canvas
-    <div style={{ maxWidth: "1200px", margin: "0 auto" }}>
-      {/* Canvas container — maintains aspect ratio */}
+    // Outer wrapper:  flex column so canvas + controls stack on mobile.
+    // On landscape phones we cap the canvas height so the whole thing fits in viewport.
+    <div
+      className="mx-auto flex flex-col"
+      style={{ maxWidth: "1200px" }}
+    >
+      {/* Canvas container — maintains aspect ratio, capped to fit viewport on mobile */}
       <div
-        className={`relative w-full bg-black touch-none${needsMinHeight ? " min-h-[500px] md:min-h-0" : ""}`}
-        style={{ aspectRatio: "12/7" }}
+        className={`relative w-full bg-black touch-none mx-auto${needsMinHeight ? " min-h-[500px] md:min-h-0" : ""}`}
+        style={{
+          aspectRatio: "12/7",
+          // On mobile, leave ~120px for the controller below; on desktop no cap.
+          maxHeight: isPlaying ? "calc(100dvh - 120px)" : undefined,
+        }}
       >
         {/* Exit button */}
         <button
           onClick={onExit}
           className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center
                      bg-black/60 text-text-muted hover:text-white transition-colors"
+          aria-label="Exit game"
         >
           <X size={16} />
         </button>
@@ -98,7 +149,7 @@ export function DSRGrandPrix({ onExit }: Props) {
           <TrackSelect onSelect={handleTrackSelect} showDifficulty={!state.isMultiplayer} />
         )}
 
-        {/* HUD: hidden on mobile (shown in the strip below instead) */}
+        {/* HUD: hidden on mobile (mobile gets a compact top banner instead) */}
         {isPlaying && (
           <div className="hidden md:block">
             <GameHUD state={state} />
@@ -114,60 +165,77 @@ export function DSRGrandPrix({ onExit }: Props) {
           />
         )}
 
-        {/* Leader banner — visible on mobile inside canvas (compact, top-centre) */}
+        {/* Mobile compact top banner */}
         {isPlaying && (
           <div className="md:hidden absolute top-1 left-0 right-0 flex justify-center pointer-events-none z-20">
             <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
               LAP {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)} / {state.totalLaps}
+              {" · "}
+              <span className="text-white">{Math.round((state.car1.speed / 6) * 110)}km/h</span>
             </span>
           </div>
         )}
+
+        {/* Pause overlay (covers canvas, both desktop & mobile) */}
+        {state.paused && isRacing && (
+          <PauseOverlay onResume={togglePause} onQuit={handleQuit} onNewTrack={handleNewTrack} />
+        )}
+
+        {/* Orientation hint (mobile portrait only — soft, dismissable) */}
+        {isPlaying && <OrientationHint />}
       </div>
 
-      {/* Mobile-only strip below canvas: GAS | stats | BRAKE */}
+      {/* Mobile-only arcade controller below the canvas */}
       {isPlaying && (
-        <div
-          className="md:hidden flex items-stretch bg-black border-t border-surface-700 touch-none"
-          onContextMenu={(e) => e.preventDefault()}
-        >
-          {/* GAS */}
+        <ArcadeControls
+          paused={state.paused}
+          canPause={isRacing}
+          onPauseToggle={togglePause}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Pause overlay ─────────────────────────────────────────────────────────
+function PauseOverlay({
+  onResume,
+  onQuit,
+  onNewTrack,
+}: {
+  onResume: () => void;
+  onQuit: () => void;
+  onNewTrack: () => void;
+}) {
+  return (
+    <div className="absolute inset-0 z-40 bg-black/75 backdrop-blur-sm flex items-center justify-center px-4">
+      <div className="bg-surface-900/95 border border-racing-gold/40 px-6 py-5 md:px-10 md:py-8 max-w-sm w-full text-center shadow-[0_0_40px_rgba(212,175,55,0.25)]">
+        <div className="font-digital text-[10px] tracking-[0.4em] text-racing-gold mb-2">— PIT LANE —</div>
+        <h3 className="font-digital text-2xl md:text-3xl tracking-[0.2em] text-white mb-6">
+          PAUSED
+        </h3>
+        <div className="flex flex-col gap-2.5">
           <button
-            className="flex-1 py-4 bg-green-900/40 border-r border-surface-700 active:bg-green-600/60
-                       flex flex-col items-center justify-center gap-1 select-none touch-none"
-            onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' })); }}
-            onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); }}
-            onTouchCancel={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyW' })); }}
-            onContextMenu={(e) => e.preventDefault()}
+            onClick={onResume}
+            className="font-digital text-sm tracking-[0.18em] px-6 py-3 bg-racing-red text-white border border-racing-red hover:bg-racing-red/80 transition-colors"
           >
-            <span className="font-digital text-green-400 text-lg leading-none">▲</span>
-            <span className="font-digital text-[10px] text-green-300 tracking-widest">GAS</span>
+            RESUME
           </button>
-
-          {/* Centre: P1 mini stats */}
-          <div className="flex-[2] px-3 py-2 flex flex-col items-center justify-center gap-0.5 pointer-events-none">
-            <span className="font-digital text-[9px] text-text-muted tracking-wider uppercase">P1 · RED</span>
-            <span className="font-digital text-xs text-white tabular-nums">
-              {Math.round((state.car1.speed / 6) * 110)} km/h
-            </span>
-            <span className="font-digital text-[9px] text-text-muted tabular-nums">
-              Lap {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)}/{state.totalLaps}
-            </span>
-          </div>
-
-          {/* BRAKE */}
           <button
-            className="flex-1 py-4 bg-red-900/40 border-l border-surface-700 active:bg-red-600/60
-                       flex flex-col items-center justify-center gap-1 select-none touch-none"
-            onTouchStart={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyS' })); }}
-            onTouchEnd={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyS' })); }}
-            onTouchCancel={(e) => { e.preventDefault(); window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyS' })); }}
-            onContextMenu={(e) => e.preventDefault()}
+            onClick={onNewTrack}
+            className="font-digital text-xs tracking-[0.18em] px-6 py-2.5 bg-surface-800 text-text-secondary border border-surface-600 hover:text-white hover:border-white/40 transition-colors"
           >
-            <span className="font-digital text-red-400 text-lg leading-none">▼</span>
-            <span className="font-digital text-[10px] text-red-300 tracking-widest">BRAKE</span>
+            NEW TRACK
+          </button>
+          <button
+            onClick={onQuit}
+            className="font-digital text-xs tracking-[0.18em] px-6 py-2.5 bg-surface-800 text-text-secondary border border-surface-600 hover:text-white hover:border-white/40 transition-colors"
+          >
+            QUIT
           </button>
         </div>
-      )}
+        <p className="font-digital text-[9px] tracking-[0.3em] text-text-muted mt-5">ESC TO RESUME</p>
+      </div>
     </div>
   );
 }

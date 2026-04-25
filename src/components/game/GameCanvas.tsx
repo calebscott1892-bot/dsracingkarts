@@ -4,10 +4,10 @@ import { useEffect, useRef, useCallback } from "react";
 import type { GameState } from "./engine/state";
 import { createCarState } from "./engine/state";
 import { TRACKS } from "./engine/track";
-import { updateCar, updateAI } from "./engine/physics";
+import { updateCar, updateAI, tickLapProgress } from "./engine/physics";
 import { renderFrame, renderCountdownLights, renderText, clearSkidMarks } from "./engine/renderer";
 import { createInputHandler } from "./engine/input";
-import { CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS, COUNTDOWN_LIGHT_INTERVAL, COUNTDOWN_RANDOM_DELAY_MIN, COUNTDOWN_RANDOM_DELAY_MAX } from "./engine/constants";
+import { CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS, COUNTDOWN_LIGHT_INTERVAL, COUNTDOWN_RANDOM_DELAY_MIN, COUNTDOWN_RANDOM_DELAY_MAX, DIFFICULTY_PROFILES } from "./engine/constants";
 
 interface Props {
   state: GameState;
@@ -37,11 +37,13 @@ export function GameCanvas({ state, onStateChange }: Props) {
 
     const car1 = createCarState(p.x, p.y, angle);
     car1.trackPosition = startIdx / n;
+    car1.prevTrackPosition = startIdx / n;
     car1.laneOffset = -14;
     car1.maxSpeed = CAR_DEFAULTS.maxSpeed;
 
     const car2 = createCarState(p.x, p.y, angle);
     car2.trackPosition = startIdx / n;
+    car2.prevTrackPosition = startIdx / n;
     car2.laneOffset = 14;
     car2.maxSpeed = CAR_DEFAULTS.maxSpeed;
 
@@ -112,11 +114,12 @@ export function GameCanvas({ state, onStateChange }: Props) {
       const now = Date.now();
       frameRef.current++;
 
-      if (s.phase === "racing") {
+      if (s.phase === "racing" && !s.paused) {
         const dt = 1; // fixed timestep
 
-        // Update player 1
-        updateCar(s.car1, input.p1Accelerate, input.p1Brake, track, dt, now);
+        // Player 1 (always human) — apply difficulty profile only in single-player.
+        const p1Profile = s.isMultiplayer ? undefined : DIFFICULTY_PROFILES[s.aiDifficulty];
+        updateCar(s.car1, input.p1Accelerate, input.p1Brake, track, dt, now, p1Profile);
 
         // Update player 2 (AI or human)
         if (s.isMultiplayer) {
@@ -125,7 +128,11 @@ export function GameCanvas({ state, onStateChange }: Props) {
           updateAI(s.car2, track, dt, now, frameRef.current, s.aiDifficulty);
         }
 
-        // Check win condition
+        // Monotonic lap progress — robust against missed checkpoints.
+        tickLapProgress(s.car1, now, s.totalLaps);
+        tickLapProgress(s.car2, now, s.totalLaps);
+
+        // Check win condition (effective laps = laps minus false-start penalty).
         const effectiveLaps1 = s.car1.lapCount - s.car1.penaltyLaps;
         const effectiveLaps2 = s.car2.lapCount - s.car2.penaltyLaps;
 
@@ -198,18 +205,24 @@ export function GameCanvas({ state, onStateChange }: Props) {
         ctx!.globalAlpha = 1;
       }
 
-      // Spin-out warning text
+      // Spin-out / off-track / drift warning text
       if (s.phase === "racing") {
-        if (s.car1.spinning) {
+        // Off track (respawn) — strongest warning, supersedes spin/drift text.
+        if (s.car1.respawn) {
+          const msg = s.car1.respawn.phase === "flying" ? "OFF TRACK!" : "RESPAWNING…";
+          renderText(ctx!, msg, s.car1.x, s.car1.y - 30, 12, "#ff8844");
+        } else if (s.car1.spinning) {
           renderText(ctx!, "SPIN OUT!", s.car1.x, s.car1.y - 30, 12, "#ff4444");
-        }
-        if (s.car2.spinning) {
-          renderText(ctx!, "SPIN OUT!", s.car2.x, s.car2.y - 30, 12, "#4444ff");
-        }
-        if (s.car1.drifting && !s.car1.spinning) {
+        } else if (s.car1.drifting) {
           renderText(ctx!, "SLOW DOWN!", s.car1.x, s.car1.y - 25, 10, "#ffaa00");
         }
-        if (s.car2.drifting && !s.car2.spinning) {
+
+        if (s.car2.respawn) {
+          const msg = s.car2.respawn.phase === "flying" ? "OFF TRACK!" : "RESPAWNING…";
+          renderText(ctx!, msg, s.car2.x, s.car2.y - 30, 12, "#88aaff");
+        } else if (s.car2.spinning) {
+          renderText(ctx!, "SPIN OUT!", s.car2.x, s.car2.y - 30, 12, "#4444ff");
+        } else if (s.car2.drifting) {
           renderText(ctx!, "SLOW DOWN!", s.car2.x, s.car2.y - 25, 10, "#ffaa00");
         }
       }

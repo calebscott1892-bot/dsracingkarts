@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from "react";
 import { TRACKS } from "./engine/track";
 import type { AIDifficulty } from "./engine/state";
+import { DIFFICULTY_PROFILES } from "./engine/constants";
 
 interface Props {
   onSelect: (trackIndex: number, laps: number, difficulty?: AIDifficulty) => void;
@@ -125,11 +126,13 @@ function TrackThumbnail({ trackIndex, selected, hovered }: { trackIndex: number;
 
 const TRACK_DIFFICULTIES = ["Easy", "Medium", "Hard", "Expert"];
 
-const DIFFICULTY_OPTIONS: { key: AIDifficulty; label: string; desc: string; color: string }[] = [
-  { key: "easy", label: "EASY", desc: "Relaxed pace, forgiving", color: "#4ade80" },
-  { key: "medium", label: "MEDIUM", desc: "Balanced challenge", color: "#d4af37" },
-  { key: "hard", label: "HARD", desc: "Fast & aggressive", color: "#f97316" },
-  { key: "extreme", label: "EXTREME", desc: "Near-perfect racing line", color: "#e60012" },
+// Difficulty cards now read from the central profile so flavour text and
+// realistic-conditions description stay consistent with the engine.
+const DIFFICULTY_OPTIONS: { key: AIDifficulty; color: string }[] = [
+  { key: "easy", color: "#4ade80" },
+  { key: "medium", color: "#d4af37" },
+  { key: "hard", color: "#f97316" },
+  { key: "extreme", color: "#e60012" },
 ];
 
 export function TrackSelect({ onSelect, showDifficulty }: Props) {
@@ -246,30 +249,49 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
           </div>
         </div>
 
-        {/* CPU Difficulty selector (single player only) */}
+        {/* CPU Difficulty selector (single player only) — realistic-conditions cards */}
         {showDifficulty && (
-          <div className="mb-5 md:mb-8 flex items-center justify-center gap-3 md:gap-4 flex-wrap">
-            <span className="font-digital text-xs text-text-muted tracking-wider">CPU:</span>
-            <div className="flex gap-1">
-              {DIFFICULTY_OPTIONS.map((d) => (
-                <button
-                  key={d.key}
-                  onClick={() => setDifficulty(d.key)}
-                  className={`font-digital text-[11px] px-4 py-2.5 transition-all border ${
-                    difficulty === d.key
-                      ? "text-white border-current"
-                      : "bg-surface-800 text-text-muted border-surface-600 hover:text-white hover:border-surface-400"
-                  }`}
-                  style={difficulty === d.key ? {
-                    backgroundColor: d.color + "22",
-                    borderColor: d.color,
-                    color: d.color,
-                    boxShadow: `0 0 12px ${d.color}44`,
-                  } : undefined}
-                >
-                  {d.label}
-                </button>
-              ))}
+          <div className="mb-5 md:mb-8 flex flex-col items-center gap-2">
+            <span className="font-digital text-[10px] text-text-muted tracking-[0.3em]">CONDITIONS</span>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 w-full max-w-3xl px-1">
+              {DIFFICULTY_OPTIONS.map((d) => {
+                const profile = DIFFICULTY_PROFILES[d.key];
+                const selected = difficulty === d.key;
+                return (
+                  <button
+                    key={d.key}
+                    onClick={() => setDifficulty(d.key)}
+                    className={`group relative font-digital text-left px-3 py-2 transition-all border ${
+                      selected
+                        ? "text-white"
+                        : "bg-surface-800/70 text-text-muted border-surface-600 hover:text-white hover:border-surface-400"
+                    }`}
+                    style={selected ? {
+                      backgroundColor: d.color + "22",
+                      borderColor: d.color,
+                      boxShadow: `0 0 14px ${d.color}55`,
+                    } : undefined}
+                  >
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span
+                        className="text-[12px] tracking-[0.2em] font-bold"
+                        style={selected ? { color: d.color } : undefined}
+                      >
+                        {profile.label}
+                      </span>
+                    </div>
+                    <div
+                      className="text-[8.5px] tracking-[0.18em] mt-0.5"
+                      style={{ color: selected ? d.color : "#7a8088" }}
+                    >
+                      {profile.flavour}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="font-digital text-[10px] md:text-[11px] text-text-secondary text-center mt-1 max-w-md px-2 leading-relaxed">
+              {DIFFICULTY_PROFILES[difficulty].description}
             </div>
           </div>
         )}

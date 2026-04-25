@@ -1,4 +1,4 @@
-import { CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS } from "./constants";
+import { CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS, TRACK_CHECKPOINT_COUNT } from "./constants";
 
 export interface Point {
   x: number;
@@ -8,7 +8,8 @@ export interface Point {
 export interface TrackData {
   name: string;
   racingLine: Point[];
-  curvature: number[];
+  curvature: number[];        // unsigned 0–1 (used by AI braking & speed cap)
+  signedCurvature: number[];  // signed: positive = left turn, negative = right (for overshoot direction)
   maxSafeSpeed: number[];
   trackWidth: number;
   checkpointIndices: number[];
@@ -29,7 +30,7 @@ function ellipse(cx: number, cy: number, rx: number, ry: number, numPoints: numb
   return points;
 }
 
-// Compute curvature at each point (0 = straight, 1 = hairpin)
+// Compute curvature at each point (0 = straight, 1 = hairpin) — unsigned.
 function computeCurvature(points: Point[]): number[] {
   const n = points.length;
   const curvatures: number[] = [];
@@ -63,6 +64,44 @@ function computeCurvature(points: Point[]): number[] {
     smoothed.push(sum / count);
   }
 
+  return smoothed;
+}
+
+// Signed curvature: positive = turning one way, negative = the other.
+// Used for "fly-off direction": centrifugal force pushes the car
+// to the OUTSIDE of the curve.
+function computeSignedCurvature(points: Point[]): number[] {
+  const n = points.length;
+  const raw: number[] = [];
+
+  for (let i = 0; i < n; i++) {
+    const prev = points[(i - 1 + n) % n];
+    const curr = points[i];
+    const next = points[(i + 1) % n];
+
+    const dx1 = curr.x - prev.x;
+    const dy1 = curr.y - prev.y;
+    const dx2 = next.x - curr.x;
+    const dy2 = next.y - curr.y;
+
+    const cross = dx1 * dy2 - dy1 * dx2; // signed
+    const dist = Math.sqrt(dx1 * dx1 + dy1 * dy1) * Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+    raw.push(dist > 0 ? Math.max(-1, Math.min(1, cross / dist)) : 0);
+  }
+
+  // Smooth so direction is stable around tight corners
+  const smoothed: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const window = 3;
+    let sum = 0;
+    let count = 0;
+    for (let j = -window; j <= window; j++) {
+      sum += raw[(i + j + n) % n];
+      count++;
+    }
+    smoothed.push(sum / count);
+  }
   return smoothed;
 }
 
@@ -146,23 +185,26 @@ function findBestStartIndex(points: Point[], curvature: number[]): number {
 function buildTrack(name: string, controlPoints: Point[], width: number, baseMax: number): TrackData {
   const racingLine = catmullRom(controlPoints, 12);
   const curvature = computeCurvature(racingLine);
+  const signedCurvature = computeSignedCurvature(racingLine);
   const maxSafeSpeed = curvatureToMaxSpeed(curvature, baseMax);
   const trackLength = computeTrackLength(racingLine);
 
   const startIndex = findBestStartIndex(racingLine, curvature);
 
-  // Place checkpoints at ~25%, 50%, 75% around the track (offset from start)
+  // Densified checkpoints — TRACK_CHECKPOINT_COUNT evenly spaced from start.
+  // Used purely for "respawn placement", so that flying off the track only
+  // costs you a small chunk of progress (≈ 1/12th of the lap).
   const n = racingLine.length;
-  const checkpointIndices = [
-    (startIndex + Math.floor(n * 0.25)) % n,
-    (startIndex + Math.floor(n * 0.5)) % n,
-    (startIndex + Math.floor(n * 0.75)) % n,
-  ];
+  const checkpointIndices: number[] = [];
+  for (let i = 0; i < TRACK_CHECKPOINT_COUNT; i++) {
+    checkpointIndices.push((startIndex + Math.floor((n * i) / TRACK_CHECKPOINT_COUNT)) % n);
+  }
 
   return {
     name,
     racingLine,
     curvature,
+    signedCurvature,
     maxSafeSpeed,
     trackWidth: width,
     checkpointIndices,

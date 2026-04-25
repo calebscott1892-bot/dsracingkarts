@@ -1,9 +1,18 @@
 import type { CarState, GameState } from "./state";
 import type { TrackData, Point } from "./track";
 import { COLORS, CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS } from "./constants";
+import {
+  updateAmbient,
+  drawAmbientGround,
+  drawAmbientAir,
+  clearAmbient as clearAmbientCritters,
+} from "./ambient";
 
 // Persistent skid marks
 const skidMarks: { x: number; y: number; age: number; alpha: number }[] = [];
+
+// Frame counter purely for ambient pacing
+let ambientFrameCounter = 0;
 
 export function renderFrame(
   ctx: CanvasRenderingContext2D,
@@ -31,14 +40,22 @@ export function renderFrame(
   // ── Track ──
   drawTrack(ctx, track);
 
+  // ── Ambient critters (ground layer: dust, butterflies) ──
+  ambientFrameCounter++;
+  updateAmbient(Date.now(), ambientFrameCounter);
+  drawAmbientGround(ctx);
+
   // ── Skid marks (persistent) ──
   drawSkidMarks(ctx);
 
-  // Add new skid marks from spinning cars
-  if (state.car1.spinning) addSkidMark(state.car1);
-  if (state.car2.spinning) addSkidMark(state.car2);
-  if (state.car1.drifting) addSkidMark(state.car1, 0.3);
-  if (state.car2.drifting) addSkidMark(state.car2, 0.3);
+  // Add new skid marks from spinning cars (suppressed during respawn animation).
+  if (state.car1.spinning && !state.car1.respawn) addSkidMark(state.car1);
+  if (state.car2.spinning && !state.car2.respawn) addSkidMark(state.car2);
+  if (state.car1.drifting && !state.car1.respawn) addSkidMark(state.car1, 0.3);
+  if (state.car2.drifting && !state.car2.respawn) addSkidMark(state.car2, 0.3);
+  // Brake scuff streaks — short black asphalt marks behind the rear wheels.
+  if (state.car1.inputBrake && state.car1.speed > 2 && !state.car1.respawn) addBrakeScuff(state.car1);
+  if (state.car2.inputBrake && state.car2.speed > 2 && !state.car2.respawn) addBrakeScuff(state.car2);
 
   // ── Cars (draw car behind first) ──
   const car1Ahead = state.car1.trackPosition > state.car2.trackPosition;
@@ -48,6 +65,42 @@ export function renderFrame(
   } else {
     drawCar(ctx, state.car1, COLORS.player1, "1");
     drawCar(ctx, state.car2, COLORS.player2, "2");
+  }
+
+  // ── Respawn checkpoint glow (drawn over track, behind cars in flying state) ──
+  // Already drawn cars; draw an overlay halo over reviving/placing cars on top.
+  drawRespawnHaloIfNeeded(ctx, state.car1, COLORS.player1);
+  drawRespawnHaloIfNeeded(ctx, state.car2, COLORS.player2);
+
+  // ── Ambient critters (air layer: birds) ──
+  drawAmbientAir(ctx);
+}
+
+function drawRespawnHaloIfNeeded(
+  ctx: CanvasRenderingContext2D,
+  car: CarState,
+  color: string,
+): void {
+  if (!car.respawn) return;
+  const r = car.respawn;
+
+  if (r.phase === "placing" || r.phase === "reviving") {
+    // Soft pulsing ring at the checkpoint to telegraph "respawning here".
+    const t = Date.now() * 0.008;
+    const pulse = (Math.sin(t) + 1) / 2;
+    ctx.save();
+    ctx.translate(car.x, car.y);
+    ctx.globalAlpha = 0.35 + 0.25 * pulse;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, 18 + pulse * 6, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 0.2 + 0.15 * pulse;
+    ctx.beginPath();
+    ctx.arc(0, 0, 26 + pulse * 8, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
   }
 }
 
@@ -300,19 +353,74 @@ function drawCar(
   color: string,
   label: string,
 ): void {
+  // ── Respawn render modes ──
+  let respawnAlpha = 1;
+  let respawnFlash = false;
+  let respawnTumble = false;
+  if (car.respawn) {
+    if (car.respawn.phase === "flying") {
+      respawnTumble = true;
+    } else if (car.respawn.phase === "placing") {
+      // Carrying back — render very faded.
+      respawnAlpha = 0.15 + 0.1 * Math.abs(Math.sin(Date.now() * 0.025));
+    } else if (car.respawn.phase === "reviving") {
+      // Strobe between visible and bright-white "reviving" flash.
+      respawnFlash = Math.floor(Date.now() / 110) % 2 === 0;
+      respawnAlpha = respawnFlash ? 1 : 0.45;
+    }
+  }
+
   ctx.save();
-  ctx.translate(car.x, car.y);
+  // Subtle vertical bob at speed — gives the kart a slight "rumble" feel.
+  const bob = (car.speed > 1.2 && !car.respawn && !car.spinning)
+    ? Math.sin(Date.now() * 0.022 + car.x * 0.012) * (Math.min(1, car.speed / 4) * 0.9)
+    : 0;
+  ctx.translate(car.x, car.y + bob);
   ctx.rotate(car.angle);
+  ctx.globalAlpha = respawnAlpha;
 
   const isDark = color === COLORS.player2;
 
   // ── Shadow ──
-  ctx.globalAlpha = 0.3;
+  ctx.globalAlpha = 0.3 * respawnAlpha;
   ctx.fillStyle = "#000";
   ctx.beginPath();
   ctx.ellipse(2, 2, 14, 9, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = respawnAlpha;
+
+  // ── Headlights — soft yellow forward cone whenever moving forward ──
+  // Drawn before the body so it projects onto the asphalt (under the car nose).
+  if (car.speed > 0.3 && !car.spinning && !car.respawn) {
+    const intensity = Math.min(1, car.speed / 3);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    const grad = ctx.createLinearGradient(18, 0, 60, 0);
+    grad.addColorStop(0, `rgba(255,245,192,${0.42 * intensity * respawnAlpha})`);
+    grad.addColorStop(0.55, `rgba(255,238,170,${0.18 * intensity * respawnAlpha})`);
+    grad.addColorStop(1, "rgba(255,245,192,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(18, -3);
+    ctx.lineTo(52, -14);
+    ctx.lineTo(60, 0);
+    ctx.lineTo(52, 14);
+    ctx.lineTo(18, 3);
+    ctx.closePath();
+    ctx.fill();
+    // Two bright bulbs at the nose corners
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 0.85 * intensity * respawnAlpha;
+    ctx.fillStyle = "#fff5c0";
+    ctx.beginPath();
+    ctx.arc(16, -4, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(16, 4, 1.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.globalAlpha = respawnAlpha;
+  }
 
   // ── Rear wing ──
   ctx.fillStyle = color;
@@ -405,8 +513,8 @@ function drawCar(
   ctx.fillText(label, -6, 0.5);
 
   // ── Exhaust / smoke particles ──
-  if (car.drifting || car.spinning) {
-    ctx.globalAlpha = 0.4;
+  if ((car.drifting || car.spinning) && !car.respawn) {
+    ctx.globalAlpha = 0.4 * respawnAlpha;
     for (let i = 0; i < 5; i++) {
       const ox = -20 - Math.random() * 15;
       const oy = (Math.random() - 0.5) * 14;
@@ -416,12 +524,12 @@ function drawCar(
       ctx.arc(ox, oy, size, 0, Math.PI * 2);
       ctx.fill();
     }
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = respawnAlpha;
   }
 
   // ── Speed exhaust when accelerating fast ──
-  if (car.speed > car.maxSpeed * 0.7 && !car.spinning) {
-    ctx.globalAlpha = 0.15;
+  if (car.speed > car.maxSpeed * 0.7 && !car.spinning && !car.respawn) {
+    ctx.globalAlpha = 0.15 * respawnAlpha;
     ctx.fillStyle = "#aaa";
     for (let i = 0; i < 2; i++) {
       const ox = -18 - Math.random() * 8;
@@ -430,9 +538,59 @@ function drawCar(
       ctx.arc(ox, oy, 1.5 + Math.random() * 2, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = respawnAlpha;
+  }
+
+  // ── Respawn fly-off tumble: dust & debris ──
+  if (respawnTumble) {
+    ctx.globalAlpha = 0.7;
+    for (let i = 0; i < 8; i++) {
+      const ox = -10 + Math.random() * 20;
+      const oy = -8 + Math.random() * 16;
+      const size = 1 + Math.random() * 3;
+      ctx.fillStyle = i % 3 === 0 ? "#c4a862" : "#d6c489";
+      ctx.beginPath();
+      ctx.arc(ox, oy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.globalAlpha = 1;
   }
 
+  // ── Brake lights — two glowing red dots at the rear ──
+  if (car.inputBrake && !car.spinning && !car.respawn) {
+    ctx.save();
+    ctx.globalAlpha = respawnAlpha;
+    ctx.shadowColor = "#ff2a00";
+    ctx.shadowBlur = 9;
+    ctx.fillStyle = "#ff3a14";
+    ctx.beginPath();
+    ctx.arc(-14, -7, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-14, 7, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // Inner bright core
+    ctx.fillStyle = "#ffd0a0";
+    ctx.beginPath();
+    ctx.arc(-14, -7, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(-14, 7, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // ── Reviving flash: bright white wash over the whole car ──
+  if (respawnFlash) {
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 22, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
@@ -444,6 +602,22 @@ function addSkidMark(car: CarState, baseAlpha: number = 0.6): void {
     alpha: baseAlpha,
   });
   // Cap total skid marks
+  if (skidMarks.length > 300) {
+    skidMarks.splice(0, 50);
+  }
+}
+
+// Add two black scuff dots behind the car's rear wheels — visible as a
+// short pair of streaks while braking under speed.
+function addBrakeScuff(car: CarState): void {
+  const cos = Math.cos(car.angle);
+  const sin = Math.sin(car.angle);
+  // Rear-wheel offsets in local space (approx): x ≈ -13, y ≈ ±10
+  for (const lateral of [-10, 10]) {
+    const wx = car.x + cos * -13 - sin * lateral;
+    const wy = car.y + sin * -13 + cos * lateral;
+    skidMarks.push({ x: wx, y: wy, age: 0, alpha: 0.28 });
+  }
   if (skidMarks.length > 300) {
     skidMarks.splice(0, 50);
   }
@@ -549,4 +723,5 @@ export function renderText(
 
 export function clearSkidMarks(): void {
   skidMarks.length = 0;
+  clearAmbientCritters();
 }
