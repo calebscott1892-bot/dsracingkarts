@@ -3,22 +3,31 @@
 import { useState } from "react";
 import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
 
+type ImportResponse = {
+  imported?: number;
+  skipped?: number;
+  errorCount?: number;
+  sampleErrors?: { email?: string; message: string }[];
+  error?: string;
+};
+
 export function ImportSquareCustomersButton() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ imported?: number; skipped?: number; error?: string } | null>(null);
+  const [result, setResult] = useState<ImportResponse | null>(null);
 
   async function handleImport() {
-    if (!confirm("This will import all customers from Square into the admin panel. Existing customers will be updated. Continue?")) return;
+    if (
+      !confirm(
+        "This will import all customers from Square into the admin panel. Existing customers will be updated. Continue?"
+      )
+    )
+      return;
     setLoading(true);
     setResult(null);
     try {
       const res = await fetch("/api/admin/customers/import-square", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        setResult({ imported: data.imported, skipped: data.skipped });
-      } else {
-        setResult({ error: data.error || "Import failed" });
-      }
+      const data: ImportResponse = await res.json();
+      setResult(res.ok ? data : { ...data, error: data.error || "Import failed" });
     } catch {
       setResult({ error: "Network error — please try again" });
     }
@@ -35,17 +44,39 @@ export function ImportSquareCustomersButton() {
         <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
         {loading ? "Importing…" : "Import from Square"}
       </button>
+
       {result && !result.error && (
-        <p className="flex items-center gap-1.5 text-xs text-green-400">
-          <CheckCircle size={12} />
-          {result.imported} imported, {result.skipped} skipped (no email)
-        </p>
+        <div className="text-right space-y-0.5">
+          <p className="flex items-center gap-1.5 text-xs text-green-400 justify-end">
+            <CheckCircle size={12} />
+            {result.imported} imported
+            {result.skipped ? `, ${result.skipped} skipped (no email)` : ""}
+            {result.errorCount ? `, ${result.errorCount} errors` : ""}
+          </p>
+          {result.sampleErrors && result.sampleErrors.length > 0 && (
+            <ul className="text-[10px] text-text-muted text-right max-w-sm">
+              {result.sampleErrors.map((e, i) => (
+                <li key={i} className="truncate">
+                  · {e.email ? `${e.email} — ` : ""}{e.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       )}
+
       {result?.error && (
-        <p className="flex items-center gap-1.5 text-xs text-red-400">
-          <AlertCircle size={12} />
-          {result.error}
-        </p>
+        <div className="text-right space-y-0.5">
+          <p className="flex items-center gap-1.5 text-xs text-red-400 justify-end">
+            <AlertCircle size={12} />
+            <span className="max-w-md truncate" title={result.error}>{result.error}</span>
+          </p>
+          {(typeof result.imported === "number" || typeof result.skipped === "number") && (
+            <p className="text-[10px] text-text-muted">
+              Partial: {result.imported ?? 0} imported, {result.skipped ?? 0} skipped before failure
+            </p>
+          )}
+        </div>
       )}
     </div>
   );

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { SquareSyncHealth } from "@/components/admin/SquareSyncHealth";
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
@@ -49,6 +50,11 @@ export default async function AdminDashboard() {
             <p className={`font-heading text-4xl ${stat.color}`}>{stat.value}</p>
           </div>
         ))}
+      </div>
+
+      {/* Square Sync Health — top of dashboard so the client can spot problems fast */}
+      <div className="mb-8">
+        <SquareSyncHealth />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

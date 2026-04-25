@@ -20,6 +20,7 @@ import {
   Menu,
   X,
   BarChart2,
+  ExternalLink,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -112,7 +113,21 @@ export function AdminSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="p-4 border-t border-surface-600">
+      <div className="p-4 border-t border-surface-600 space-y-2">
+        {/* "Open Site" — opens the public site in a new tab so the admin
+            session is never disturbed by site-side navigation/errors. */}
+        <a
+          href="/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between gap-3 px-3 py-2.5 rounded text-sm text-text-secondary hover:text-white border border-surface-600 hover:border-surface-500 bg-surface-700/40 hover:bg-surface-700 w-full transition-colors"
+        >
+          <span className="flex items-center gap-3">
+            <ExternalLink size={16} />
+            Open Site
+          </span>
+          <span className="text-[10px] uppercase tracking-wider text-text-muted">New&nbsp;tab</span>
+        </a>
         <button
           onClick={handleLogout}
           className="flex items-center gap-3 px-3 py-2.5 rounded text-sm text-text-muted hover:text-white hover:bg-surface-700 w-full transition-colors"
@@ -120,12 +135,6 @@ export function AdminSidebar() {
           <LogOut size={18} />
           Sign Out
         </button>
-        <Link
-          href="/"
-          className="block text-xs text-text-muted text-center mt-3 hover:text-white transition-colors"
-        >
-          ← View Store
-        </Link>
       </div>
     </>
   );

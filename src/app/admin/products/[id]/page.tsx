@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ProductEditForm } from "@/components/admin/ProductEditForm";
+import { ResyncProductButton } from "@/components/admin/ResyncProductButton";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -34,9 +35,15 @@ export default async function AdminProductEditPage({ params }: Props) {
 
   return (
     <div>
-      <h1 className="font-heading text-3xl uppercase tracking-wider mb-8">
-        Edit Product
-      </h1>
+      <div className="flex items-start justify-between gap-4 flex-wrap mb-8">
+        <h1 className="font-heading text-3xl uppercase tracking-wider">
+          Edit Product
+        </h1>
+        <ResyncProductButton
+          productId={product.id}
+          hasSquareToken={Boolean(product.square_token)}
+        />
+      </div>
       <ProductEditForm
         product={product}
         allCategories={allCategories || []}
