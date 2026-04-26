@@ -69,7 +69,10 @@ export function SquareSyncHealth() {
       const res = await fetch("/api/admin/square-resync", { method: "POST" });
       const data = await res.json();
       if (res.ok) {
-        setResyncResult(`Synced ${data.synced}/${data.scanned} products${data.failed ? ` · ${data.failed} failed` : ""}`);
+        const cat = typeof data.categoriesSynced === "number" ? `, ${data.categoriesSynced} categories` : "";
+        setResyncResult(
+          `Synced ${data.synced}/${data.scanned}${cat}${data.failed ? ` · ${data.failed} failed` : ""}`
+        );
         refresh();
       } else {
         setResyncResult(data.error || "Resync failed");

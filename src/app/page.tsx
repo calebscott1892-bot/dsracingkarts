@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+
+// Always render fresh — guarantees admin updates surface immediately.
+export const dynamic = "force-dynamic";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { HeroVideo } from "@/components/layout/HeroVideo";
 import { NewsletterSignup } from "@/components/layout/NewsletterSignup";

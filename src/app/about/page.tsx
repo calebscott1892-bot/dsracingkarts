@@ -6,6 +6,9 @@ import { TeamCarouselUI, type Team, type TeamResult } from "@/components/section
 import { createClient } from "@/lib/supabase/server";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
+// Always render fresh — admin team-profile changes must show up instantly.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "About Us | DS Racing Karts",
   description: "Decades of karting and motorsport experience. Sydney's trusted kart specialists.",

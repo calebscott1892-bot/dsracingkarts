@@ -8,6 +8,10 @@ import type { Metadata } from "next";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 
+// Force fresh render so Square category/product changes show up the moment
+// they sync. We can't rely on ISR here — admin changes need to be instant.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Shop All Products",
   description: "Browse our full range of go kart parts, engines, chassis, brakes, racewear and accessories.",

@@ -8,6 +8,9 @@ import { ChevronRight } from "lucide-react";
 import sanitizeHtml from "sanitize-html";
 import type { Metadata } from "next";
 
+// Always render fresh from Supabase — admin/Square product edits appear instantly.
+export const dynamic = "force-dynamic";
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

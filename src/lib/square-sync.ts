@@ -374,10 +374,14 @@ export async function archiveCatalogItem(squareToken: string) {
 // ── Full catalog reconciliation ──────────────────────────────
 
 /**
- * Walks the entire Square catalog and runs `syncCatalogItem` on every ITEM
- * found. Used by:
+ * Walks the Square catalog and reconciles BOTH categories AND items into
+ * Supabase. Used by:
  *   • The manual "Resync from Square" button on the admin dashboard
  *   • Vercel Cron, scheduled in vercel.json
+ *   • POST /api/admin/square-resync (admin-triggered)
+ *
+ * Order matters: categories first, items second. That way when an item
+ * references a category by ID, the category row already exists locally.
  *
  * Returns counts so the caller can surface them.
  */
@@ -385,36 +389,66 @@ export async function reconcileFullCatalog(): Promise<{
   scanned: number;
   synced: number;
   failed: number;
+  categoriesSynced: number;
   failures: { id: string; reason: string }[];
 }> {
   const square = getSquareClient();
-  let cursor: string | undefined;
   let scanned = 0;
   let synced = 0;
   let failed = 0;
+  let categoriesSynced = 0;
   const failures: { id: string; reason: string }[] = [];
 
-  do {
-    const { result } = await square.catalogApi.listCatalog(cursor, "ITEM");
-    const items = result.objects || [];
-    cursor = result.cursor;
+  // ── Walk CATEGORY first so item links land on existing category rows ──
+  {
+    let cursor: string | undefined;
+    do {
+      const { result } = await square.catalogApi.listCatalog(cursor, "CATEGORY");
+      const objects = result.objects || [];
+      cursor = result.cursor;
 
-    for (const item of items) {
-      scanned++;
-      const res = await syncCatalogItem(item.id).catch((err) => ({
-        ok: false,
-        reason: err?.message || "exception",
-      }));
-      if (res.ok) {
-        synced++;
-      } else {
-        failed++;
-        if (failures.length < 20) {
-          failures.push({ id: item.id, reason: res.reason || "unknown" });
+      for (const obj of objects) {
+        scanned++;
+        if (obj.type !== "CATEGORY") continue;
+        const dbId = await upsertCategoryFromSquare(obj.id).catch((err) => {
+          failures.push({ id: obj.id, reason: err?.message || "category sync exception" });
+          return null;
+        });
+        if (dbId) {
+          categoriesSynced++;
+          synced++;
+        } else {
+          failed++;
         }
       }
-    }
-  } while (cursor);
+    } while (cursor);
+  }
 
-  return { scanned, synced, failed, failures };
+  // ── Walk ITEM ──
+  {
+    let cursor: string | undefined;
+    do {
+      const { result } = await square.catalogApi.listCatalog(cursor, "ITEM");
+      const items = result.objects || [];
+      cursor = result.cursor;
+
+      for (const item of items) {
+        scanned++;
+        const res = await syncCatalogItem(item.id).catch((err) => ({
+          ok: false as const,
+          reason: err?.message || "exception",
+        }));
+        if (res.ok) {
+          synced++;
+        } else {
+          failed++;
+          if (failures.length < 20) {
+            failures.push({ id: item.id, reason: res.reason || "unknown" });
+          }
+        }
+      }
+    } while (cursor);
+  }
+
+  return { scanned, synced, failed, categoriesSynced, failures };
 }
