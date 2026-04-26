@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
+import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { ChevronLeft, ChevronRight, AlertTriangle, Gift } from "lucide-react";
 import Link from "next/link";
 import type { Metadata } from "next";
@@ -113,9 +114,22 @@ export default async function ShopPage({ searchParams }: Props) {
     .select("id, name, slug, parent_id")
     .order("name");
 
+  // Top-level categories with images — used for the prominent tile grid that
+  // anchors /shop when no specific category is selected.
+  const { data: topLevelCategories } = !params.category && !params.search
+    ? await supabase
+        .from("categories")
+        .select("id, name, slug, image_url")
+        .is("parent_id", null)
+        .order("name")
+    : { data: null };
+
+  const showCategoryTiles =
+    !params.category && !params.search && (topLevelCategories?.length ?? 0) > 0;
+
   const categoryTitle = params.category
     ? params.category.replace(/-/g, " ")
-    : "All Products";
+    : "Shop";
 
   function buildUrl(pageNum: number) {
     const p = new URLSearchParams();
@@ -196,7 +210,7 @@ export default async function ShopPage({ searchParams }: Props) {
         <div className="flex items-center gap-3 mb-3">
           <span className="h-[1px] w-8 bg-brand-red" />
           <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
-            {count || 0} Products
+            {showCategoryTiles ? "Browse" : `${count || 0} Products`}
           </span>
         </div>
         <h1 className="section-heading capitalize">{categoryTitle}</h1>
@@ -206,6 +220,36 @@ export default async function ShopPage({ searchParams }: Props) {
       <div className="mb-8">
         <SearchAutocomplete initialQuery={params.search} />
       </div>
+
+      {/* Prominent category tiles — only on the bare /shop landing page.
+          When the user picks a category or runs a search, we drop the tiles
+          and show the filtered product grid below. */}
+      {showCategoryTiles && (
+        <section className="mb-10">
+          <div className="flex items-end justify-between mb-4">
+            <h2 className="font-heading text-xl md:text-2xl uppercase tracking-[0.15em] text-white">
+              Shop by <span className="text-brand-red">Category</span>
+            </h2>
+            <span className="hidden md:inline font-heading text-[10px] tracking-[0.3em] text-text-muted uppercase">
+              {topLevelCategories?.length ?? 0} categories
+            </span>
+          </div>
+          <CategoryGrid categories={topLevelCategories || []} />
+        </section>
+      )}
+
+      {/* Subheading above the products grid — pulled into its own row when
+          tiles are visible, so the products grid feels like a secondary
+          "browse everything" view rather than the lead. */}
+      {showCategoryTiles && (
+        <div className="flex items-center gap-3 mb-5 mt-2">
+          <span className="h-[1px] flex-1 bg-surface-600/50" />
+          <h2 className="font-heading text-[11px] tracking-[0.35em] text-text-muted uppercase whitespace-nowrap">
+            Or browse all {count || 0} products
+          </h2>
+          <span className="h-[1px] flex-1 bg-surface-600/50" />
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar */}
