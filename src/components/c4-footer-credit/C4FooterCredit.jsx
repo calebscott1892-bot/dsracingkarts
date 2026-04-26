@@ -273,7 +273,7 @@ function MorphWordPaths({ pairs, fill, refs }) {
  *   Stage 0 (dormant) → Stage 1 (mono) → Stage 2 (colour) → Stage 0
  *
  * @param {Object}  props
- * @param {string}  [props.href='https://c4studios.com']  Link destination
+ * @param {string}  [props.href='https://c4studios.com.au']  Link destination
  * @param {string}  [props.label='Designed by C4 Studios'] Credit text / aria-label
  * @param {number|string} [props.size=36]  Height in px or named size (small|default|large|xl)
  * @param {string}  [props.className='']   Additional classes on the root <a>
@@ -282,7 +282,7 @@ function MorphWordPaths({ pairs, fill, refs }) {
  * @param {string}  [props.colorScheme='dark']  'dark' | 'light' | 'auto'
  */
 export default function C4FooterCredit({
-  href = 'https://c4studios.com',
+  href = 'https://c4studios.com.au',
   label = 'Designed by C4 Studios',
   size = 36,
   className = '',
