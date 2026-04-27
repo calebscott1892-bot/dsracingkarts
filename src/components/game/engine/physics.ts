@@ -33,8 +33,10 @@ export function updateCar(
     car.inputAccel = false;
     car.inputBrake = false;
     car.spinFramesLeft -= dt;
-    car.spinAngle += 0.25 * dt;
-    car.speed *= Math.pow(0.92, dt);
+    // Faster rotation + sharper speed bleed → spin reads as a real loss-of-grip
+    // event instead of slow-motion. Most of the speed is gone in ~0.5s.
+    car.spinAngle += 0.42 * dt;
+    car.speed *= Math.pow(0.84, dt);
 
     if (car.spinFramesLeft <= 0) {
       car.spinning = false;
@@ -54,8 +56,8 @@ export function updateCar(
   const overshootMult = profile?.playerOvershootMult ?? 1;
   const gripMult = profile?.playerGripMult ?? 1;
 
-  // ── Recovery (half acceleration after spin / respawn) ──
-  const recoveryMult = car.recoveryFramesLeft > 0 ? 0.4 : 1;
+  // ── Recovery (reduced acceleration after spin / respawn) ──
+  const recoveryMult = car.recoveryFramesLeft > 0 ? 0.6 : 1;
   if (car.recoveryFramesLeft > 0) car.recoveryFramesLeft -= dt;
 
   // ── Track current input state for the renderer (headlights / brake lights) ──
@@ -64,10 +66,11 @@ export function updateCar(
 
   // ── Acceleration / braking ──
   if (accelerate) {
-    // Speed-dependent acceleration: faster = less acceleration (diminishing returns).
+    // Speed-dependent acceleration: faster = less acceleration (diminishing returns),
+    // but the curve is gentler than before so top speed feels reachable, not asymptotic.
     // accelMult applies the difficulty's tire-warmth penalty / bonus.
     const speedRatio = car.speed / car.maxSpeed;
-    const accelCurve = 1 - speedRatio * 0.6;
+    const accelCurve = 1 - speedRatio * 0.35;
     car.speed = Math.min(
       car.speed + car.acceleration * accelMult * recoveryMult * accelCurve * dt,
       car.maxSpeed,

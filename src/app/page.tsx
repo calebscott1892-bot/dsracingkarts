@@ -15,12 +15,14 @@ import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 export default async function HomePage() {
   const supabase = await createClient();
 
+  // Show ALL top-level categories on the home page so the client never has to
+  // wonder why a category they synced from Square is missing. The grid is
+  // responsive and stays balanced at any count.
   const { data: categories } = await supabase
     .from("categories")
     .select("id, name, slug, image_url")
     .is("parent_id", null)
-    .order("name")
-    .limit(8);
+    .order("name");
 
   const { data: reviews } = await supabase
     .from("reviews")

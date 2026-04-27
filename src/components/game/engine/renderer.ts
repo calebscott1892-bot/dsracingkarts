@@ -165,6 +165,35 @@ function getSceneryPositions(track: TrackData) {
     }
   }
 
+  // Add hay bales lining medium-curvature corners (in chains of 2-3).
+  // Slightly closer to the track than the tire walls so they read as the
+  // first line of defence on faster sweepers.
+  for (let i = 0; i < track.racingLine.length; i += 11) {
+    const c = track.curvature[i];
+    if (c > 0.07 && c <= 0.18) {
+      const p = track.racingLine[i];
+      const nextP = track.racingLine[(i + 1) % track.racingLine.length];
+      const angle = Math.atan2(nextP.y - p.y, nextP.x - p.x);
+      const perpX = -Math.sin(angle);
+      const perpY = Math.cos(angle);
+      const sign = Math.sign(track.signedCurvature[i]) || (seededRandom(i + 50) > 0.5 ? 1 : -1);
+      // Outside of the corner
+      const baseDist = track.trackWidth / 2 + 14;
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      // Place a chain of 3 bales along the corner
+      for (let k = -1; k <= 1; k++) {
+        items.push({
+          x: p.x + perpX * baseDist * -sign + cosA * k * 11,
+          y: p.y + perpY * baseDist * -sign + sinA * k * 11,
+          type: "haybale",
+          scale: 0.85 + seededRandom(i * 13 + k) * 0.3,
+          // angle baked into scale-extra by piggy-backing — store via type+seed
+        });
+      }
+    }
+  }
+
   sceneryCache.set(key, items);
   return items;
 }
@@ -221,6 +250,43 @@ function drawScenery(ctx: CanvasRenderingContext2D, track: TrackData): void {
         ctx.lineWidth = 0.5;
         ctx.stroke();
       }
+    } else if (item.type === "haybale") {
+      const s = item.scale;
+      const rot = (seededRandom(item.x * 0.07 + item.y * 0.03) - 0.5) * 0.6;
+      ctx.rotate(rot);
+      // Soft ground shadow
+      ctx.fillStyle = "rgba(0,0,0,0.28)";
+      ctx.beginPath();
+      ctx.ellipse(2, 3, 11 * s, 6 * s, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // Bale body — warm straw colour
+      ctx.fillStyle = "#d6b65c";
+      ctx.beginPath();
+      ctx.roundRect(-10 * s, -6 * s, 20 * s, 12 * s, 2);
+      ctx.fill();
+      // Banding lines (twine) — three horizontal stripes
+      ctx.strokeStyle = "#8a6a23";
+      ctx.lineWidth = 0.8;
+      for (let i = 0; i < 3; i++) {
+        const yy = -3 * s + i * 3 * s;
+        ctx.beginPath();
+        ctx.moveTo(-10 * s, yy);
+        ctx.lineTo(10 * s, yy);
+        ctx.stroke();
+      }
+      // Vertical straw flecks for texture
+      ctx.strokeStyle = "#a8862a";
+      ctx.lineWidth = 0.6;
+      for (let i = 0; i < 6; i++) {
+        const xx = -8 * s + i * 3 * s;
+        ctx.beginPath();
+        ctx.moveTo(xx, -5 * s);
+        ctx.lineTo(xx + 0.5, 5 * s);
+        ctx.stroke();
+      }
+      // Top edge highlight
+      ctx.fillStyle = "rgba(255,235,170,0.45)";
+      ctx.fillRect(-10 * s, -6 * s, 20 * s, 1.4);
     }
 
     ctx.restore();
@@ -372,8 +438,8 @@ function drawCar(
 
   ctx.save();
   // Subtle vertical bob at speed — gives the kart a slight "rumble" feel.
-  const bob = (car.speed > 1.2 && !car.respawn && !car.spinning)
-    ? Math.sin(Date.now() * 0.022 + car.x * 0.012) * (Math.min(1, car.speed / 4) * 0.9)
+  const bob = (car.speed > 1.5 && !car.respawn && !car.spinning)
+    ? Math.sin(Date.now() * 0.022 + car.x * 0.012) * (Math.min(1, car.speed / CAR_DEFAULTS.maxSpeed) * 1.0)
     : 0;
   ctx.translate(car.x, car.y + bob);
   ctx.rotate(car.angle);
@@ -389,34 +455,49 @@ function drawCar(
   ctx.fill();
   ctx.globalAlpha = respawnAlpha;
 
-  // ── Headlights — soft yellow forward cone whenever moving forward ──
-  // Drawn before the body so it projects onto the asphalt (under the car nose).
-  if (car.speed > 0.3 && !car.spinning && !car.respawn) {
-    const intensity = Math.min(1, car.speed / 3);
+  // ── Headlights — yellow forward cone, drawn under the car so it projects
+  //    onto the asphalt. Uses additive ("lighter") composite so the cone is
+  //    visible on the dark grass too, not just the asphalt.
+  if (car.speed > 0.2 && !car.spinning && !car.respawn) {
+    const intensity = 0.55 + Math.min(0.45, car.speed / 4);
     ctx.save();
-    ctx.globalCompositeOperation = "screen";
-    const grad = ctx.createLinearGradient(18, 0, 60, 0);
-    grad.addColorStop(0, `rgba(255,245,192,${0.42 * intensity * respawnAlpha})`);
-    grad.addColorStop(0.55, `rgba(255,238,170,${0.18 * intensity * respawnAlpha})`);
-    grad.addColorStop(1, "rgba(255,245,192,0)");
+    ctx.globalCompositeOperation = "lighter";
+    // Long, wide cone — extends well in front of the kart
+    const grad = ctx.createLinearGradient(18, 0, 78, 0);
+    grad.addColorStop(0, `rgba(255,238,150,${0.85 * intensity * respawnAlpha})`);
+    grad.addColorStop(0.5, `rgba(255,225,120,${0.40 * intensity * respawnAlpha})`);
+    grad.addColorStop(1, "rgba(255,238,150,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.moveTo(18, -3);
-    ctx.lineTo(52, -14);
-    ctx.lineTo(60, 0);
-    ctx.lineTo(52, 14);
-    ctx.lineTo(18, 3);
+    ctx.moveTo(18, -4);
+    ctx.lineTo(70, -22);
+    ctx.lineTo(80, 0);
+    ctx.lineTo(70, 22);
+    ctx.lineTo(18, 4);
     ctx.closePath();
     ctx.fill();
-    // Two bright bulbs at the nose corners
-    ctx.globalCompositeOperation = "source-over";
-    ctx.globalAlpha = 0.85 * intensity * respawnAlpha;
-    ctx.fillStyle = "#fff5c0";
+    ctx.restore();
+
+    // Two bright bulbs at the nose corners — drawn normally so they pop
+    ctx.save();
+    ctx.shadowColor = "#fff2a0";
+    ctx.shadowBlur = 10;
+    ctx.globalAlpha = Math.min(1, intensity) * respawnAlpha;
+    ctx.fillStyle = "#fff8c8";
     ctx.beginPath();
-    ctx.arc(16, -4, 1.4, 0, Math.PI * 2);
+    ctx.arc(16, -4, 2.2, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(16, 4, 1.4, 0, Math.PI * 2);
+    ctx.arc(16, 4, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Inner white-hot core
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(16, -4, 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(16, 4, 0.9, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
     ctx.globalAlpha = respawnAlpha;
@@ -556,27 +637,44 @@ function drawCar(
     ctx.globalAlpha = 1;
   }
 
-  // ── Brake lights — two glowing red dots at the rear ──
+  // ── Brake lights — two glowing red dots at the rear, plus a tight red bloom
+  //    that sits BEHIND the rear bumper (not over the cockpit) so they read
+  //    instantly even on small mobile screens without washing the kart body.
   if (car.inputBrake && !car.spinning && !car.respawn) {
     ctx.save();
     ctx.globalAlpha = respawnAlpha;
+    // Bloom centred behind the rear of the kart, sized to spill onto the asphalt
+    // without reaching the cockpit/helmet.
+    ctx.globalCompositeOperation = "lighter";
+    const bloomCx = -22;
+    const bloomR = 16;
+    const bloom = ctx.createRadialGradient(bloomCx, 0, 1, bloomCx, 0, bloomR);
+    bloom.addColorStop(0, "rgba(255,40,0,0.85)");
+    bloom.addColorStop(0.45, "rgba(255,20,0,0.35)");
+    bloom.addColorStop(1, "rgba(255,20,0,0)");
+    ctx.fillStyle = bloom;
+    ctx.beginPath();
+    ctx.arc(bloomCx, 0, bloomR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+    // Hot lamp dots
     ctx.shadowColor = "#ff2a00";
-    ctx.shadowBlur = 9;
+    ctx.shadowBlur = 14;
     ctx.fillStyle = "#ff3a14";
     ctx.beginPath();
-    ctx.arc(-14, -7, 2.3, 0, Math.PI * 2);
+    ctx.arc(-14, -7, 2.6, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(-14, 7, 2.3, 0, Math.PI * 2);
+    ctx.arc(-14, 7, 2.6, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    // Inner bright core
-    ctx.fillStyle = "#ffd0a0";
+    // Inner white-hot core
+    ctx.fillStyle = "#ffe8c8";
     ctx.beginPath();
-    ctx.arc(-14, -7, 0.9, 0, Math.PI * 2);
+    ctx.arc(-14, -7, 1.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.arc(-14, 7, 0.9, 0, Math.PI * 2);
+    ctx.arc(-14, 7, 1.1, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }

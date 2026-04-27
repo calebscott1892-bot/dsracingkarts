@@ -1,26 +1,27 @@
 // All tunable game values in one place.
-// Physics are tuned so a clean lap on The Oval ≈ 5 seconds.
+// Physics are tuned so a clean lap on The Oval ≈ 3.5 seconds at full chat,
+// and a realistic racing lap with cornering lands around 5–6 seconds.
 
 export const CANVAS_WIDTH = 1200;
 export const CANVAS_HEIGHT = 700;
 
 // ── Base car physics (modulated per-difficulty for the player) ──
 export const CAR_DEFAULTS = {
-  maxSpeed: 6,           // absolute ceiling (pixels-per-frame along racing line)
-  acceleration: 0.035,   // gradual pickup — takes ~170 frames (≈2.8s) from 0→max
-  braking: 0.08,
-  friction: 0.012,
-  spinDuration: 100,     // frames (~1.7s) — spin penalty
-  recoveryDuration: 50,  // frames (~0.8s) half-power after spin
+  maxSpeed: 8.4,         // absolute ceiling (pixels-per-frame along racing line)
+  acceleration: 0.075,   // punchy pickup — takes ~110 frames (≈1.8s) from 0→max
+  braking: 0.13,         // strong, responsive brakes
+  friction: 0.022,       // coast deceleration
+  spinDuration: 55,      // frames (~0.9s) — quick, snappy spin recovery
+  recoveryDuration: 28,  // frames (~0.5s) half-power after spin
   // Failure thresholds (multipliers of segment maxSafeSpeed)
   driftSpeedMultiplier: 1.18,    // exceed safe by 18% → visual drift wobble
   overshootSpeedMultiplier: 1.18, // exceed safe by 18% on a curve → fly off track
   spinSpeedMultiplier: 1.40,     // exceed safe by 40% on a straight → spin out
-  // Respawn animation timing (frames @ 60fps). Total ≈ 3s.
-  respawnFlyingFrames: 36,    // 0.6s — visually shoot off into runoff
-  respawnPlacingFrames: 30,   // 0.5s — fade-out / teleport
-  respawnRevivingFrames: 84,  // 1.4s — flashing at checkpoint
-  respawnRecoveryFrames: 30,  // 0.5s half-power throttle ramp
+  // Respawn animation timing (frames @ 60fps). Total ≈ 2.4s.
+  respawnFlyingFrames: 30,    // 0.5s — visually shoot off into runoff
+  respawnPlacingFrames: 24,   // 0.4s — fade-out / teleport
+  respawnRevivingFrames: 60,  // 1.0s — flashing at checkpoint
+  respawnRecoveryFrames: 24,  // 0.4s half-power throttle ramp
 };
 
 export const TRACK_CHECKPOINT_COUNT = 12; // 12 evenly-spaced checkpoints for respawn
@@ -55,11 +56,11 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     label: "EASY",
     flavour: "DRY TRACK · WARM TIRES",
     description: "Maximum grip, forgiving runoff, lazy CPU.",
-    playerGripMult: 1.18,
-    playerAccelMult: 1.10,
-    playerBrakeMult: 1.10,
-    playerSpinMult: 1.40,        // very hard to spin
-    playerOvershootMult: 1.30,   // big overshoot tolerance
+    playerGripMult: 1.32,
+    playerAccelMult: 1.28,
+    playerBrakeMult: 1.18,
+    playerSpinMult: 1.45,        // very hard to spin
+    playerOvershootMult: 1.35,   // big overshoot tolerance
     aiSpeedFactor: 0.62,
     aiVariance: 0.10,
     aiLookAhead: 6,
@@ -71,11 +72,11 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     label: "MEDIUM",
     flavour: "RACE CONDITIONS",
     description: "Standard grip and a confident, clean CPU.",
-    playerGripMult: 1.05,
-    playerAccelMult: 1.0,
-    playerBrakeMult: 1.0,
-    playerSpinMult: 1.10,
-    playerOvershootMult: 1.05,
+    playerGripMult: 1.18,
+    playerAccelMult: 1.15,
+    playerBrakeMult: 1.08,
+    playerSpinMult: 1.18,
+    playerOvershootMult: 1.12,
     aiSpeedFactor: 0.80,
     aiVariance: 0.05,
     aiLookAhead: 12,
@@ -147,6 +148,6 @@ export const COUNTDOWN_RANDOM_DELAY_MIN = 500;
 export const COUNTDOWN_RANDOM_DELAY_MAX = 2500;
 
 // Normalization: trackPosition advances by  speed / TRACK_SPEED_DIVISOR  per frame.
-// With a typical track length of ~300 points and maxSpeed 6, a flat-out lap would
-// take about 3s and a "reasonably fast" lap about 5s.
+// With a typical track length of ~300 points and maxSpeed 8.4, a flat-out lap would
+// take about 3.5s and a realistic race lap (with cornering) around 5–6s.
 export const TRACK_SPEED_DIVISOR = 1800;

@@ -75,19 +75,19 @@ export function updateAmbient(now: number, frame: number): void {
     if (c.age >= c.life) critters.splice(i, 1);
   }
 
-  // Spawn birds in flocks every 6–12 s.
-  if (now - lastBirdAt > 6000 + Math.random() * 6000) {
+  // Spawn birds in flocks frequently — every 2.5–5s — so the sky always has life.
+  if (now - lastBirdAt > 2500 + Math.random() * 2500) {
     spawnBirdFlock();
     lastBirdAt = now;
   }
 
-  // Spawn occasional grass dust puffs (the "dustballs bouncing in the horizon").
-  if (frame % 18 === 0 && Math.random() < 0.5) {
+  // Spawn frequent dust puffs around the field for that "wind across the grass" feel.
+  if (frame % 8 === 0 && Math.random() < 0.7) {
     spawnDust();
   }
 
-  // Spawn a butterfly occasionally — they hang around for a few seconds.
-  if (now - lastButterflyAt > 3500 + Math.random() * 3500 && critters.filter(c => c.type === "butterfly").length < 3) {
+  // Butterflies hang out near the track — keep up to 5 alive at once.
+  if (now - lastButterflyAt > 1500 + Math.random() * 2000 && critters.filter(c => c.type === "butterfly").length < 5) {
     spawnButterfly();
     lastButterflyAt = now;
   }
@@ -95,23 +95,23 @@ export function updateAmbient(now: number, frame: number): void {
 
 function spawnBirdFlock(): void {
   // Birds fly diagonally across the canvas. Random direction L→R or R→L.
-  const flockSize = 2 + Math.floor(Math.random() * 3);
+  const flockSize = 3 + Math.floor(Math.random() * 4);
   const dirRight = Math.random() > 0.5;
   const startX = dirRight ? -40 : CANVAS_WIDTH + 40;
-  const startY = 60 + Math.random() * (CANVAS_HEIGHT * 0.4);
-  const speed = 1.8 + Math.random() * 1.2;
+  const startY = 50 + Math.random() * (CANVAS_HEIGHT * 0.45);
+  const speed = 2.2 + Math.random() * 1.5;
   for (let i = 0; i < flockSize; i++) {
     critters.push({
       type: "bird",
-      x: startX + (dirRight ? -1 : 1) * i * 18 + (Math.random() - 0.5) * 6,
-      y: startY + (Math.random() - 0.5) * 14,
+      x: startX + (dirRight ? -1 : 1) * i * 22 + (Math.random() - 0.5) * 8,
+      y: startY + (Math.random() - 0.5) * 18,
       vx: (dirRight ? 1 : -1) * speed,
       vy: -0.05 - Math.random() * 0.1,
       age: 0,
       life: 1200,
-      size: 0.8 + Math.random() * 0.5,
+      size: 1.6 + Math.random() * 0.9,
       flapSpeed: 0.22 + Math.random() * 0.1,
-      shadowY: 30 + Math.random() * 12,
+      shadowY: 36 + Math.random() * 14,
     });
   }
 }
@@ -171,28 +171,34 @@ function drawBird(ctx: CanvasRenderingContext2D, b: Bird): void {
 
   // Soft ground shadow drifting beneath bird.
   ctx.save();
-  ctx.globalAlpha = 0.18 * alpha;
+  ctx.globalAlpha = 0.22 * alpha;
   ctx.fillStyle = "#000";
   ctx.beginPath();
-  ctx.ellipse(b.x, b.y + b.shadowY, 4 * b.size, 1.5 * b.size, 0, 0, Math.PI * 2);
+  ctx.ellipse(b.x, b.y + b.shadowY, 5 * b.size, 1.8 * b.size, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
-  // Body — small "M" silhouette with flapping wings.
+  // Body — bold "M" silhouette with flapping wings.
   ctx.save();
   ctx.translate(b.x, b.y);
   const flap = Math.sin(b.age * b.flapSpeed);
-  const wingY = -1.5 - flap * 2;
+  const wingY = -1.8 - flap * 2.4;
   const s = b.size;
-  ctx.globalAlpha = 0.85 * alpha;
-  ctx.strokeStyle = "#1a1a1a";
-  ctx.lineWidth = 1.6 * s;
+  ctx.globalAlpha = 0.95 * alpha;
+  ctx.strokeStyle = "#101010";
+  ctx.lineWidth = 2.2 * s;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
   ctx.beginPath();
-  ctx.moveTo(-5 * s, 0);
-  ctx.quadraticCurveTo(-2 * s, wingY * s, 0, 0);
-  ctx.quadraticCurveTo(2 * s, wingY * s, 5 * s, 0);
+  ctx.moveTo(-6 * s, 0);
+  ctx.quadraticCurveTo(-2.5 * s, wingY * s, 0, 0);
+  ctx.quadraticCurveTo(2.5 * s, wingY * s, 6 * s, 0);
   ctx.stroke();
+  // Body dot for definition
+  ctx.fillStyle = "#101010";
+  ctx.beginPath();
+  ctx.arc(0, 0, 0.9 * s, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 
@@ -220,21 +226,27 @@ function drawButterfly(ctx: CanvasRenderingContext2D, bf: Butterfly): void {
   const fadeOut = Math.min(1, (bf.life - bf.age) / 24);
   const alpha = Math.min(fadeIn, fadeOut);
   const flap = Math.sin(bf.age * 0.3);
-  const wingW = 3 + flap * 1.2;
-  const wingH = 3 - flap * 0.6;
+  const wingW = 5 + flap * 1.8;
+  const wingH = 4.5 - flap * 0.9;
   ctx.save();
-  ctx.globalAlpha = 0.85 * alpha;
+  ctx.globalAlpha = 0.92 * alpha;
   ctx.translate(bf.x, bf.y);
   // Two wings
-  ctx.fillStyle = `hsl(${bf.hue}, 75%, 65%)`;
+  ctx.fillStyle = `hsl(${bf.hue}, 80%, 62%)`;
   ctx.beginPath();
-  ctx.ellipse(-2.5, 0, wingW, wingH, 0.3, 0, Math.PI * 2);
+  ctx.ellipse(-3.5, 0, wingW, wingH, 0.3, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(2.5, 0, wingW, wingH, -0.3, 0, Math.PI * 2);
+  ctx.ellipse(3.5, 0, wingW, wingH, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  // Wing accent dots — secondary hue contrast
+  ctx.fillStyle = `hsl(${(bf.hue + 180) % 360}, 75%, 38%)`;
+  ctx.beginPath();
+  ctx.arc(-3.8, 0.6, 1.2, 0, Math.PI * 2);
+  ctx.arc(3.8, 0.6, 1.2, 0, Math.PI * 2);
   ctx.fill();
   // Body
   ctx.fillStyle = "#222";
-  ctx.fillRect(-0.6, -2.2, 1.2, 4.4);
+  ctx.fillRect(-0.8, -3, 1.6, 6);
   ctx.restore();
 }

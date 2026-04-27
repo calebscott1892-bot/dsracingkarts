@@ -32,15 +32,12 @@ const services = [
     title: "Engine Tuning",
     description: "Performance engine tuning for both 2-stroke and 4-stroke engines. Get the most out of your kart on race day.",
     details: [
-      "Our engine tuning service is designed to extract maximum performance while maintaining reliability. We work with all major engine platforms including Yamaha KT100, Rotax, IAME, Briggs & Stratton, Honda GX200, and Torini.",
-      "From jetting adjustments and ignition timing through to full port work and blueprinting, we tailor every tune to your specific class rules and driving style.",
+      "Our engine tuning service is designed to keep your engine running reliably and within class rules. We work with all major engine platforms including Yamaha KT100, Rotax, IAME, Briggs & Stratton, Honda GX200, and Torini.",
+      "Jetting adjustments and ignition timing are tuned to your specific class rules and driving style.",
     ],
     includes: [
       "Carburettor jetting & tuning",
       "Ignition timing optimisation",
-      "Compression & leak-down testing",
-      "Dyno testing (where applicable)",
-      "Performance benchmarking",
       "Class compliance verification",
     ],
   },

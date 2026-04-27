@@ -9,6 +9,7 @@ import { GameOver } from "./GameOver";
 import { ArcadeControls } from "./ArcadeControls";
 import { OrientationHint } from "./OrientationHint";
 import { createInitialState, type GameState, type AIDifficulty } from "./engine/state";
+import { CAR_DEFAULTS } from "./engine/constants";
 import { X } from "lucide-react";
 
 interface Props {
@@ -171,7 +172,7 @@ export function DSRGrandPrix({ onExit }: Props) {
             <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
               LAP {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)} / {state.totalLaps}
               {" · "}
-              <span className="text-white">{Math.round((state.car1.speed / 6) * 110)}km/h</span>
+              <span className="text-white">{Math.round((state.car1.speed / CAR_DEFAULTS.maxSpeed) * 110)}km/h</span>
             </span>
           </div>
         )}

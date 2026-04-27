@@ -21,9 +21,23 @@ export function ProductImageGallery({ images, productName }: Props) {
 
   if (sorted.length === 0) {
     return (
-      <div className="aspect-square bg-surface-700 carbon-bg flex items-center justify-center">
-        <span className="text-text-muted text-sm font-heading uppercase tracking-wider opacity-40">
-          No images available
+      <div
+        className="aspect-square bg-[#141414] carbon-bg relative flex flex-col items-center justify-center px-6 text-center border border-surface-600/50"
+        style={{
+          backgroundImage:
+            "linear-gradient(135deg, rgba(230,0,18,0.06), transparent 55%), radial-gradient(circle at 50% 22%, rgba(230,0,18,0.18), transparent 60%)",
+        }}
+      >
+        <span className="absolute top-3 left-3 right-3 h-[1px] bg-gradient-to-r from-transparent via-racing-red/50 to-transparent" />
+        <span className="absolute bottom-3 left-3 right-3 h-[1px] bg-gradient-to-r from-transparent via-racing-red/50 to-transparent" />
+        <span className="font-heading text-[10px] tracking-[0.4em] text-racing-red/80 uppercase mb-3">
+          DS Racing Karts
+        </span>
+        <span className="font-heading text-base md:text-lg uppercase tracking-[0.08em] text-white/90 leading-snug max-w-xs">
+          {productName}
+        </span>
+        <span className="font-heading text-[10px] tracking-[0.3em] text-text-muted/70 uppercase mt-4">
+          Image coming soon
         </span>
       </div>
     );
