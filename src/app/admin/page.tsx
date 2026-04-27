@@ -1,35 +1,59 @@
 import { createClient } from "@/lib/supabase/server";
 import { SquareSyncHealth } from "@/components/admin/SquareSyncHealth";
 
+// Always render fresh — admin dashboard should never be edge-cached.
+export const dynamic = "force-dynamic";
+
 export default async function AdminDashboard() {
   const supabase = await createClient();
 
-  // Fetch dashboard stats
-  const [
-    { count: productCount },
-    { count: orderCount },
-    { count: customerCount },
-    { data: recentOrders },
-    { data: lowStock },
-  ] = await Promise.all([
-    supabase.from("products").select("*", { count: "exact", head: true }),
-    supabase.from("orders").select("*", { count: "exact", head: true }),
-    supabase.from("customers").select("*", { count: "exact", head: true }),
-    supabase
-      .from("orders")
-      .select("id, order_number, total, status, created_at")
-      .order("created_at", { ascending: false })
-      .limit(5),
-    supabase
-      .from("inventory")
-      .select(`
-        quantity,
-        product_variations ( name, sku, products ( name ) )
-      `)
-      .lte("quantity", 3)
-      .gt("quantity", -100)
-      .order("quantity")
-      .limit(10),
+  // Each query runs independently and falls back to a sensible default if
+  // it throws. One transient table glitch must not blank the whole page —
+  // that's exactly the symptom the client reported.
+  const safeCount = async (table: string) => {
+    try {
+      const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
+      return count ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+  const safeRecentOrders = async () => {
+    try {
+      const { data } = await supabase
+        .from("orders")
+        .select("id, order_number, total, status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      return data ?? [];
+    } catch {
+      return [] as Array<{ id: string; order_number: string; total: number; status: string; created_at: string }>;
+    }
+  };
+  const safeLowStock = async () => {
+    try {
+      const { data } = await supabase
+        .from("inventory")
+        .select(`
+          quantity,
+          product_variations ( name, sku, products ( name ) )
+        `)
+        .lte("quantity", 3)
+        .gt("quantity", -100)
+        .order("quantity")
+        .limit(10);
+      return data ?? [];
+    } catch {
+      return [] as Array<unknown>;
+    }
+  };
+
+  const [productCount, orderCount, customerCount, recentOrders, lowStock] = await Promise.all([
+    safeCount("products"),
+    safeCount("orders"),
+    safeCount("customers"),
+    safeRecentOrders(),
+    safeLowStock(),
   ]);
 
   const stats = [
