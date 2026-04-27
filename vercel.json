@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/admin/square-resync",
-      "schedule": "*/30 * * * *"
+      "schedule": "0 17 * * *"
     }
   ]
 }
