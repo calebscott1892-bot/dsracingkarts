@@ -40,3 +40,23 @@ export function createServiceClient() {
     }
   );
 }
+
+/**
+ * Public-anon read client that does NOT touch cookies. Use this when reading
+ * tables that are open to anon (e.g. announcements, public catalog) from a
+ * server component placed in shared layout — calling cookies() there forces
+ * every page (including statically generable ones) to bail to dynamic
+ * rendering and clutter the build log with DynamicServerError.
+ */
+export function createPublicReadClient() {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => [],
+        setAll: () => {},
+      },
+    }
+  );
+}
