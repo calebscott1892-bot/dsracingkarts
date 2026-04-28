@@ -25,11 +25,13 @@ type Status = {
 };
 
 type SyncPhase = "categories" | "items" | "archive";
+type SyncFailure = { id: string; reason: string };
 type SyncTotals = {
   scanned: number;
   synced: number;
   failed: number;
   categoriesSynced: number;
+  failures: SyncFailure[];
 };
 
 function timeAgo(iso: string | null): string {
@@ -89,9 +91,10 @@ export function SquareSyncHealth() {
         synced: 0,
         failed: 0,
         categoriesSynced: 0,
+        failures: [],
       };
 
-      for (let step = 0; step < 250; step++) {
+      for (let step = 0; step < 1200; step++) {
         const controller = new AbortController();
         const timeout = window.setTimeout(() => controller.abort(), 55_000);
         const res: Response = await fetch("/api/admin/square-resync", {
@@ -115,6 +118,7 @@ export function SquareSyncHealth() {
           synced: totals.synced + (data.synced || 0),
           failed: totals.failed + (data.failed || 0),
           categoriesSynced: totals.categoriesSynced + (data.categoriesSynced || 0),
+          failures: [...totals.failures, ...(data.failures || [])].slice(0, 20),
         };
 
         setResyncResult(
@@ -122,13 +126,15 @@ export function SquareSyncHealth() {
             phase === "categories" ? "categories" : phase === "archive" ? "cleanup" : "products"
           }... ` +
             `${totals.synced}/${totals.scanned} synced, ${totals.categoriesSynced} categories` +
-            `${totals.failed ? `, ${totals.failed} failed` : ""}`
+            `${totals.failed ? `, ${totals.failed} failed` : ""}` +
+            formatFailures(totals.failures)
         );
 
         if (data.done) {
           setResyncResult(
             `Synced ${totals.synced}/${totals.scanned}, ${totals.categoriesSynced} categories` +
-              `${totals.failed ? `, ${totals.failed} failed` : ""}`
+              `${totals.failed ? `, ${totals.failed} failed` : ""}` +
+              formatFailures(totals.failures)
           );
           refresh();
           return;
@@ -243,7 +249,7 @@ export function SquareSyncHealth() {
       )}
 
       {resyncResult && (
-        <p className="mt-4 text-xs font-mono text-text-secondary">{resyncResult}</p>
+        <p className="mt-4 whitespace-pre-wrap text-xs font-mono text-text-secondary">{resyncResult}</p>
       )}
 
       {!status?.env.webhookSecretPresent && (
@@ -256,6 +262,13 @@ export function SquareSyncHealth() {
       )}
     </div>
   );
+}
+
+function formatFailures(failures: SyncFailure[]) {
+  if (!failures.length) return "";
+  return `\nFailed items:\n${failures
+    .map((failure) => `- ${failure.reason} (${failure.id})`)
+    .join("\n")}`;
 }
 
 function Row({

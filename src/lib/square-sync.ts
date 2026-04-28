@@ -674,7 +674,10 @@ export async function reconcileFullCatalog(): Promise<{
         } else {
           failed++;
           if (failures.length < 20) {
-            failures.push({ id: item.id, reason: res.reason || "unknown" });
+            failures.push({
+              id: item.id,
+              reason: `${item.itemData?.name ? `${item.itemData.name}: ` : ""}${res.reason || "unknown"}`,
+            });
           }
         }
       }
@@ -759,7 +762,10 @@ export async function reconcileCatalogForAdminResync(): Promise<{
         } else {
           failed++;
           if (failures.length < 20) {
-            failures.push({ id: item.id, reason: res.reason || "unknown" });
+            failures.push({
+              id: item.id,
+              reason: `${item.itemData?.name ? `${item.itemData.name}: ` : ""}${res.reason || "unknown"}`,
+            });
           }
         }
       }
@@ -893,7 +899,10 @@ export async function reconcileCatalogChunk({
     } else {
       failed++;
       if (failures.length < 20) {
-        failures.push({ id: item.id, reason: res.reason || "unknown" });
+        failures.push({
+          id: item.id,
+          reason: `${item.itemData?.name ? `${item.itemData.name}: ` : ""}${res.reason || "unknown"}`,
+        });
       }
     }
   }

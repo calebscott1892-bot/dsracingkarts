@@ -89,6 +89,10 @@ export async function POST(request: NextRequest) {
         synced: (Number(body.totals?.synced) || 0) + chunk.synced,
         failed: (Number(body.totals?.failed) || 0) + chunk.failed,
         categoriesSynced: (Number(body.totals?.categoriesSynced) || 0) + chunk.categoriesSynced,
+        failures: [
+          ...((Array.isArray(body.totals?.failures) ? body.totals.failures : []) as any[]),
+          ...chunk.failures,
+        ].slice(0, 20),
       };
       if (chunk.done) {
         void recordHeartbeat(totals);
