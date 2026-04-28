@@ -67,7 +67,10 @@ export function SquareSyncHealth() {
     setResyncResult(null);
     try {
       const res = await fetch("/api/admin/square-resync", { method: "POST" });
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await res.json()
+        : { error: (await res.text()).slice(0, 180) || `Server returned ${res.status}` };
       if (res.ok) {
         const cat = typeof data.categoriesSynced === "number" ? `, ${data.categoriesSynced} categories` : "";
         setResyncResult(
@@ -77,8 +80,8 @@ export function SquareSyncHealth() {
       } else {
         setResyncResult(data.error || "Resync failed");
       }
-    } catch {
-      setResyncResult("Network error during resync");
+    } catch (err: any) {
+      setResyncResult(err?.message || "Network error during resync");
     }
     setResyncing(false);
   }

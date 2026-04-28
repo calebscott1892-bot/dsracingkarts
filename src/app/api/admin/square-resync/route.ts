@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { reconcileFullCatalog } from "@/lib/square-sync";
+import { reconcileCatalogForAdminResync } from "@/lib/square-sync";
 
 export const maxDuration = 300; // up to 5 minutes for a full catalog walk
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
 
   const startedAt = Date.now();
   try {
-    const result = await reconcileFullCatalog();
+    const result = await reconcileCatalogForAdminResync();
     void recordHeartbeat(result);
     return NextResponse.json({
       ok: true,
