@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
             ? "items"
             : "categories",
         cursor: body.cursor || null,
-        limit: 40,
+        limit: 5,
       });
       const totals = {
         scanned: (Number(body.totals?.scanned) || 0) + chunk.scanned,

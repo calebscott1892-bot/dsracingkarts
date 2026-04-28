@@ -48,7 +48,7 @@ type SyncCatalogItemOptions = {
   retrieveMissingImages?: boolean;
 };
 
-const CHUNK_ITEM_TIMEOUT_MS = 15_000;
+const CHUNK_ITEM_TIMEOUT_MS = 8_000;
 
 async function withTimeout<T>(
   promise: Promise<T>,

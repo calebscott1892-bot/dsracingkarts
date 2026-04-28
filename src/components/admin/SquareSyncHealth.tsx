@@ -93,7 +93,7 @@ export function SquareSyncHealth() {
 
       for (let step = 0; step < 250; step++) {
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 70_000);
+        const timeout = window.setTimeout(() => controller.abort(), 55_000);
         const res: Response = await fetch("/api/admin/square-resync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -140,7 +140,11 @@ export function SquareSyncHealth() {
 
       setResyncResult("Resync paused after too many batches. Click Resync Now again to continue.");
     } catch (err: any) {
-      setResyncResult(err?.message || "Network error during resync");
+      setResyncResult(
+        err?.name === "AbortError"
+          ? "This sync batch took too long and was stopped. Refresh and try Resync Now again."
+          : err?.message || "Network error during resync"
+      );
     } finally {
       setResyncing(false);
     }
