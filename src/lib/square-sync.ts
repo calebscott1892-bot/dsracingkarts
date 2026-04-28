@@ -68,6 +68,14 @@ async function withTimeout<T>(
   }
 }
 
+function normalizeSquareOrdinal(value: unknown): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  const truncated = Math.trunc(numeric);
+  if (truncated > 2147483647 || truncated < -2147483648) return 0;
+  return truncated;
+}
+
 async function loadCurrentSquareItemIds(): Promise<Set<string>> {
   const square = getSquareClient();
   const ids = new Set<string>();
@@ -148,7 +156,7 @@ async function upsertCategoryObjectFromSquare(
         ? await upsertCategoryObjectFromSquare(parentObject, categoryObjects, categoryIdMap)
         : await upsertCategoryFromSquare(parentSquareId, categoryIdMap)
       : null;
-  const sortOrder = Number(obj.categoryData.parentCategory?.ordinal ?? 0);
+  const sortOrder = normalizeSquareOrdinal(obj.categoryData.parentCategory?.ordinal);
 
   const { data: existing } = await supabase
     .from("categories")
@@ -231,7 +239,7 @@ export async function upsertCategoryFromSquare(
       parentSquareId && parentSquareId !== squareCategoryId
         ? await upsertCategoryFromSquare(parentSquareId, categoryIdMap)
         : null;
-    const sortOrder = Number(obj.categoryData.parentCategory?.ordinal ?? 0);
+    const sortOrder = normalizeSquareOrdinal(obj.categoryData.parentCategory?.ordinal);
 
     const { data: existing } = await supabase
       .from("categories")
