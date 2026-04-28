@@ -7,7 +7,7 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
 
 const STATS = [
-  { value: 3500, suffix: "+", label: "Parts in Stock" },
+  { value: 3500, suffix: "+", label: "Parts Available" },
   { value: 40, suffix: "", label: "Years in Karting" },
   { value: 1000, suffix: "+", label: "Karts Serviced" },
   { value: 48, suffix: "", label: "Tracks Raced On Nationally" },

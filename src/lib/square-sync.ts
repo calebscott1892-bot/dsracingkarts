@@ -48,6 +48,62 @@ type SyncCatalogItemOptions = {
   retrieveMissingImages?: boolean;
 };
 
+async function loadCurrentSquareItemIds(): Promise<Set<string>> {
+  const square = getSquareClient();
+  const ids = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const { result } = await square.catalogApi.searchCatalogObjects({
+      cursor,
+      objectTypes: ["ITEM"],
+      limit: 1000,
+    });
+    for (const obj of result.objects || []) {
+      ids.add(obj.id);
+    }
+    cursor = result.cursor;
+  } while (cursor);
+  return ids;
+}
+
+export async function archiveProductsMissingFromSquare(): Promise<{ archived: number }> {
+  const supabase = createServiceClient();
+  const currentSquareIds = await loadCurrentSquareItemIds();
+  let from = 0;
+  const staleIds: string[] = [];
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, square_token")
+      .eq("status", "active")
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    for (const product of data || []) {
+      if (product.square_token && !currentSquareIds.has(product.square_token)) {
+        staleIds.push(product.id);
+      }
+    }
+    if (!data || data.length < 1000) break;
+    from += 1000;
+  }
+
+  for (let i = 0; i < staleIds.length; i += 500) {
+    const chunk = staleIds.slice(i, i + 500);
+    const { error } = await supabase
+      .from("products")
+      .update({
+        status: "archived",
+        visibility: "unavailable",
+        updated_at: new Date().toISOString(),
+      })
+      .in("id", chunk);
+    if (error) throw new Error(error.message);
+  }
+
+  return { archived: staleIds.length };
+}
+
 // ── Categories ───────────────────────────────────────────────
 
 async function upsertCategoryObjectFromSquare(
@@ -698,12 +754,12 @@ export async function reconcileCatalogChunk({
   cursor,
   limit = 40,
 }: {
-  phase?: "categories" | "items";
+  phase?: "categories" | "items" | "archive";
   cursor?: string | null;
   limit?: number;
 }): Promise<{
-  phase: "categories" | "items";
-  nextPhase: "categories" | "items" | null;
+  phase: "categories" | "items" | "archive";
+  nextPhase: "categories" | "items" | "archive" | null;
   cursor: string | null;
   done: boolean;
   scanned: number;
@@ -719,6 +775,21 @@ export async function reconcileCatalogChunk({
   let synced = 0;
   let failed = 0;
   let categoriesSynced = 0;
+
+  if (phase === "archive") {
+    const { archived } = await archiveProductsMissingFromSquare();
+    return {
+      phase,
+      nextPhase: null,
+      cursor: null,
+      done: true,
+      scanned: archived,
+      synced: archived,
+      failed: 0,
+      categoriesSynced: 0,
+      failures,
+    };
+  }
 
   if (phase === "categories") {
     const categoryObjects = new Map<string, any>();
@@ -805,9 +876,9 @@ export async function reconcileCatalogChunk({
 
   return {
     phase,
-    nextPhase: result.cursor ? "items" : null,
+    nextPhase: result.cursor ? "items" : "archive",
     cursor: result.cursor || null,
-    done: !result.cursor,
+    done: false,
     scanned,
     synced,
     failed,

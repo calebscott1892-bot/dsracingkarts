@@ -75,7 +75,12 @@ export async function POST(request: NextRequest) {
 
     if (body?.chunked) {
       const chunk = await reconcileCatalogChunk({
-        phase: body.phase === "items" ? "items" : "categories",
+        phase:
+          body.phase === "archive"
+            ? "archive"
+            : body.phase === "items"
+            ? "items"
+            : "categories",
         cursor: body.cursor || null,
         limit: 40,
       });

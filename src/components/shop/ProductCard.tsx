@@ -4,8 +4,8 @@ import { formatPrice } from "@/lib/utils";
 import type { Product } from "@/types/database";
 
 interface Props {
-  product: Pick<Product, "id" | "name" | "slug" | "base_price" | "primary_image_url"> & {
-    product_variations?: { price: number; sale_price: number | null }[];
+  product: Pick<Product, "id" | "name" | "slug" | "sku" | "base_price" | "primary_image_url"> & {
+    product_variations?: { price: number; sale_price: number | null; sku?: string | null }[];
   };
   priority?: boolean;
 }
@@ -26,6 +26,7 @@ export function ProductCard({ product, priority = false }: Props) {
   const hasVariations = product.product_variations && product.product_variations.length > 1;
   const lowestPrice = product.base_price || product.product_variations?.[0]?.price || 0;
   const hasSale = product.product_variations?.some((v) => v.sale_price);
+  const displaySku = product.sku || product.product_variations?.find((v) => v.sku)?.sku;
   const realImage = isRealProductImage(product.primary_image_url);
 
   return (
@@ -68,6 +69,11 @@ export function ProductCard({ product, priority = false }: Props) {
                          group-hover:text-white transition-colors duration-200">
             {product.name}
           </h3>
+          {displaySku && (
+            <p className="mt-1 font-mono text-[11px] text-text-muted truncate">
+              SKU: {displaySku}
+            </p>
+          )}
           <p className="mt-1.5 font-heading text-lg tracking-wide">
             {hasVariations && (
               <span className="text-text-muted text-xs font-body mr-1">from</span>

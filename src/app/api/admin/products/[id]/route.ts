@@ -26,7 +26,7 @@ async function verifyAdmin() {
 
 /**
  * PUT /api/admin/products/[id]
- * Updates a product, its variations, inventory, and category links.
+ * Updates a product, its variations, and category links.
  */
 export async function PUT(
   request: NextRequest,
@@ -70,7 +70,7 @@ export async function PUT(
     return NextResponse.json({ error: productError.message }, { status: 500 });
   }
 
-  // Update variations & inventory
+  // Update variations
   if (body.variations) {
     for (const v of body.variations) {
       if (v.id) {
@@ -85,19 +85,6 @@ export async function PUT(
           .eq("id", v.id);
         if (variationError) {
           return NextResponse.json({ error: variationError.message }, { status: 500 });
-        }
-
-        // Update inventory
-        const { error: inventoryError } = await service
-          .from("inventory")
-          .update({
-            quantity: v.quantity,
-            low_stock_alert: v.low_stock_alert,
-            low_stock_threshold: v.low_stock_threshold,
-          })
-          .eq("variation_id", v.id);
-        if (inventoryError) {
-          return NextResponse.json({ error: inventoryError.message }, { status: 500 });
         }
       }
     }

@@ -24,7 +24,7 @@ type Status = {
   };
 };
 
-type SyncPhase = "categories" | "items";
+type SyncPhase = "categories" | "items" | "archive";
 type SyncTotals = {
   scanned: number;
   synced: number;
@@ -115,7 +115,9 @@ export function SquareSyncHealth() {
         };
 
         setResyncResult(
-          `Syncing ${phase === "categories" ? "categories" : "products"}... ` +
+          `Syncing ${
+            phase === "categories" ? "categories" : phase === "archive" ? "cleanup" : "products"
+          }... ` +
             `${totals.synced}/${totals.scanned} synced, ${totals.categoriesSynced} categories` +
             `${totals.failed ? `, ${totals.failed} failed` : ""}`
         );

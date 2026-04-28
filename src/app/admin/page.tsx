@@ -1,15 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { SquareSyncHealth } from "@/components/admin/SquareSyncHealth";
 
-// Always render fresh — admin dashboard should never be edge-cached.
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const supabase = await createClient();
 
-  // Each query runs independently and falls back to a sensible default if
-  // it throws. One transient table glitch must not blank the whole page —
-  // that's exactly the symptom the client reported.
   const safeCount = async (table: string) => {
     try {
       const { count } = await supabase.from(table).select("*", { count: "exact", head: true });
@@ -18,6 +14,7 @@ export default async function AdminDashboard() {
       return 0;
     }
   };
+
   const safeRecentOrders = async () => {
     try {
       const { data } = await supabase
@@ -30,30 +27,24 @@ export default async function AdminDashboard() {
       return [] as Array<{ id: string; order_number: string; total: number; status: string; created_at: string }>;
     }
   };
-  const safeLowStock = async () => {
+
+  const safeActiveProductCount = async () => {
     try {
-      const { data } = await supabase
-        .from("inventory")
-        .select(`
-          quantity,
-          product_variations ( name, sku, products ( name ) )
-        `)
-        .lte("quantity", 3)
-        .gt("quantity", -100)
-        .order("quantity")
-        .limit(10);
-      return data ?? [];
+      const { count } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "active");
+      return count ?? 0;
     } catch {
-      return [] as Array<unknown>;
+      return 0;
     }
   };
 
-  const [productCount, orderCount, customerCount, recentOrders, lowStock] = await Promise.all([
-    safeCount("products"),
+  const [productCount, orderCount, customerCount, recentOrders] = await Promise.all([
+    safeActiveProductCount(),
     safeCount("orders"),
     safeCount("customers"),
     safeRecentOrders(),
-    safeLowStock(),
   ]);
 
   const stats = [
@@ -66,7 +57,6 @@ export default async function AdminDashboard() {
     <div>
       <h1 className="font-heading text-3xl uppercase tracking-wider mb-8">Dashboard</h1>
 
-      {/* Stat cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         {stats.map((stat) => (
           <div key={stat.label} className="card p-6">
@@ -76,13 +66,11 @@ export default async function AdminDashboard() {
         ))}
       </div>
 
-      {/* Square Sync Health — top of dashboard so the client can spot problems fast */}
       <div className="mb-8">
         <SquareSyncHealth />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recent orders */}
+      <div className="grid grid-cols-1 gap-8">
         <div className="card p-6">
           <h2 className="font-heading text-xl uppercase tracking-wider mb-4">Recent Orders</h2>
           {recentOrders && recentOrders.length > 0 ? (
@@ -98,10 +86,7 @@ export default async function AdminDashboard() {
                 {recentOrders.map((order) => (
                   <tr key={order.id} className="border-b border-surface-600/50">
                     <td className="py-2">
-                      <a
-                        href={`/admin/orders/${order.id}`}
-                        className="text-brand-red hover:underline"
-                      >
+                      <a href={`/admin/orders/${order.id}`} className="text-brand-red hover:underline">
                         {order.order_number}
                       </a>
                     </td>
@@ -125,33 +110,6 @@ export default async function AdminDashboard() {
             </table>
           ) : (
             <p className="text-text-muted">No orders yet.</p>
-          )}
-        </div>
-
-        {/* Low stock alerts */}
-        <div className="card p-6">
-          <h2 className="font-heading text-xl uppercase tracking-wider mb-4">Low Stock Alerts</h2>
-          {lowStock && lowStock.length > 0 ? (
-            <ul className="space-y-2">
-              {lowStock.map((item: any, i: number) => (
-                <li key={i} className="flex justify-between text-sm py-2 border-b border-surface-600/50">
-                  <span className="text-text-secondary">
-                    {item.product_variations?.products?.name}
-                    {item.product_variations?.name !== "Regular" &&
-                      ` — ${item.product_variations?.name}`}
-                  </span>
-                  <span
-                    className={`font-mono ${
-                      item.quantity <= 0 ? "text-red-400" : "text-yellow-400"
-                    }`}
-                  >
-                    {item.quantity}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-text-muted">All products sufficiently stocked.</p>
           )}
         </div>
       </div>

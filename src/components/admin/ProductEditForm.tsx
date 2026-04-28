@@ -31,9 +31,6 @@ export function ProductEditForm({ product, allCategories }: Props) {
       sku: v.sku || "",
       price: v.price,
       sale_price: v.sale_price || "",
-      quantity: v.inventory?.[0]?.quantity || 0,
-      low_stock_alert: v.inventory?.[0]?.low_stock_alert || false,
-      low_stock_threshold: v.inventory?.[0]?.low_stock_threshold || 0,
     })) || []
   );
 
@@ -150,7 +147,7 @@ export function ProductEditForm({ product, allCategories }: Props) {
             Square is the source of truth for this product
           </p>
           <p className="text-text-muted text-xs leading-relaxed">
-            Changes to <span className="text-white">name</span>, <span className="text-white">description</span>, <span className="text-white">variation price/SKU</span>, and <span className="text-white">stock quantity</span> will be overwritten the next time Square sends a catalog or inventory update. Edit those in the{" "}
+            Changes to <span className="text-white">name</span>, <span className="text-white">description</span>, and <span className="text-white">variation price/SKU</span> will be overwritten the next time Square sends a catalog update. Edit those in the{" "}
             <a
               href={`https://squareup.com/dashboard/items/library/${product.square_token}`}
               target="_blank"
@@ -159,7 +156,7 @@ export function ProductEditForm({ product, allCategories }: Props) {
             >
               Square Dashboard
             </a>{" "}
-            or use <span className="text-white">Bulk Pricing</span> for global % price changes. Status, visibility, SEO, categories, images, and low-stock thresholds remain site-only and stick.
+            or use <span className="text-white">Bulk Pricing</span> for global % price changes. Status, visibility, SEO, categories, and images remain site-only and stick.
           </p>
         </div>
       )}
@@ -229,15 +226,15 @@ export function ProductEditForm({ product, allCategories }: Props) {
         </div>
       </div>
 
-      {/* Variations & inventory */}
+      {/* Variations */}
       <div className="card p-6 space-y-4">
         <h2 className="font-heading text-lg uppercase tracking-wider">
-          Variations & Inventory
+          Variations
         </h2>
 
         {variations.map((v: any, i: number) => (
           <div key={v.id || i} className="bg-surface-700/50 rounded p-4 space-y-3">
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="text-text-muted text-xs block mb-1">Name</label>
                 <input
@@ -278,17 +275,6 @@ export function ProductEditForm({ product, allCategories }: Props) {
                     updateVariation(i, "sale_price", e.target.value ? parseFloat(e.target.value) : "")
                   }
                   className="w-full bg-surface-700 border border-surface-600 rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-red/50"
-                />
-              </div>
-              <div>
-                <label className="text-text-muted text-xs block mb-1">Stock Qty</label>
-                <input
-                  type="number"
-                  value={v.quantity}
-                  onChange={(e) =>
-                    updateVariation(i, "quantity", parseInt(e.target.value) || 0)
-                  }
-                  className="w-full bg-surface-700 border border-surface-600 rounded px-3 py-1.5 text-sm text-white font-mono focus:outline-none focus:ring-2 focus:ring-brand-red/50"
                 />
               </div>
             </div>

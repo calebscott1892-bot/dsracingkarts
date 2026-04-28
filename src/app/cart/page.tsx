@@ -109,7 +109,7 @@ export default function CartPage() {
                       {item.quantity}
                     </span>
                     <button
-                      onClick={() => updateQuantity(item.variation_id, Math.min(item.quantity + 1, item.max_quantity || 999))}
+                      onClick={() => updateQuantity(item.variation_id, item.quantity + 1)}
                       className="p-1.5 text-text-muted hover:text-racing-red transition-colors"
                       aria-label="Increase quantity"
                     >
@@ -142,7 +142,7 @@ export default function CartPage() {
                   {item.quantity}
                 </span>
                 <button
-                  onClick={() => updateQuantity(item.variation_id, Math.min(item.quantity + 1, item.max_quantity || 999))}
+                  onClick={() => updateQuantity(item.variation_id, item.quantity + 1)}
                   className="px-2 h-full text-text-muted hover:text-racing-red transition-colors"
                   aria-label="Increase quantity"
                 >

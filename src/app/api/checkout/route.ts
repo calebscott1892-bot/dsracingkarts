@@ -18,8 +18,7 @@ import { Resend } from "resend";
  *   2. Create order in Supabase with status "pending"
  *   3. Create Square payment
  *   4. Update order to "paid" (or clean up on failure)
- *   5. Decrement inventory
- *   6. Return order confirmation
+ *   5. Return order confirmation
  */
 
 const rateLimit = new Map<string, number[]>();
@@ -92,7 +91,6 @@ export async function POST(request: NextRequest) {
       .from("product_variations")
       .select(`
         id, price, sale_price, name, sku, product_id,
-        inventory ( quantity ),
         products ( name )
       `)
       .in("id", variationIds);
@@ -283,18 +281,7 @@ export async function POST(request: NextRequest) {
       console.error("Order payment update failed:", paidUpdateError);
     }
 
-    // ---- 5. Decrement inventory ----
-    for (const item of orderItems) {
-      const { error: inventoryError } = await supabase.rpc("decrement_inventory", {
-        p_variation_id: item.variation_id,
-        p_quantity: item.quantity,
-      });
-      if (inventoryError) {
-        console.error("Inventory decrement failed:", inventoryError);
-      }
-    }
-
-    // ---- 6. Send confirmation email ----
+    // ---- 5. Send confirmation email ----
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
       const itemRows = orderItems

@@ -71,8 +71,7 @@ export default async function ProductPage({ params }: Props) {
       product_images ( id, url, alt_text, sort_order, is_primary ),
       product_variations (
         id, name, sku, price, sale_price, sort_order,
-        variation_options ( option_name, option_value ),
-        inventory ( quantity, stock_status )
+        variation_options ( option_name, option_value )
       ),
       product_categories ( categories ( id, name, slug ) )
     `)
@@ -90,6 +89,7 @@ export default async function ProductPage({ params }: Props) {
     .map((v: any) => v.sale_price || v.price)
     .filter((price: number | null) => typeof price === "number" && Number.isFinite(price));
   const hasVariations = variations.length > 0;
+  const displaySku = product.sku || variations.find((v: any) => v.sku)?.sku;
 
   variations.sort((a: any, b: any) => a.sort_order - b.sort_order);
 
@@ -136,9 +136,9 @@ export default async function ProductPage({ params }: Props) {
             {product.name}
           </h1>
 
-          {product.sku && (
+          {displaySku && (
             <p className="text-text-muted text-xs font-heading tracking-wider mb-5">
-              SKU: {product.sku}
+              SKU: {displaySku}
             </p>
           )}
 
@@ -207,7 +207,7 @@ export default async function ProductPage({ params }: Props) {
                 "@type": "Product",
                 name: product.name,
                 description: product.description_plain,
-                sku: product.sku,
+                sku: displaySku,
                 image: images[0]?.url,
                 offers: hasVariations
                   ? {
@@ -217,12 +217,7 @@ export default async function ProductPage({ params }: Props) {
                         ...variations.map((v: any) => v.price)
                       ),
                       priceCurrency: "AUD",
-                      availability:
-                        variations.some(
-                          (v: any) => v.inventory?.stock_status === "in_stock"
-                        )
-                          ? "https://schema.org/InStock"
-                          : "https://schema.org/OutOfStock",
+                      availability: "https://schema.org/InStock",
                     }
                   : undefined,
               }),

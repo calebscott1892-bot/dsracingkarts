@@ -24,7 +24,6 @@ interface Props {
     search?: string;
     sort?: string;
     page?: string;
-    stock?: string;
   }>;
 }
 
@@ -65,8 +64,8 @@ export default async function ShopPage({ searchParams }: Props) {
   let query = supabase
     .from("products")
     .select(`
-      id, name, slug, base_price, primary_image_url,
-      product_variations ( price, sale_price ),
+      id, name, slug, sku, base_price, primary_image_url,
+      product_variations ( price, sale_price, sku ),
       product_categories ( category_id, categories ( slug ) )
     `, { count: "exact" })
     .eq("status", "active")

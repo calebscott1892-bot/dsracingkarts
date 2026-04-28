@@ -59,10 +59,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             i.variation_id === newItem.variation_id
               ? {
                   ...i,
-                  quantity: Math.min(
-                    i.quantity + (newItem.quantity || 1),
-                    i.max_quantity || 999
-                  ),
+                  quantity: i.quantity + (newItem.quantity || 1),
                 }
               : i
           );

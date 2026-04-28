@@ -14,13 +14,14 @@ export default async function AdminProductsPage({ searchParams }: Props) {
   const supabase = await createClient();
   const page = parseInt(params.page || "1", 10);
   const offset = (page - 1) * PAGE_SIZE;
+  const statusFilter = params.status || "active";
 
   let query = supabase
     .from("products")
     .select(
       `
       id, name, slug, sku, base_price, status, visibility, primary_image_url,
-      product_variations ( id, name, price, inventory ( quantity, stock_status ) )
+      product_variations ( id, name, sku, price )
     `,
       { count: "exact" }
     )
@@ -29,8 +30,8 @@ export default async function AdminProductsPage({ searchParams }: Props) {
   if (params.search) {
     query = query.ilike("name", `%${params.search}%`);
   }
-  if (params.status) {
-    query = query.eq("status", params.status);
+  if (statusFilter !== "all") {
+    query = query.eq("status", statusFilter);
   }
 
   query = query.range(offset, offset + PAGE_SIZE - 1);
@@ -71,7 +72,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
               key={s}
               href={`/admin/products${s !== "all" ? `?status=${s}` : ""}`}
               className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
-                (params.status || "all") === s
+                statusFilter === s
                   ? "bg-brand-red text-white"
                   : "bg-surface-700 text-text-secondary hover:bg-surface-600"
               }`}
@@ -90,18 +91,14 @@ export default async function AdminProductsPage({ searchParams }: Props) {
               <th className="px-4 py-3">Product</th>
               <th className="px-4 py-3">SKU</th>
               <th className="px-4 py-3">Price</th>
-              <th className="px-4 py-3">Stock</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {products?.map((product: any) => {
-              const totalStock = product.product_variations?.reduce(
-                (sum: number, v: any) =>
-                  sum + (v.inventory?.[0]?.quantity || 0),
-                0
-              );
+              const displaySku = product.sku || product.product_variations?.find((v: any) => v.sku)?.sku;
+
               return (
                 <tr
                   key={product.id}
@@ -121,23 +118,10 @@ export default async function AdminProductsPage({ searchParams }: Props) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-text-muted font-mono text-xs">
-                    {product.sku || "—"}
+                    {displaySku || "—"}
                   </td>
                   <td className="px-4 py-3">
                     {product.base_price ? formatPrice(product.base_price) : "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`font-mono ${
-                        totalStock > 5
-                          ? "text-green-400"
-                          : totalStock > 0
-                          ? "text-yellow-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      {totalStock}
-                    </span>
                   </td>
                   <td className="px-4 py-3">
                     <span

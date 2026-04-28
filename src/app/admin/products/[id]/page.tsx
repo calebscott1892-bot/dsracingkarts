@@ -18,8 +18,7 @@ export default async function AdminProductEditPage({ params }: Props) {
       product_images ( id, url, alt_text, sort_order, is_primary ),
       product_variations (
         id, name, sku, price, sale_price, sort_order,
-        variation_options ( id, option_name, option_value ),
-        inventory ( id, quantity, low_stock_alert, low_stock_threshold )
+        variation_options ( id, option_name, option_value )
       ),
       product_categories ( category_id, categories ( id, name, slug ) )
     `)
