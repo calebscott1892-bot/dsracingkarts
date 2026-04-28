@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { reconcileCatalogForAdminResync } from "@/lib/square-sync";
+import { reconcileCatalogChunk, reconcileCatalogForAdminResync } from "@/lib/square-sync";
 
 export const maxDuration = 300; // up to 5 minutes for a full catalog walk
 
@@ -66,6 +66,36 @@ export async function POST(request: NextRequest) {
 
   const startedAt = Date.now();
   try {
+    let body: any = null;
+    try {
+      body = await request.json();
+    } catch {
+      body = null;
+    }
+
+    if (body?.chunked) {
+      const chunk = await reconcileCatalogChunk({
+        phase: body.phase === "items" ? "items" : "categories",
+        cursor: body.cursor || null,
+        limit: 40,
+      });
+      const totals = {
+        scanned: (Number(body.totals?.scanned) || 0) + chunk.scanned,
+        synced: (Number(body.totals?.synced) || 0) + chunk.synced,
+        failed: (Number(body.totals?.failed) || 0) + chunk.failed,
+        categoriesSynced: (Number(body.totals?.categoriesSynced) || 0) + chunk.categoriesSynced,
+      };
+      if (chunk.done) {
+        void recordHeartbeat(totals);
+      }
+      return NextResponse.json({
+        ok: true,
+        durationMs: Date.now() - startedAt,
+        ...chunk,
+        totals,
+      });
+    }
+
     const result = await reconcileCatalogForAdminResync();
     void recordHeartbeat(result);
     return NextResponse.json({

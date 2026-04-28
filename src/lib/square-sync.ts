@@ -693,3 +693,126 @@ export async function reconcileCatalogForAdminResync(): Promise<{
   return { scanned, synced, failed, categoriesSynced, failures };
 }
 
+export async function reconcileCatalogChunk({
+  phase = "categories",
+  cursor,
+  limit = 40,
+}: {
+  phase?: "categories" | "items";
+  cursor?: string | null;
+  limit?: number;
+}): Promise<{
+  phase: "categories" | "items";
+  nextPhase: "categories" | "items" | null;
+  cursor: string | null;
+  done: boolean;
+  scanned: number;
+  synced: number;
+  failed: number;
+  categoriesSynced: number;
+  failures: { id: string; reason: string }[];
+}> {
+  const square = getSquareClient();
+  const supabase = createServiceClient();
+  const failures: { id: string; reason: string }[] = [];
+  let scanned = 0;
+  let synced = 0;
+  let failed = 0;
+  let categoriesSynced = 0;
+
+  if (phase === "categories") {
+    const categoryObjects = new Map<string, any>();
+    let categoryCursor: string | undefined;
+    do {
+      const { result } = await square.catalogApi.searchCatalogObjects({
+        cursor: categoryCursor,
+        objectTypes: ["CATEGORY"],
+        includeCategoryPathToRoot: true,
+        limit: 1000,
+      });
+      categoryCursor = result.cursor;
+      for (const obj of result.objects || []) {
+        if (obj.type === "CATEGORY") categoryObjects.set(obj.id, obj);
+      }
+    } while (categoryCursor);
+
+    const categoryIdMap = new Map<string, string>();
+    for (const obj of Array.from(categoryObjects.values())) {
+      scanned++;
+      const dbId = await upsertCategoryObjectFromSquare(obj, categoryObjects, categoryIdMap).catch((err) => {
+        failures.push({ id: obj.id, reason: err?.message || "category sync exception" });
+        return null;
+      });
+      if (dbId) {
+        synced++;
+        categoriesSynced++;
+      } else {
+        failed++;
+      }
+    }
+
+    return {
+      phase,
+      nextPhase: "items",
+      cursor: null,
+      done: false,
+      scanned,
+      synced,
+      failed,
+      categoriesSynced,
+      failures,
+    };
+  }
+
+  const categoryIdMap = new Map<string, string>();
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, square_id")
+    .not("square_id", "is", null);
+  for (const category of categories || []) {
+    if (category.square_id) categoryIdMap.set(category.square_id, category.id);
+  }
+
+  const { result } = await square.catalogApi.searchCatalogObjects({
+    cursor: cursor || undefined,
+    objectTypes: ["ITEM"],
+    includeRelatedObjects: true,
+    limit,
+  });
+  const relatedObjects = result.relatedObjects || [];
+
+  for (const item of result.objects || []) {
+    scanned++;
+    const res = await syncCatalogItem(item.id, {
+      itemObject: item,
+      relatedObjects,
+      syncInventory: false,
+      categoryIdMap,
+      retrieveMissingImages: false,
+    }).catch((err) => ({
+      ok: false as const,
+      reason: err?.message || "exception",
+    }));
+    if (res.ok) {
+      synced++;
+    } else {
+      failed++;
+      if (failures.length < 20) {
+        failures.push({ id: item.id, reason: res.reason || "unknown" });
+      }
+    }
+  }
+
+  return {
+    phase,
+    nextPhase: result.cursor ? "items" : null,
+    cursor: result.cursor || null,
+    done: !result.cursor,
+    scanned,
+    synced,
+    failed,
+    categoriesSynced,
+    failures,
+  };
+}
+

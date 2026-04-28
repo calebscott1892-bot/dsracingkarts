@@ -24,6 +24,14 @@ type Status = {
   };
 };
 
+type SyncPhase = "categories" | "items";
+type SyncTotals = {
+  scanned: number;
+  synced: number;
+  failed: number;
+  categoriesSynced: number;
+};
+
 function timeAgo(iso: string | null): string {
   if (!iso) return "never";
   const ms = Date.now() - new Date(iso).getTime();
@@ -52,7 +60,7 @@ export function SquareSyncHealth() {
         setStatus(await res.json());
       }
     } catch {
-      // Silent — the panel will show "—" placeholders.
+      // The panel will keep the previous state if status refresh fails.
     }
     setLoading(false);
   }, []);
@@ -62,31 +70,77 @@ export function SquareSyncHealth() {
   }, [refresh]);
 
   async function handleResync() {
-    if (!confirm("Pull the full Square catalog into the site now? This may take 1-2 minutes for a large catalog.")) return;
+    if (
+      !confirm(
+        "Pull the full Square catalog into the site now? This may take several minutes for a large catalog. Keep this tab open until it finishes."
+      )
+    ) {
+      return;
+    }
+
     setResyncing(true);
     setResyncResult(null);
+
     try {
-      const res = await fetch("/api/admin/square-resync", { method: "POST" });
-      const contentType = res.headers.get("content-type") || "";
-      const data = contentType.includes("application/json")
-        ? await res.json()
-        : { error: (await res.text()).slice(0, 180) || `Server returned ${res.status}` };
-      if (res.ok) {
-        const cat = typeof data.categoriesSynced === "number" ? `, ${data.categoriesSynced} categories` : "";
+      let phase: SyncPhase = "categories";
+      let cursor: string | null = null;
+      let totals: SyncTotals = {
+        scanned: 0,
+        synced: 0,
+        failed: 0,
+        categoriesSynced: 0,
+      };
+
+      for (let step = 0; step < 250; step++) {
+        const res: Response = await fetch("/api/admin/square-resync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ chunked: true, phase, cursor, totals }),
+        });
+        const contentType = res.headers.get("content-type") || "";
+        const data = contentType.includes("application/json")
+          ? await res.json()
+          : { error: (await res.text()).slice(0, 180) || `Server returned ${res.status}` };
+
+        if (!res.ok) {
+          setResyncResult(data.error || "Resync failed");
+          return;
+        }
+
+        totals = data.totals || {
+          scanned: totals.scanned + (data.scanned || 0),
+          synced: totals.synced + (data.synced || 0),
+          failed: totals.failed + (data.failed || 0),
+          categoriesSynced: totals.categoriesSynced + (data.categoriesSynced || 0),
+        };
+
         setResyncResult(
-          `Synced ${data.synced}/${data.scanned}${cat}${data.failed ? ` · ${data.failed} failed` : ""}`
+          `Syncing ${phase === "categories" ? "categories" : "products"}... ` +
+            `${totals.synced}/${totals.scanned} synced, ${totals.categoriesSynced} categories` +
+            `${totals.failed ? `, ${totals.failed} failed` : ""}`
         );
-        refresh();
-      } else {
-        setResyncResult(data.error || "Resync failed");
+
+        if (data.done) {
+          setResyncResult(
+            `Synced ${totals.synced}/${totals.scanned}, ${totals.categoriesSynced} categories` +
+              `${totals.failed ? `, ${totals.failed} failed` : ""}`
+          );
+          refresh();
+          return;
+        }
+
+        phase = data.nextPhase || phase;
+        cursor = data.cursor || null;
       }
+
+      setResyncResult("Resync paused after too many batches. Click Resync Now again to continue.");
     } catch (err: any) {
       setResyncResult(err?.message || "Network error during resync");
+    } finally {
+      setResyncing(false);
     }
-    setResyncing(false);
   }
 
-  // Overall traffic-light: green only if all env present + Square API OK + recent webhook (< 7 days)
   const envOk =
     !!status &&
     status.env.accessTokenPresent &&
@@ -122,12 +176,12 @@ export function SquareSyncHealth() {
           title={!envOk ? "Square environment isn't fully configured" : ""}
         >
           <RefreshCw size={12} className={resyncing ? "animate-spin" : ""} />
-          {resyncing ? "Resyncing…" : "Resync Now"}
+          {resyncing ? "Resyncing..." : "Resync Now"}
         </button>
       </div>
 
       {loading || !status ? (
-        <p className="text-text-muted text-sm">Loading status…</p>
+        <p className="text-text-muted text-sm">Loading status...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <Row
@@ -135,7 +189,7 @@ export function SquareSyncHealth() {
             ok={status.square.ok}
             value={
               status.square.ok
-                ? `Connected · ${status.square.locationName ?? "location"}`
+                ? `Connected - ${status.square.locationName ?? "location"}`
                 : status.square.error || "Disconnected"
             }
           />
@@ -149,19 +203,14 @@ export function SquareSyncHealth() {
             ok={status.env.serviceRolePresent}
             value={status.env.serviceRolePresent ? "Configured" : "Missing"}
           />
-          <Row
-            label="Environment"
-            ok={true}
-            neutral
-            value={status.env.environment.toUpperCase()}
-          />
+          <Row label="Environment" ok={true} neutral value={status.env.environment.toUpperCase()} />
           <Row
             label="Last webhook"
             ok={!!status.db.lastWebhookAt}
             neutral={!status.db.lastWebhookAt}
             value={
               status.db.lastWebhookAt
-                ? `${timeAgo(status.db.lastWebhookAt)}${status.db.lastWebhookType ? ` · ${status.db.lastWebhookType}` : ""}`
+                ? `${timeAgo(status.db.lastWebhookAt)}${status.db.lastWebhookType ? ` - ${status.db.lastWebhookType}` : ""}`
                 : "No events received yet"
             }
           />
@@ -171,7 +220,7 @@ export function SquareSyncHealth() {
             neutral={!status.db.lastResyncAt}
             value={
               status.db.lastResyncAt
-                ? `${timeAgo(status.db.lastResyncAt)}${status.db.lastResyncSummary ? ` · ${status.db.lastResyncSummary}` : ""}`
+                ? `${timeAgo(status.db.lastResyncAt)}${status.db.lastResyncSummary ? ` - ${status.db.lastResyncSummary}` : ""}`
                 : "Never run"
             }
           />
@@ -179,22 +228,21 @@ export function SquareSyncHealth() {
             label="Local products"
             ok={true}
             neutral
-            value={`${status.db.activeProducts} active · ${status.db.products} total · ${status.db.variations} variations`}
+            value={`${status.db.activeProducts} active - ${status.db.products} total - ${status.db.variations} variations`}
           />
         </div>
       )}
 
       {resyncResult && (
-        <p className="mt-4 text-xs font-mono text-text-secondary">
-          {resyncResult}
-        </p>
+        <p className="mt-4 text-xs font-mono text-text-secondary">{resyncResult}</p>
       )}
 
       {!status?.env.webhookSecretPresent && (
         <p className="mt-4 text-[11px] text-yellow-400 leading-relaxed">
-          To enable real-time sync, set <code>SQUARE_WEBHOOK_SIGNATURE_KEY</code> on
-          Vercel and register the webhook URL <code>{status?.env.siteUrl || "https://dsracingkarts.com.au"}/api/webhooks/square</code> in
-          the Square Developer portal.
+          To enable real-time sync, set <code>SQUARE_WEBHOOK_SIGNATURE_KEY</code> on Vercel
+          and register the webhook URL{" "}
+          <code>{status?.env.siteUrl || "https://dsracingkarts.com.au"}/api/webhooks/square</code>{" "}
+          in the Square Developer portal.
         </p>
       )}
     </div>
@@ -212,11 +260,7 @@ function Row({
   ok: boolean;
   neutral?: boolean;
 }) {
-  const colour = neutral
-    ? "text-text-secondary"
-    : ok
-    ? "text-green-400"
-    : "text-yellow-400";
+  const colour = neutral ? "text-text-secondary" : ok ? "text-green-400" : "text-yellow-400";
   return (
     <div className="flex items-baseline justify-between gap-3 py-1.5 border-b border-surface-700/50">
       <span className="text-text-muted uppercase tracking-wider text-[10px]">{label}</span>
