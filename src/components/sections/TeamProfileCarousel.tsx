@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
-import { SCAFF_LOGO_URL } from "@/lib/teamLogos";
+import { CLAW_CONSTRUCTION_LOGO_URL, SCAFF_LOGO_URL } from "@/lib/teamLogos";
 
 /* ── Team Data ── */
 export interface TeamResult {
@@ -29,7 +29,7 @@ export interface Team {
   results?: TeamResult[];
 }
 
-const HARDCODED_TEAMS: Team[] = [
+export const DEFAULT_TEAM_PROFILES: Team[] = [
   {
     number: "338",
     name: "Scaff It Up",
@@ -59,7 +59,7 @@ const HARDCODED_TEAMS: Team[] = [
     name: "Claw Racing #2",
     accent: "#a855f7",
     accentRgb: "168,85,247",
-    logo: "/images/history/Claw Racing.jpg",
+    logo: CLAW_CONSTRUCTION_LOGO_URL,
     tagline: "Grip it and rip it",
     website: "https://clawconstruction.com.au/",
   },
@@ -68,7 +68,7 @@ const HARDCODED_TEAMS: Team[] = [
     name: "Claw Racing",
     accent: "#ef4444",
     accentRgb: "239,68,68",
-    logo: "/images/history/Claw Racing.jpg",
+    logo: CLAW_CONSTRUCTION_LOGO_URL,
     tagline: "Clutching every podium",
     website: "https://clawconstruction.com.au/",
   },
@@ -360,14 +360,14 @@ function TeamCard({ team }: { team: Team }) {
 }
 
 /* ── Main Carousel ── */
-export function TeamCarouselUI({ teams = HARDCODED_TEAMS }: { teams?: Team[] }) {
+export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team[] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [current, setCurrent] = useState(0);
   const [slideDir, setSlideDir] = useState<"right" | "left">("right");
   const [animKey, setAnimKey] = useState(0);
   const isAnimating = useRef(false);
 
-  const safeTeams = teams.length > 0 ? teams : HARDCODED_TEAMS;
+  const safeTeams = teams.length > 0 ? teams : DEFAULT_TEAM_PROFILES;
 
   const navigate = useCallback(
     (dir: "right" | "left") => {

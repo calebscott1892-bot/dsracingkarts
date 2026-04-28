@@ -51,13 +51,24 @@ export async function upsertCategoryFromSquare(
   try {
     const { result } = await square.catalogApi.retrieveCatalogObject(
       squareCategoryId,
-      false
+      false,
+      undefined,
+      true
     );
     const obj = result.object;
     if (!obj || obj.type !== "CATEGORY" || !obj.categoryData) return null;
 
     const name = obj.categoryData.name || "Uncategorised";
     const slug = slugify(name) || squareCategoryId.toLowerCase();
+    const parentSquareId =
+      obj.categoryData.parentCategory?.id ||
+      obj.categoryData.pathToRoot?.[0]?.categoryId ||
+      null;
+    const parentId =
+      parentSquareId && parentSquareId !== squareCategoryId
+        ? await upsertCategoryFromSquare(parentSquareId)
+        : null;
+    const sortOrder = Number(obj.categoryData.parentCategory?.ordinal ?? 0);
 
     const { data: existing } = await supabase
       .from("categories")
@@ -68,7 +79,12 @@ export async function upsertCategoryFromSquare(
     if (existing) {
       await supabase
         .from("categories")
-        .update({ name, updated_at: new Date().toISOString() })
+        .update({
+          name,
+          parent_id: parentId,
+          sort_order: sortOrder,
+          updated_at: new Date().toISOString(),
+        })
         .eq("id", existing.id);
       return existing.id;
     }
@@ -86,7 +102,13 @@ export async function upsertCategoryFromSquare(
 
     const { data: created, error } = await supabase
       .from("categories")
-      .insert({ name, slug: finalSlug, square_id: squareCategoryId })
+      .insert({
+        name,
+        slug: finalSlug,
+        square_id: squareCategoryId,
+        parent_id: parentId,
+        sort_order: sortOrder,
+      })
       .select("id")
       .single();
 
@@ -129,7 +151,17 @@ async function syncProductImages(
   productName: string
 ): Promise<string | null> {
   const supabase = createServiceClient();
-  const imageIds: string[] = (itemData.imageIds || []).filter(Boolean);
+  const square = getSquareClient();
+  const imageIds: string[] = Array.from(
+    new Set(
+      [
+        ...(itemData.imageIds || []),
+        ...((itemData.variations || []).flatMap(
+          (variation: any) => variation.itemVariationData?.imageIds || []
+        ) as string[]),
+      ].filter(Boolean)
+    )
+  );
   if (imageIds.length === 0) {
     // No images on this Square item; leave local images alone unless none
     // exist yet. (We don't want to nuke manual uploads if Square has nothing.)
@@ -144,7 +176,15 @@ async function syncProductImages(
     const imageObj = relatedObjects.find(
       (obj: any) => obj.id === id && obj.type === "IMAGE"
     );
-    const url = imageObj?.imageData?.url;
+    let url = imageObj?.imageData?.url;
+    if (!url) {
+      try {
+        const { result } = await square.catalogApi.retrieveCatalogObject(id, false);
+        url = result.object?.type === "IMAGE" ? result.object.imageData?.url : null;
+      } catch (err: any) {
+        console.error(`[square-sync] image retrieve failed for ${id}:`, err?.message || err);
+      }
+    }
     if (url) resolved.push({ url, squareId: id, sortOrder: i });
   }
 
@@ -224,7 +264,7 @@ export async function syncCatalogItem(itemId: string): Promise<{ ok: boolean; re
   // Existing product?
   const { data: existing } = await supabase
     .from("products")
-    .select("id, slug")
+    .select("id, slug, primary_image_url")
     .eq("square_token", squareToken)
     .maybeSingle();
 
@@ -247,7 +287,10 @@ export async function syncCatalogItem(itemId: string): Promise<{ ok: boolean; re
 
   // Compute primary image URL up-front for the products row. We'll also
   // populate product_images below.
-  const primaryImageId = itemData.imageIds?.[0];
+  const primaryImageId =
+    itemData.imageIds?.[0] ||
+    itemData.variations?.find((variation: any) => variation.itemVariationData?.imageIds?.[0])
+      ?.itemVariationData?.imageIds?.[0];
   const primaryImageFromRelated = primaryImageId
     ? relatedObjects.find((obj: any) => obj.id === primaryImageId && obj.type === "IMAGE")?.imageData?.url ||
       null
@@ -258,7 +301,7 @@ export async function syncCatalogItem(itemId: string): Promise<{ ok: boolean; re
     slug,
     description,
     description_plain: stripHtml(description),
-    primary_image_url: primaryImageFromRelated,
+    primary_image_url: primaryImageFromRelated || existing?.primary_image_url || null,
     square_token: squareToken,
     status: "active" as const,
     updated_at: new Date().toISOString(),
@@ -330,7 +373,13 @@ export async function syncCatalogItem(itemId: string): Promise<{ ok: boolean; re
   }
 
   // Images
-  await syncProductImages(productId, itemData, relatedObjects, name);
+  const syncedPrimaryImageUrl = await syncProductImages(productId, itemData, relatedObjects, name);
+  if (syncedPrimaryImageUrl && syncedPrimaryImageUrl !== productPayload.primary_image_url) {
+    await supabase
+      .from("products")
+      .update({ primary_image_url: syncedPrimaryImageUrl })
+      .eq("id", productId);
+  }
 
   // Categories
   const squareCategoryIds = Array.from(

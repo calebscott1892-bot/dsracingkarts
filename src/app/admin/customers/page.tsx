@@ -3,7 +3,7 @@ import { formatDate } from "@/lib/utils";
 import { ImportSquareCustomersButton } from "./ImportSquareCustomersButton";
 
 interface Props {
-  searchParams: Promise<{ search?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; page?: string; sort?: string }>;
 }
 
 const PAGE_SIZE = 25;
@@ -13,6 +13,12 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
   const supabase = await createClient();
   const page = parseInt(params.page || "1", 10);
   const offset = (page - 1) * PAGE_SIZE;
+  const sort =
+    params.sort === "name_asc" || params.sort === "name_desc" || params.sort === "oldest"
+      ? params.sort
+      : "newest";
+  const searchSuffix = params.search ? `&search=${encodeURIComponent(params.search)}` : "";
+  const sortSuffix = sort !== "newest" ? `&sort=${sort}` : "";
 
   let query = supabase
     .from("customers")
@@ -20,8 +26,23 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
       `id, first_name, last_name, email, phone, created_at,
        orders ( id )`,
       { count: "exact" }
-    )
-    .order("created_at", { ascending: false });
+    );
+
+  if (sort === "name_asc") {
+    query = query
+      .order("last_name", { ascending: true, nullsFirst: false })
+      .order("first_name", { ascending: true, nullsFirst: false })
+      .order("email", { ascending: true });
+  } else if (sort === "name_desc") {
+    query = query
+      .order("last_name", { ascending: false, nullsFirst: false })
+      .order("first_name", { ascending: false, nullsFirst: false })
+      .order("email", { ascending: false });
+  } else if (sort === "oldest") {
+    query = query.order("created_at", { ascending: true });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
 
   if (params.search) {
     query = query.or(
@@ -45,14 +66,27 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
 
       {/* Search */}
       <div className="card p-4 mb-6">
-        <form className="relative max-w-sm">
+        <form className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             type="text"
             name="search"
             defaultValue={params.search}
             placeholder="Search by name or email…"
-            className="w-full bg-surface-700 border border-surface-600 rounded pl-4 pr-4 py-2 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-red/50"
+            className="w-full sm:max-w-sm bg-surface-700 border border-surface-600 rounded pl-4 pr-4 py-2 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-red/50"
           />
+          <select
+            name="sort"
+            defaultValue={sort}
+            className="bg-surface-700 border border-surface-600 rounded px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand-red/50"
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+            <option value="name_asc">Name A-Z</option>
+            <option value="name_desc">Name Z-A</option>
+          </select>
+          <button type="submit" className="btn-primary text-sm">
+            Apply
+          </button>
         </form>
       </div>
 
@@ -112,7 +146,7 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/customers?page=${p}${params.search ? `&search=${params.search}` : ""}`}
+              href={`/admin/customers?page=${p}${searchSuffix}${sortSuffix}`}
               className={`px-3 py-1.5 rounded text-sm ${
                 p === page
                   ? "bg-brand-red text-white"

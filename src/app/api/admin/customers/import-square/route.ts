@@ -19,7 +19,8 @@ import { getSquareClient } from "@/lib/square";
  *    to fail.
  */
 
-export const maxDuration = 60; // Vercel: bump from default 10s for big imports
+export const maxDuration = 300; // Vercel: allow big Square customer imports to finish
+export const dynamic = "force-dynamic";
 
 async function verifyAdmin() {
   const supabase = await createClient();

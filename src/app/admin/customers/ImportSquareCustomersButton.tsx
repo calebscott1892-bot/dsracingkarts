@@ -26,10 +26,13 @@ export function ImportSquareCustomersButton() {
     setResult(null);
     try {
       const res = await fetch("/api/admin/customers/import-square", { method: "POST" });
-      const data: ImportResponse = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const data: ImportResponse = contentType.includes("application/json")
+        ? await res.json()
+        : { error: (await res.text()).slice(0, 180) || `Server returned ${res.status}` };
       setResult(res.ok ? data : { ...data, error: data.error || "Import failed" });
-    } catch {
-      setResult({ error: "Network error — please try again" });
+    } catch (err: any) {
+      setResult({ error: err?.message || "Network error - please try again" });
     }
     setLoading(false);
   }

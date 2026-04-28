@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { Quote, Flag, Timer } from "lucide-react";
-import { TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
+import { DEFAULT_TEAM_PROFILES, TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
@@ -46,6 +46,11 @@ export default async function AboutPage() {
         website: t.website_url || undefined,
         results: resultsByTeam[t.id] ?? [],
       }));
+      const seen = new Set(dbTeams.map((team) => team.number || team.name.toLowerCase()));
+      for (const fallbackTeam of DEFAULT_TEAM_PROFILES) {
+        const key = fallbackTeam.number || fallbackTeam.name.toLowerCase();
+        if (!seen.has(key)) dbTeams.push(fallbackTeam);
+      }
     }
   } catch {
     // use hardcoded fallback

@@ -133,19 +133,19 @@ export function AnalyticsDashboard({ data }: { data: MetricsData }) {
             <FunnelStep
               label="Add to Cart"
               value={data.conversionEvents.addToCart}
-              percentage={(data.conversionEvents.addToCart / data.conversionEvents.pageViews) * 100}
+              percentage={data.conversionEvents.pageViews > 0 ? (data.conversionEvents.addToCart / data.conversionEvents.pageViews) * 100 : 0}
               color="from-purple-500 to-purple-600"
             />
             <FunnelStep
               label="Checkout"
               value={data.conversionEvents.checkout}
-              percentage={(data.conversionEvents.checkout / data.conversionEvents.pageViews) * 100}
+              percentage={data.conversionEvents.pageViews > 0 ? (data.conversionEvents.checkout / data.conversionEvents.pageViews) * 100 : 0}
               color="from-amber-500 to-amber-600"
             />
             <FunnelStep
               label="Purchase"
               value={data.conversionEvents.purchase}
-              percentage={(data.conversionEvents.purchase / data.conversionEvents.pageViews) * 100}
+              percentage={data.conversionEvents.pageViews > 0 ? (data.conversionEvents.purchase / data.conversionEvents.pageViews) * 100 : 0}
               color="from-green-500 to-green-600"
             />
             <div className="mt-6 pt-4 border-t border-surface-600">
