@@ -48,6 +48,26 @@ type SyncCatalogItemOptions = {
   retrieveMissingImages?: boolean;
 };
 
+const CHUNK_ITEM_TIMEOUT_MS = 15_000;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  timeoutMessage: string
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeout = setTimeout(() => reject(new Error(timeoutMessage)), ms);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
 async function loadCurrentSquareItemIds(): Promise<Set<string>> {
   const square = getSquareClient();
   const ids = new Set<string>();
@@ -854,13 +874,17 @@ export async function reconcileCatalogChunk({
 
   for (const item of result.objects || []) {
     scanned++;
-    const res = await syncCatalogItem(item.id, {
-      itemObject: item,
-      relatedObjects,
-      syncInventory: false,
-      categoryIdMap,
-      retrieveMissingImages: false,
-    }).catch((err) => ({
+    const res = await withTimeout(
+      syncCatalogItem(item.id, {
+        itemObject: item,
+        relatedObjects,
+        syncInventory: false,
+        categoryIdMap,
+        retrieveMissingImages: false,
+      }),
+      CHUNK_ITEM_TIMEOUT_MS,
+      `item sync timed out after ${CHUNK_ITEM_TIMEOUT_MS / 1000}s`
+    ).catch((err) => ({
       ok: false as const,
       reason: err?.message || "exception",
     }));

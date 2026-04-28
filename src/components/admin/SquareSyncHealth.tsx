@@ -92,11 +92,14 @@ export function SquareSyncHealth() {
       };
 
       for (let step = 0; step < 250; step++) {
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 70_000);
         const res: Response = await fetch("/api/admin/square-resync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ chunked: true, phase, cursor, totals }),
-        });
+          signal: controller.signal,
+        }).finally(() => window.clearTimeout(timeout));
         const contentType = res.headers.get("content-type") || "";
         const data = contentType.includes("application/json")
           ? await res.json()
