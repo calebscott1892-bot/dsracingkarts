@@ -53,6 +53,7 @@ export function SquareSyncHealth() {
   const [loading, setLoading] = useState(true);
   const [resyncing, setResyncing] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -156,6 +157,28 @@ export function SquareSyncHealth() {
     }
   }
 
+  async function handleDiagnostics() {
+    setDiagnosing(true);
+    setResyncResult("Running Square diagnostics across the first 250 catalog items...");
+    try {
+      const res = await fetch("/api/admin/square-diagnostics", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setResyncResult(data.error || "Diagnostics failed");
+        return;
+      }
+      const failures = (data.failures || []) as SyncFailure[];
+      setResyncResult(
+        `Diagnostics scanned ${data.scanned} items and found ${data.failed} failures.` +
+          formatFailures(failures)
+      );
+    } catch (err: any) {
+      setResyncResult(err?.message || "Diagnostics failed");
+    } finally {
+      setDiagnosing(false);
+    }
+  }
+
   const envOk =
     !!status &&
     status.env.accessTokenPresent &&
@@ -184,15 +207,26 @@ export function SquareSyncHealth() {
             </span>
           )}
         </div>
-        <button
-          onClick={handleResync}
-          disabled={resyncing || !envOk}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 border border-surface-500 rounded text-xs text-text-secondary hover:text-white transition-colors disabled:opacity-50"
-          title={!envOk ? "Square environment isn't fully configured" : ""}
-        >
-          <RefreshCw size={12} className={resyncing ? "animate-spin" : ""} />
-          {resyncing ? "Resyncing..." : "Resync Now"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDiagnostics}
+            disabled={resyncing || diagnosing || !envOk}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 border border-surface-500 rounded text-xs text-text-secondary hover:text-white transition-colors disabled:opacity-50"
+            title={!envOk ? "Square environment isn't fully configured" : ""}
+          >
+            <AlertTriangle size={12} className={diagnosing ? "animate-pulse" : ""} />
+            {diagnosing ? "Checking..." : "Find Failures"}
+          </button>
+          <button
+            onClick={handleResync}
+            disabled={resyncing || diagnosing || !envOk}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-surface-700 hover:bg-surface-600 border border-surface-500 rounded text-xs text-text-secondary hover:text-white transition-colors disabled:opacity-50"
+            title={!envOk ? "Square environment isn't fully configured" : ""}
+          >
+            <RefreshCw size={12} className={resyncing ? "animate-spin" : ""} />
+            {resyncing ? "Resyncing..." : "Resync Now"}
+          </button>
+        </div>
       </div>
 
       {loading || !status ? (

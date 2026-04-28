@@ -920,3 +920,69 @@ export async function reconcileCatalogChunk({
   };
 }
 
+export async function diagnoseCatalogSyncFailures({
+  scanLimit = 250,
+}: {
+  scanLimit?: number;
+} = {}): Promise<{
+  scanned: number;
+  failed: number;
+  failures: { id: string; reason: string }[];
+}> {
+  const square = getSquareClient();
+  const supabase = createServiceClient();
+  const failures: { id: string; reason: string }[] = [];
+  let scanned = 0;
+
+  const categoryIdMap = new Map<string, string>();
+  const { data: categories } = await supabase
+    .from("categories")
+    .select("id, square_id")
+    .not("square_id", "is", null);
+  for (const category of categories || []) {
+    if (category.square_id) categoryIdMap.set(category.square_id, category.id);
+  }
+
+  let cursor: string | undefined;
+  while (scanned < scanLimit) {
+    const { result } = await square.catalogApi.searchCatalogObjects({
+      cursor,
+      objectTypes: ["ITEM"],
+      includeRelatedObjects: true,
+      limit: Math.min(50, scanLimit - scanned),
+    });
+    const relatedObjects = result.relatedObjects || [];
+
+    for (const item of result.objects || []) {
+      if (scanned >= scanLimit) break;
+      scanned++;
+      const res = await withTimeout(
+        syncCatalogItem(item.id, {
+          itemObject: item,
+          relatedObjects,
+          syncInventory: false,
+          categoryIdMap,
+          retrieveMissingImages: false,
+        }),
+        CHUNK_ITEM_TIMEOUT_MS,
+        `item sync timed out after ${CHUNK_ITEM_TIMEOUT_MS / 1000}s`
+      ).catch((err) => ({
+        ok: false as const,
+        reason: err?.message || "exception",
+      }));
+
+      if (!res.ok) {
+        failures.push({
+          id: item.id,
+          reason: `${item.itemData?.name ? `${item.itemData.name}: ` : ""}${res.reason || "unknown"}`,
+        });
+      }
+    }
+
+    if (!result.cursor) break;
+    cursor = result.cursor;
+  }
+
+  return { scanned, failed: failures.length, failures };
+}
+
