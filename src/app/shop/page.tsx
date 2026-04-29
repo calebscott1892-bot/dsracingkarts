@@ -21,6 +21,61 @@ interface Props {
   }>;
 }
 
+type ShopCategory = {
+  id: string;
+  name: string;
+  slug: string;
+  parent_id: string | null;
+  square_id?: string | null;
+};
+
+function normalizeCategoryKey(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function buildCategoryLookup(categories: ShopCategory[]) {
+  const byId = new Map(categories.map((category) => [category.id, category]));
+
+  function parentName(category: ShopCategory) {
+    if (!category.parent_id) return "";
+    return byId.get(category.parent_id)?.name.trim().toLowerCase() || "";
+  }
+
+  function dedupeKey(category: ShopCategory) {
+    return `${parentName(category)}::${normalizeCategoryKey(category.name)}`;
+  }
+
+  function choosePreferred(current: ShopCategory | undefined, candidate: ShopCategory) {
+    if (!current) return candidate;
+    if (!current.square_id && candidate.square_id) return candidate;
+    if (current.square_id && !candidate.square_id) return current;
+    return current.slug.localeCompare(candidate.slug) <= 0 ? current : candidate;
+  }
+
+  const canonicalByKey = new Map<string, ShopCategory>();
+  for (const category of categories) {
+    const key = dedupeKey(category);
+    canonicalByKey.set(key, choosePreferred(canonicalByKey.get(key), category));
+  }
+
+  const idsByCanonicalSlug = new Map<string, string[]>();
+  for (const category of categories) {
+    const key = dedupeKey(category);
+    const canonical = canonicalByKey.get(key);
+    if (!canonical) continue;
+    idsByCanonicalSlug.set(canonical.slug, [
+      ...(idsByCanonicalSlug.get(canonical.slug) || []),
+      category.id,
+    ]);
+  }
+
+  const dedupedCategories = Array.from(canonicalByKey.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  return { dedupedCategories, idsByCanonicalSlug };
+}
+
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams;
   const canonicalParams = new URLSearchParams();
@@ -64,14 +119,16 @@ export default async function ShopPage({ searchParams }: Props) {
   if (params.category) {
     const { data: allCats } = await supabase
       .from("categories")
-      .select("id, parent_id, slug");
+      .select("id, name, parent_id, slug, square_id");
 
-    const matchedCat = allCats?.find((c) => c.slug === params.category);
+    const categoryLookup = buildCategoryLookup((allCats || []) as ShopCategory[]);
+    const matchedCat = categoryLookup.dedupedCategories.find((c) => c.slug === params.category);
     if (matchedCat) {
-      const catIds = [
-        matchedCat.id,
-        ...(allCats?.filter((c) => c.parent_id === matchedCat.id).map((c) => c.id) ?? []),
-      ];
+      const canonicalIds = categoryLookup.idsByCanonicalSlug.get(matchedCat.slug) || [matchedCat.id];
+      const childIds = (allCats || [])
+        .filter((c) => canonicalIds.includes(c.parent_id || ""))
+        .map((c) => c.id);
+      const catIds = Array.from(new Set([...canonicalIds, ...childIds]));
       const { data: pcRows } = await supabase
         .from("product_categories")
         .select("product_id")
@@ -129,8 +186,10 @@ export default async function ShopPage({ searchParams }: Props) {
 
   const { data: categories } = await supabase
     .from("categories")
-    .select("id, name, slug, parent_id")
+    .select("id, name, slug, parent_id, square_id")
     .order("name");
+
+  const dedupedCategories = buildCategoryLookup((categories || []) as ShopCategory[]).dedupedCategories;
 
   const categoryTitle = params.category
     ? params.category.replace(/-/g, " ")
@@ -225,7 +284,7 @@ export default async function ShopPage({ searchParams }: Props) {
       <div className="flex flex-col lg:flex-row gap-8">
         <aside className="lg:w-60 shrink-0">
           <ShopFilters
-            categories={categories || []}
+            categories={dedupedCategories}
             currentCategory={params.category}
             currentSort={params.sort}
             currentSearch={params.search}
