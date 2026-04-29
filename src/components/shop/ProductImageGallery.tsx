@@ -16,7 +16,9 @@ interface Props {
 }
 
 export function ProductImageGallery({ images, productName }: Props) {
-  const sorted = [...images].sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
+  const sorted = [...images]
+    .filter((image) => image.url && !image.url.endsWith("/images/image-coming-soon.svg"))
+    .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
   const [activeIndex, setActiveIndex] = useState(0);
 
   if (sorted.length === 0) {

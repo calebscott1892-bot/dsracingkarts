@@ -1,16 +1,13 @@
+import Link from "next/link";
+import type { Metadata } from "next";
+import { ChevronLeft, ChevronRight, AlertTriangle, Gift } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
-import { CategoryGrid } from "@/components/shop/CategoryGrid";
-import { ChevronLeft, ChevronRight, AlertTriangle, Gift } from "lucide-react";
-import Link from "next/link";
-import type { Metadata } from "next";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 
-// Force fresh render so Square category/product changes show up the moment
-// they sync. We can't rely on ISR here — admin changes need to be instant.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
@@ -35,12 +32,8 @@ export default async function ShopPage({ searchParams }: Props) {
   const page = parseInt(params.page || "1", 10);
   const offset = (page - 1) * PAGE_SIZE;
 
-  // Resolve category slug → product IDs before building the main query.
-  // Filtering on nested relations (product_categories.categories.slug) in
-  // Supabase PostgREST doesn't filter parent rows — we do it explicitly here.
   let categoryProductIds: string[] | null = null;
   if (params.category) {
-    // Find the category (and any child categories) matching the slug
     const { data: allCats } = await supabase
       .from("categories")
       .select("id, parent_id, slug");
@@ -57,25 +50,26 @@ export default async function ShopPage({ searchParams }: Props) {
         .in("category_id", catIds);
       categoryProductIds = pcRows?.map((r) => r.product_id) ?? [];
     } else {
-      categoryProductIds = []; // unknown slug → no results
+      categoryProductIds = [];
     }
   }
 
   let query = supabase
     .from("products")
-    .select(`
+    .select(
+      `
       id, name, slug, sku, base_price, primary_image_url,
       product_variations ( price, sale_price, sku ),
       product_categories ( category_id, categories ( slug ) )
-    `, { count: "exact" })
+    `,
+      { count: "exact" }
+    )
     .eq("status", "active")
     .eq("visibility", "visible")
-    // Gift card has its own dedicated page and shop call-out — keep it out of the grid.
     .neq("slug", GIFT_CARD_SLUG);
 
   if (categoryProductIds !== null) {
     if (categoryProductIds.length === 0) {
-      // No products in this category — force empty result
       query = query.in("id", ["00000000-0000-0000-0000-000000000000"]);
     } else {
       query = query.in("id", categoryProductIds);
@@ -84,9 +78,7 @@ export default async function ShopPage({ searchParams }: Props) {
 
   if (params.search) {
     const sanitized = params.search.replace(/[%_\\,().*]/g, "");
-    if (sanitized) {
-      query = query.ilike("name", `%${sanitized}%`);
-    }
+    if (sanitized) query = query.ilike("name", `%${sanitized}%`);
   }
 
   switch (params.sort) {
@@ -97,10 +89,9 @@ export default async function ShopPage({ searchParams }: Props) {
       query = query.order("base_price", { ascending: false });
       break;
     case "name_asc":
-      query = query.order("name", { ascending: true });
-      break;
     default:
       query = query.order("name", { ascending: true });
+      break;
   }
 
   query = query.range(offset, offset + PAGE_SIZE - 1);
@@ -112,19 +103,6 @@ export default async function ShopPage({ searchParams }: Props) {
     .from("categories")
     .select("id, name, slug, parent_id")
     .order("name");
-
-  // Top-level categories with images — used for the prominent tile grid that
-  // anchors /shop when no specific category is selected.
-  const { data: topLevelCategories } = !params.category && !params.search
-    ? await supabase
-        .from("categories")
-        .select("id, name, slug, image_url")
-        .is("parent_id", null)
-        .order("name")
-    : { data: null };
-
-  const showCategoryTiles =
-    !params.category && !params.search && (topLevelCategories?.length ?? 0) > 0;
 
   const categoryTitle = params.category
     ? params.category.replace(/-/g, " ")
@@ -142,7 +120,6 @@ export default async function ShopPage({ searchParams }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
-      {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-text-muted mb-6">
         <Link href="/" className="hover:text-white transition-colors">Home</Link>
         <ChevronRight size={12} />
@@ -156,7 +133,6 @@ export default async function ShopPage({ searchParams }: Props) {
       </div>
 
       <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Gift card — prominent, first so it's easy to spot */}
         <Link
           href="/gift-card"
           className="group relative border border-racing-red/40 bg-gradient-to-br from-racing-red/15 via-racing-red/5 to-transparent px-4 py-4 md:px-5 md:py-4 flex items-center gap-4 hover:border-racing-red transition-colors"
@@ -169,15 +145,14 @@ export default async function ShopPage({ searchParams }: Props) {
               E-Gift Card
             </p>
             <p className="text-white/85 text-sm leading-relaxed">
-              Give the gift of speed — $50, $100, $200, $500 or custom.
+              Give the gift of speed - $50, $100, $200, $500 or custom.
             </p>
           </div>
           <span className="hidden sm:inline-flex shrink-0 font-heading text-[11px] uppercase tracking-[0.15em] text-racing-red group-hover:text-white transition-colors">
-            Buy Now →
+            Buy Now {"->"}
           </span>
         </Link>
 
-        {/* Preloved chassis call-out */}
         <div className="border border-white/10 bg-white/[0.03] px-4 py-4 md:px-5 md:py-4 flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1 min-w-0">
             <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
@@ -193,65 +168,33 @@ export default async function ShopPage({ searchParams }: Props) {
         </div>
       </div>
 
-      {/* Appointment Only Notice */}
       <div className="mb-6 border border-racing-red/20 bg-racing-red/5 px-4 py-3 flex items-start gap-3">
         <AlertTriangle size={16} className="text-racing-red shrink-0 mt-0.5" />
         <p className="text-white/60 text-xs leading-relaxed">
           <span className="font-heading uppercase tracking-wider text-racing-red text-xs">Appointment only workshop</span>
-          {" — "}Our workshop is on a private property. If you need servicing, fitting, or pickup, please
-          {" "}<Link href="/contact" className="text-racing-red hover:text-racing-red/80 underline underline-offset-2 transition-colors">contact us</Link>
-          {" "}to arrange an appointment before visiting.
+          {" - "}Our workshop is on a private property. If you need servicing, fitting, or pickup, please{" "}
+          <Link href="/contact" className="text-racing-red hover:text-racing-red/80 underline underline-offset-2 transition-colors">
+            contact us
+          </Link>{" "}
+          to arrange an appointment before visiting.
         </p>
       </div>
 
-      {/* Page heading */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-3">
           <span className="h-[1px] w-8 bg-brand-red" />
           <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
-            {showCategoryTiles ? "Browse" : `${count || 0} Products`}
+            {count || 0} Products
           </span>
         </div>
         <h1 className="section-heading capitalize">{categoryTitle}</h1>
       </div>
 
-      {/* Premium search */}
       <div className="mb-8">
         <SearchAutocomplete initialQuery={params.search} />
       </div>
 
-      {/* Prominent category tiles — only on the bare /shop landing page.
-          When the user picks a category or runs a search, we drop the tiles
-          and show the filtered product grid below. */}
-      {showCategoryTiles && (
-        <section className="mb-10">
-          <div className="flex items-end justify-between mb-4">
-            <h2 className="font-heading text-xl md:text-2xl uppercase tracking-[0.15em] text-white">
-              Shop by <span className="text-brand-red">Category</span>
-            </h2>
-            <span className="hidden md:inline font-heading text-[10px] tracking-[0.3em] text-text-muted uppercase">
-              {topLevelCategories?.length ?? 0} categories
-            </span>
-          </div>
-          <CategoryGrid categories={topLevelCategories || []} />
-        </section>
-      )}
-
-      {/* Subheading above the products grid — pulled into its own row when
-          tiles are visible, so the products grid feels like a secondary
-          "browse everything" view rather than the lead. */}
-      {showCategoryTiles && (
-        <div className="flex items-center gap-3 mb-5 mt-2">
-          <span className="h-[1px] flex-1 bg-surface-600/50" />
-          <h2 className="font-heading text-[11px] tracking-[0.35em] text-text-muted uppercase whitespace-nowrap">
-            Or browse all {count || 0} products
-          </h2>
-          <span className="h-[1px] flex-1 bg-surface-600/50" />
-        </div>
-      )}
-
       <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar */}
         <aside className="lg:w-60 shrink-0">
           <ShopFilters
             categories={categories || []}
@@ -261,7 +204,6 @@ export default async function ShopPage({ searchParams }: Props) {
           />
         </aside>
 
-        {/* Products */}
         <div className="flex-1">
           {products && products.length > 0 ? (
             <>
@@ -271,22 +213,16 @@ export default async function ShopPage({ searchParams }: Props) {
 
               <div className="product-grid">
                 {products.map((product, idx) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product as any}
-                    priority={idx < 4}
-                  />
+                  <ProductCard key={product.id} product={product as any} priority={idx < 4} />
                 ))}
               </div>
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-1 mt-10">
                   {page > 1 && (
                     <a
                       href={buildUrl(page - 1)}
-                      className="w-11 h-11 flex items-center justify-center bg-surface-700
-                                 text-text-muted hover:text-white hover:bg-surface-600 transition-colors"
+                      className="w-11 h-11 flex items-center justify-center bg-surface-700 text-text-muted hover:text-white hover:bg-surface-600 transition-colors"
                     >
                       <ChevronLeft size={18} />
                     </a>
@@ -321,8 +257,7 @@ export default async function ShopPage({ searchParams }: Props) {
                   {page < totalPages && (
                     <a
                       href={buildUrl(page + 1)}
-                      className="w-11 h-11 flex items-center justify-center bg-surface-700
-                                 text-text-muted hover:text-white hover:bg-surface-600 transition-colors"
+                      className="w-11 h-11 flex items-center justify-center bg-surface-700 text-text-muted hover:text-white hover:bg-surface-600 transition-colors"
                     >
                       <ChevronRight size={18} />
                     </a>

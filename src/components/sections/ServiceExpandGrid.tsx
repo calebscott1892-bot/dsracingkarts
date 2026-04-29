@@ -35,7 +35,14 @@ function getEnquiryUrl(service: ServiceDetail): string {
   return `/contact?${params.toString()}`;
 }
 
-function ServiceExpandCard({ service, index }: { service: ServiceDetail; index: number }) {
+function getSecondaryCta(service: ServiceDetail) {
+  if (service.title === "Custom Racewear") {
+    return { href: "/services#custom-racewear", label: "See More" };
+  }
+  return null;
+}
+
+function ServiceExpandCard({ service }: { service: ServiceDetail }) {
   const [isOpen, setIsOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(0);
@@ -47,6 +54,7 @@ function ServiceExpandCard({ service, index }: { service: ServiceDetail; index: 
   }, [isOpen]);
 
   const Icon = iconMap[service.iconName] || Wrench;
+  const secondaryCta = getSecondaryCta(service);
 
   return (
     <div
@@ -138,13 +146,24 @@ function ServiceExpandCard({ service, index }: { service: ServiceDetail; index: 
             )}
 
             {/* Enquire Now CTA */}
-            <Link
-              href={getEnquiryUrl(service)}
-              className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 bg-[#e60012] text-white text-xs font-heading uppercase tracking-[0.15em] hover:bg-[#c5000f] transition-colors"
-            >
-              Enquire Now
-              <ChevronDown size={14} className="-rotate-90" />
-            </Link>
+            <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <Link
+                href={getEnquiryUrl(service)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#e60012] text-white text-xs font-heading uppercase tracking-[0.15em] hover:bg-[#c5000f] transition-colors"
+              >
+                Enquire Now
+                <ChevronDown size={14} className="-rotate-90" />
+              </Link>
+              {secondaryCta && (
+                <Link
+                  href={secondaryCta.href}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 border border-white/15 text-white text-xs font-heading uppercase tracking-[0.15em] hover:border-[#e60012] hover:text-[#e60012] transition-colors"
+                >
+                  {secondaryCta.label}
+                  <ChevronDown size={14} className="-rotate-90" />
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -156,7 +175,7 @@ export default function ServiceExpandGrid({ services }: { services: ServiceDetai
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
       {services.map((service, i) => (
-        <ServiceExpandCard key={service.title} service={service} index={i} />
+        <ServiceExpandCard key={service.title} service={service} />
       ))}
     </div>
   );

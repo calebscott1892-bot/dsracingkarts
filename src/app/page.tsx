@@ -8,6 +8,7 @@ import { GameTeaser } from "@/components/sections/GameTeaser";
 import { HistorySection } from "@/components/sections/HistorySection";
 import { Speedometer } from "@/components/sections/Speedometer";
 import { ReviewsCarousel } from "@/components/sections/ReviewsCarousel";
+import { HomeFaqAccordion } from "@/components/sections/HomeFaqAccordion";
 import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -76,8 +77,9 @@ export default async function HomePage() {
 
   const { data: categories } = await supabase
     .from("categories")
-    .select("id, name, slug, image_url")
+    .select("id, name, slug, image_url, sort_order")
     .is("parent_id", null)
+    .order("sort_order")
     .order("name");
 
   const { data: reviews } = await supabase
@@ -88,6 +90,7 @@ export default async function HomePage() {
     .order("created_at");
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const featuredCategories = (categories || []).slice(0, 7);
 
   return (
     <>
@@ -156,7 +159,10 @@ export default async function HomePage() {
             View All <ChevronRight size={14} />
           </Link>
         </div>
-        <CategoryGrid categories={categories || []} />
+        <CategoryGrid
+          categories={featuredCategories}
+          extraTile={{ href: "/shop", title: "See More", subtitle: "Browse all products" }}
+        />
       </section>
 
       <div className="chequered-stripe" />
@@ -181,16 +187,7 @@ export default async function HomePage() {
         <h2 className="section-heading mb-6">
           Common <span className="text-racing-red">Questions</span>
         </h2>
-        <div className="grid gap-3">
-          {HOME_FAQS.map((faq) => (
-            <details key={faq.question} className="bg-surface-700/40 border border-surface-600/40 px-4 py-3">
-              <summary className="cursor-pointer list-none font-heading text-sm uppercase tracking-[0.08em] text-white">
-                {faq.question}
-              </summary>
-              <p className="mt-3 text-sm leading-relaxed text-text-secondary">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
+        <HomeFaqAccordion items={HOME_FAQS} />
       </section>
 
       <section className="max-w-3xl mx-auto px-4 py-16 md:py-20">

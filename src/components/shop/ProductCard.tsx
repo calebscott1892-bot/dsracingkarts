@@ -30,7 +30,7 @@ export function ProductCard({ product, priority = false }: Props) {
   const realImage = isRealProductImage(product.primary_image_url);
 
   return (
-    <Link href={`/product/${product.slug}`} className="group animate-fade-in">
+    <Link href={`/product/${product.slug}`} scroll className="group animate-fade-in">
       <div className="card-hover">
         {/* Image */}
         <div className="aspect-square bg-surface-700 relative overflow-hidden">

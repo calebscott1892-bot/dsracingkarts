@@ -1,13 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
+import { ChevronRight } from "lucide-react";
 import type { Category } from "@/types/database";
 import { CategoryIcon, hasCategoryIcon } from "@/components/icons/CategoryIcon";
 
 interface Props {
   categories: Pick<Category, "id" | "name" | "slug" | "image_url">[];
+  extraTile?: {
+    href: string;
+    title: string;
+    subtitle?: string;
+  };
 }
 
-export function CategoryGrid({ categories }: Props) {
+export function CategoryGrid({ categories, extraTile }: Props) {
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
       {categories.map((cat) => {
@@ -72,6 +78,32 @@ export function CategoryGrid({ categories }: Props) {
           </Link>
         );
       })}
+      {extraTile && (
+        <Link
+          href={extraTile.href}
+          className="group relative aspect-[4/3] overflow-hidden border border-racing-red/30 bg-[#141414] transition-all duration-300 hover:border-racing-red"
+        >
+          <div className="absolute inset-0 carbon-bg" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(230,0,18,0.22),transparent_60%)] opacity-70 transition-opacity duration-300 group-hover:opacity-100" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+            <div className="flex h-12 w-12 items-center justify-center border border-racing-red/40 bg-racing-red/10 text-racing-red transition-all duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:bg-racing-red group-hover:text-white">
+              <ChevronRight size={20} />
+            </div>
+            <div>
+              <h3 className="font-heading text-sm md:text-base uppercase tracking-[0.15em] text-white transition-colors duration-200 group-hover:text-racing-red">
+                {extraTile.title}
+              </h3>
+              {extraTile.subtitle && (
+                <p className="mt-2 text-[11px] uppercase tracking-[0.2em] text-text-muted">
+                  {extraTile.subtitle}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red scale-x-100" />
+        </Link>
+      )}
     </div>
   );
 }

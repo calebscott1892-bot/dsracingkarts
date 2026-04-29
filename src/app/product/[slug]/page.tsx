@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/shop/AddToCartButton";
+import { ScrollToTopOnMount } from "@/components/layout/ScrollToTopOnMount";
 import { ProductImageGallery } from "@/components/shop/ProductImageGallery";
 import { formatPrice } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
@@ -95,6 +96,7 @@ export default async function ProductPage({ params }: Props) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 md:py-12">
+      <ScrollToTopOnMount />
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-2 text-xs text-text-muted mb-8">
         <Link href="/" className="hover:text-white transition-colors">Home</Link>

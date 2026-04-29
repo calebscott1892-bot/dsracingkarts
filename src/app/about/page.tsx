@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Quote, Flag, Timer } from "lucide-react";
 import { DEFAULT_TEAM_PROFILES, TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createClient } from "@/lib/supabase/server";
-import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
+import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl, SCAFF_LOGO_URL } from "@/lib/teamLogos";
 
 // Always render fresh — admin team-profile changes must show up instantly.
 export const dynamic = "force-dynamic";
@@ -42,10 +42,30 @@ export default async function AboutPage() {
         accent: t.accent_color,
         accentRgb: t.accent_rgb,
         logo: normalizeTeamLogoUrl(t.logo_url, t.team_name),
+        secondaryLogo: t.team_name.toLowerCase().includes("claw racing") ? CLAW_CONSTRUCTION_LOGO_URL : undefined,
         tagline: t.tagline || undefined,
         website: t.website_url || undefined,
+        websiteLabel: t.team_name.toLowerCase().includes("claw racing") ? "See Our Other Work" : undefined,
         results: resultsByTeam[t.id] ?? [],
-      }));
+      }))
+        .filter((team) => team.number !== "555")
+        .map((team) => {
+          if (team.name.toLowerCase() === "scaff it up") {
+            return { ...team, logo: SCAFF_LOGO_URL };
+          }
+          if (team.name.toLowerCase().includes("claw racing")) {
+            return {
+              ...team,
+              number: "5",
+              name: "Claw Racing #2",
+              logo: CLAW_RACING_PHOTO_URL,
+              secondaryLogo: CLAW_CONSTRUCTION_LOGO_URL,
+              website: "https://clawconstruction.com.au/",
+              websiteLabel: "See Our Other Work",
+            };
+          }
+          return team;
+        });
       const seenNumbers = new Set(
         dbTeams
           .map((team) => team.number?.trim())

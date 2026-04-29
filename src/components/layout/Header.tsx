@@ -5,12 +5,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { ShoppingCart, Menu, X, Phone } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { useCart } from "@/hooks/useCart";
 import C4FooterCredit from "../c4-footer-credit/C4FooterCredit";
 
 export function Header({ announcementSlot }: { announcementSlot?: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname() ?? "/";
   const { cart } = useCart();
 
   useEffect(() => {
@@ -39,6 +41,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
   const leftNavLinks = navLinks.slice(0, 2);
   const centerNavLink = navLinks[2];
   const rightNavLinks = navLinks.slice(3);
+  const isActive = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
 
   return (
     <>
@@ -120,8 +123,11 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="relative font-heading text-[11px] uppercase tracking-[0.12em] text-racing-black/70 hover:text-racing-red px-3 lg:px-5 py-2 transition-colors whitespace-nowrap"
+                    className={`relative font-heading text-[11px] uppercase tracking-[0.12em] px-3 lg:px-5 py-2 transition-colors whitespace-nowrap ${
+                      isActive(link.href) ? "text-racing-red" : "text-racing-black/70 hover:text-racing-red"
+                    }`}
                   >
+                    {isActive(link.href) && <span className="absolute inset-x-3 bottom-0 h-[2px] bg-racing-red" />}
                     {link.label}
                   </Link>
                 ))}
@@ -130,8 +136,13 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
               <div className="flex justify-center">
                 <Link
                   href={centerNavLink.href}
-                  className="relative font-heading text-[11px] uppercase tracking-[0.12em] bg-racing-red text-white hover:bg-racing-red/90 px-6 py-1.5 transition-colors whitespace-nowrap"
+                  className={`relative font-heading text-[11px] uppercase tracking-[0.12em] px-6 py-1.5 transition-colors whitespace-nowrap ${
+                    isActive(centerNavLink.href)
+                      ? "bg-racing-red text-white ring-1 ring-racing-gold/70 shadow-[0_0_0_1px_rgba(255,204,77,0.35)_inset,0_10px_24px_rgba(230,0,18,0.18)]"
+                      : "bg-racing-red text-white hover:bg-racing-red/90"
+                  }`}
                 >
+                  {isActive(centerNavLink.href) && <span className="absolute inset-x-2 bottom-0 h-[2px] bg-racing-gold" />}
                   {centerNavLink.label}
                 </Link>
               </div>
@@ -141,8 +152,11 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="relative font-heading text-[11px] uppercase tracking-[0.12em] text-racing-black/70 hover:text-racing-red px-3 lg:px-5 py-2 transition-colors whitespace-nowrap"
+                    className={`relative font-heading text-[11px] uppercase tracking-[0.12em] px-3 lg:px-5 py-2 transition-colors whitespace-nowrap ${
+                      isActive(link.href) ? "text-racing-red" : "text-racing-black/70 hover:text-racing-red"
+                    }`}
                   >
+                    {isActive(link.href) && <span className="absolute inset-x-3 bottom-0 h-[2px] bg-racing-red" />}
                     {link.label}
                   </Link>
                 ))}
@@ -169,9 +183,11 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
               <Link
                 key={link.href}
                 href={link.href}
-                className="block font-heading text-sm uppercase tracking-[0.1em] text-text-secondary
-                           hover:text-white py-2.5 px-3 border-l-2 border-transparent
-                           hover:border-brand-red hover:bg-surface-700 transition-all"
+                className={`block font-heading text-sm uppercase tracking-[0.1em] py-2.5 px-3 border-l-2 transition-all ${
+                  isActive(link.href)
+                    ? "text-brand-red border-brand-red bg-brand-red/10"
+                    : "text-text-secondary border-transparent hover:text-white hover:border-brand-red hover:bg-surface-700"
+                }`}
                 onClick={() => setMobileOpen(false)}
               >
                 {link.label}

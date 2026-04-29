@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
-import { CLAW_CONSTRUCTION_LOGO_URL, SCAFF_LOGO_URL } from "@/lib/teamLogos";
+import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, SCAFF_LOGO_URL } from "@/lib/teamLogos";
 
 /* ── Team Data ── */
 export interface TeamResult {
@@ -24,8 +24,10 @@ export interface Team {
   accent: string;
   accentRgb: string;
   logo?: string;
+  secondaryLogo?: string;
   tagline?: string;
   website?: string;
+  websiteLabel?: string;
   results?: TeamResult[];
 }
 
@@ -59,18 +61,11 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     name: "Claw Racing #2",
     accent: "#a855f7",
     accentRgb: "168,85,247",
-    logo: CLAW_CONSTRUCTION_LOGO_URL,
+    logo: CLAW_RACING_PHOTO_URL,
+    secondaryLogo: CLAW_CONSTRUCTION_LOGO_URL,
     tagline: "Grip it and rip it",
     website: "https://clawconstruction.com.au/",
-  },
-  {
-    number: "555",
-    name: "Claw Racing",
-    accent: "#ef4444",
-    accentRgb: "239,68,68",
-    logo: CLAW_CONSTRUCTION_LOGO_URL,
-    tagline: "Clutching every podium",
-    website: "https://clawconstruction.com.au/",
+    websiteLabel: "See Our Other Work",
   },
   {
     number: "272",
@@ -206,16 +201,41 @@ function TeamCard({ team }: { team: Team }) {
           <div className="relative z-10 mb-6">
             {team.logo ? (
               <div
-                className="relative w-full h-44 bg-black/30 border overflow-hidden"
+                className="group/logo relative w-full h-44 bg-black/30 border overflow-hidden"
                 style={{ borderColor: `rgba(${team.accentRgb}, 0.15)` }}
               >
-                <Image
-                  src={team.logo}
-                  alt={`${team.name} logo`}
-                  fill
-                  className="object-contain p-4"
-                  sizes="420px"
-                />
+                {team.secondaryLogo ? (
+                  <>
+                    <Image
+                      src={team.logo}
+                      alt={`${team.name} photo`}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover/logo:scale-105"
+                      sizes="420px"
+                    />
+                    <div
+                      className="absolute inset-0 overflow-hidden transition-all duration-500 group-hover/logo:[clip-path:polygon(0_0,100%_0,100%_100%,38%_100%)]"
+                      style={{ clipPath: "polygon(62% 0, 100% 0, 100% 100%, 0 100%)" }}
+                    >
+                      <Image
+                        src={team.secondaryLogo}
+                        alt={`${team.name} logo`}
+                        fill
+                        className="object-contain bg-black/70 p-4 transition-transform duration-500 group-hover/logo:scale-105"
+                        sizes="420px"
+                      />
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,transparent_46%,rgba(255,255,255,0.18)_49%,transparent_52%)] opacity-80" />
+                  </>
+                ) : (
+                  <Image
+                    src={team.logo}
+                    alt={`${team.name} logo`}
+                    fill
+                    className="object-contain p-4"
+                    sizes="420px"
+                  />
+                )}
               </div>
             ) : (
               <div
@@ -344,7 +364,7 @@ function TeamCard({ team }: { team: Team }) {
               className="text-xs uppercase tracking-[0.2em] transition-colors duration-300"
               style={{ color: team.accent, fontFamily: "var(--font-heading), system-ui, sans-serif" }}
             >
-              See Our Other Work
+              {team.websiteLabel || "See Our Other Work"}
             </span>
             <span
               className="text-xs opacity-0 group-hover/link:opacity-60 transition-opacity duration-300"

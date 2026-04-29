@@ -279,7 +279,7 @@ export default async function ServicesPage() {
       </section>
 
       {/* ── Custom Racewear Showcase ── */}
-      <section className="max-w-6xl mx-auto px-4 py-12 md:py-16">
+      <section id="custom-racewear" className="max-w-6xl mx-auto px-4 py-12 md:py-16 scroll-mt-28">
         <div className="flex items-center gap-3 mb-2">
           <span className="h-[1px] w-8 bg-racing-red" />
           <span className="font-heading text-xs tracking-[0.3em] text-racing-red uppercase">Custom Racewear</span>

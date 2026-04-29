@@ -1,5 +1,6 @@
 export const SCAFF_LOGO_URL = "/images/history/Scaff.png";
 export const CLAW_CONSTRUCTION_LOGO_URL = "/images/history/Claw-Construction-Logo.png";
+export const CLAW_RACING_PHOTO_URL = "/images/history/Claw Racing.jpg";
 
 const SCAFF_LEGACY_LOGO_URLS = new Set([
   "/images/history/Scaff it up.jpeg",
