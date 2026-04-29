@@ -76,6 +76,10 @@ function normalizeSquareOrdinal(value: unknown): number {
   return truncated;
 }
 
+function hasRenderableProductImage(url: string | null | undefined): url is string {
+  return Boolean(url && !url.endsWith("/images/image-coming-soon.svg"));
+}
+
 async function loadCurrentSquareItemIds(): Promise<Set<string>> {
   const square = getSquareClient();
   const ids = new Set<string>();
@@ -478,13 +482,16 @@ export async function syncCatalogItem(
     ? relatedObjects.find((obj: any) => obj.id === primaryImageId && obj.type === "IMAGE")?.imageData?.url ||
       null
     : null;
+  const existingPrimaryImage = hasRenderableProductImage(existing?.primary_image_url)
+    ? existing.primary_image_url
+    : null;
 
   const productPayload = {
     name,
     slug,
     description,
     description_plain: stripHtml(description),
-    primary_image_url: primaryImageFromRelated || existing?.primary_image_url || null,
+    primary_image_url: primaryImageFromRelated || existingPrimaryImage || null,
     square_token: squareToken,
     status: "active" as const,
     updated_at: new Date().toISOString(),
@@ -562,7 +569,7 @@ export async function syncCatalogItem(
     itemData,
     relatedObjects,
     name,
-    options.retrieveMissingImages !== false
+    options.retrieveMissingImages !== false || !existingPrimaryImage
   );
   if (syncedPrimaryImageUrl && syncedPrimaryImageUrl !== productPayload.primary_image_url) {
     await supabase

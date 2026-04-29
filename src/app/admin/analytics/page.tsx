@@ -1,4 +1,4 @@
-import { BarChart2 } from "lucide-react";
+import { BarChart2, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
 import { getAnalyticsData, getStubAnalyticsData } from "@/lib/analytics";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
@@ -15,11 +15,23 @@ export default async function AnalyticsPage() {
   const hasPropertyId = isConnected;
   const hasServiceAccount = !!(process.env.GA4_SERVICE_ACCOUNT_EMAIL && process.env.GA4_PRIVATE_KEY);
   const data = realData ?? getStubAnalyticsData();
+  const analyticsHref = GA_PROPERTY_ID
+    ? `https://analytics.google.com/analytics/web/#/p${GA_PROPERTY_ID}/reports/intelligenthome`
+    : "https://analytics.google.com/analytics/web/";
 
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-heading text-3xl uppercase tracking-wider">Analytics</h1>
+        <a
+          href={analyticsHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-secondary flex items-center gap-2 text-sm"
+        >
+          <ExternalLink size={16} />
+          Open Google Analytics
+        </a>
       </div>
 
       <div className={`mb-8 p-4 border rounded ${hasPropertyId ? "border-green-500/30 bg-green-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>

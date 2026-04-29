@@ -133,6 +133,10 @@ export function HeroVideo() {
           <span className="h-[1px] w-10 bg-racing-red" />
         </div>
 
+        <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl uppercase tracking-[0.08em] text-white mb-4">
+          Go Kart Parts, Service <span className="text-racing-red">&amp;</span> Racewear
+        </h1>
+
         {/* Tagline */}
         <p className="font-heading text-sm md:text-base tracking-[0.3em] text-racing-silver uppercase mb-10">
           Built for Speed. Engineered to Win.

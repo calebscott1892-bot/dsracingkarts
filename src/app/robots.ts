@@ -18,6 +18,26 @@ export default function robots(): MetadataRoute.Robots {
           "/auth/",
         ],
       },
+      {
+        userAgent: "GPTBot",
+        allow: "/",
+        disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
+      },
+      {
+        userAgent: "ClaudeBot",
+        allow: "/",
+        disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
+      },
+      {
+        userAgent: "PerplexityBot",
+        allow: "/",
+        disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
+      },
+      {
+        userAgent: "Google-Extended",
+        allow: "/",
+        disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
+      },
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

@@ -30,13 +30,13 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
 
   if (sort === "name_asc") {
     query = query
-      .order("last_name", { ascending: true, nullsFirst: false })
       .order("first_name", { ascending: true, nullsFirst: false })
+      .order("last_name", { ascending: true, nullsFirst: false })
       .order("email", { ascending: true });
   } else if (sort === "name_desc") {
     query = query
-      .order("last_name", { ascending: false, nullsFirst: false })
       .order("first_name", { ascending: false, nullsFirst: false })
+      .order("last_name", { ascending: false, nullsFirst: false })
       .order("email", { ascending: false });
   } else if (sort === "oldest") {
     query = query.order("created_at", { ascending: true });
@@ -81,8 +81,8 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
           >
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
-            <option value="name_asc">Name A-Z</option>
-            <option value="name_desc">Name Z-A</option>
+            <option value="name_asc">First name A-Z</option>
+            <option value="name_desc">First name Z-A</option>
           </select>
           <button type="submit" className="btn-primary text-sm">
             Apply
