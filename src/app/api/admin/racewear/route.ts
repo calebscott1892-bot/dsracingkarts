@@ -81,7 +81,7 @@ export async function PATCH(request: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await request.json();
-  const { id, sort_order, is_active, is_featured } = body;
+  const { id, sort_order, is_active, is_featured, group_label, alt_text } = body;
 
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
@@ -89,6 +89,8 @@ export async function PATCH(request: NextRequest) {
   if (sort_order !== undefined) updates.sort_order = Number(sort_order);
   if (is_active !== undefined) updates.is_active = Boolean(is_active);
   if (is_featured !== undefined) updates.is_featured = Boolean(is_featured);
+  if (group_label !== undefined) updates.group_label = String(group_label).trim().slice(0, 200);
+  if (alt_text !== undefined) updates.alt_text = String(alt_text).trim().slice(0, 300);
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

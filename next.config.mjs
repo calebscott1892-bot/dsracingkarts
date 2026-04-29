@@ -25,7 +25,7 @@ const nextConfig = {
   async redirects() {
     return [
       {
-        source: "/product/:slug/:rest*",
+        source: "/product/:slug/:rest+",
         destination: "/product/:slug",
         permanent: true,
       },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Entry {
@@ -36,6 +36,8 @@ export function RacewearManager({ initialEntries }: Props) {
   const [toggling, setToggling] = useState<string | null>(null);
   const [editingSort, setEditingSort] = useState<string | null>(null);
   const [sortValue, setSortValue] = useState(0);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm());
   const [errorMsg, setErrorMsg] = useState("");
 
   function setField<K extends keyof ReturnType<typeof emptyForm>>(key: K, value: ReturnType<typeof emptyForm>[K]) {
@@ -163,6 +165,61 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
+  function openEdit(entry: Entry) {
+    setEditingEntryId(entry.id);
+    setEditForm({
+      group_label: entry.group_label,
+      alt_text: entry.alt_text || "",
+      sort_order: entry.sort_order,
+      is_featured: entry.is_featured,
+    });
+    setErrorMsg("");
+  }
+
+  function cancelEdit() {
+    setEditingEntryId(null);
+    setEditForm(emptyForm());
+  }
+
+  async function handleSaveEntry(id: string) {
+    if (!editForm.group_label.trim()) {
+      setErrorMsg("Group label is required.");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/racewear", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          group_label: editForm.group_label,
+          alt_text: editForm.alt_text,
+          sort_order: editForm.sort_order,
+          is_featured: editForm.is_featured,
+        }),
+      });
+      if (!res.ok) throw new Error("Update failed");
+      setEntries((prev) =>
+        prev
+          .map((entry) =>
+            entry.id === id
+              ? {
+                  ...entry,
+                  group_label: editForm.group_label.trim(),
+                  alt_text: editForm.alt_text.trim(),
+                  sort_order: editForm.sort_order,
+                  is_featured: editForm.is_featured,
+                }
+              : entry
+          )
+          .sort((a, b) => a.sort_order - b.sort_order)
+      );
+      cancelEdit();
+    } catch {
+      setErrorMsg("Failed to update photo details");
+    }
+  }
+
   const groups = entries.reduce<Record<string, Entry[]>>((acc, e) => {
     (acc[e.group_label] ??= []).push(e);
     return acc;
@@ -186,26 +243,26 @@ export function RacewearManager({ initialEntries }: Props) {
         gallery. Sort order controls the display order in both places.
       </p>
 
-      {showAdd && (
+      {(showAdd || editingEntryId) && (
         <div className="card p-6 mb-8 border-brand-red/30">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-heading text-lg uppercase tracking-wider">Add Photo</h2>
-            <button onClick={() => setShowAdd(false)} className="text-text-muted hover:text-white transition-colors">
+            <h2 className="font-heading text-lg uppercase tracking-wider">{editingEntryId ? "Edit Photo" : "Add Photo"}</h2>
+            <button onClick={() => { setShowAdd(false); cancelEdit(); }} className="text-text-muted hover:text-white transition-colors">
               <X size={18} />
             </button>
           </div>
           {errorMsg && (
             <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/40 px-3 py-2 mb-4">{errorMsg}</p>
           )}
-          <form onSubmit={handleAdd} className="space-y-4">
+          <form onSubmit={editingEntryId ? (e) => { e.preventDefault(); handleSaveEntry(editingEntryId); } : handleAdd} className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Group / Client Name *</label>
                 <input
                   required
                   className="input-dark w-full"
-                  value={form.group_label}
-                  onChange={(e) => setField("group_label", e.target.value)}
+                  value={editingEntryId ? editForm.group_label : form.group_label}
+                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, group_label: e.target.value })) : setField("group_label", e.target.value)}
                   placeholder="e.g. Kart Blanche Racing"
                 />
                 <p className="text-xs text-text-muted mt-1">Photos with the same group name appear together.</p>
@@ -214,8 +271,8 @@ export function RacewearManager({ initialEntries }: Props) {
                 <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Alt Text (description)</label>
                 <input
                   className="input-dark w-full"
-                  value={form.alt_text}
-                  onChange={(e) => setField("alt_text", e.target.value)}
+                  value={editingEntryId ? editForm.alt_text : form.alt_text}
+                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, alt_text: e.target.value })) : setField("alt_text", e.target.value)}
                   placeholder="e.g. Kart Blanche - race suit front view"
                 />
               </div>
@@ -226,22 +283,23 @@ export function RacewearManager({ initialEntries }: Props) {
                 <input
                   type="number"
                   className="input-dark w-full"
-                  value={form.sort_order}
-                  onChange={(e) => setField("sort_order", parseInt(e.target.value) || 0)}
+                  value={editingEntryId ? editForm.sort_order : form.sort_order}
+                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, sort_order: parseInt(e.target.value) || 0 })) : setField("sort_order", parseInt(e.target.value) || 0)}
                 />
               </div>
               <div className="flex items-center gap-3 pb-1">
                 <label className="text-sm text-text-secondary">Featured on Services page</label>
                 <button
                   type="button"
-                  onClick={() => setField("is_featured", !form.is_featured)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_featured ? "bg-brand-red" : "bg-surface-500"}`}
+                  onClick={() => editingEntryId ? setEditForm((f) => ({ ...f, is_featured: !f.is_featured })) : setField("is_featured", !form.is_featured)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(editingEntryId ? editForm.is_featured : form.is_featured) ? "bg-brand-red" : "bg-surface-500"}`}
                 >
-                  <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${form.is_featured ? "translate-x-6" : "translate-x-1"}`} />
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${(editingEntryId ? editForm.is_featured : form.is_featured) ? "translate-x-6" : "translate-x-1"}`} />
                 </button>
               </div>
             </div>
 
+            {!editingEntryId && (
             <div>
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Photo *</label>
               {photoPreview ? (
@@ -266,13 +324,14 @@ export function RacewearManager({ initialEntries }: Props) {
               )}
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlePhotoChange} />
             </div>
+            )}
 
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {saving ? "Uploading..." : "Save Photo"}
+                {saving ? (editingEntryId ? "Saving..." : "Uploading...") : (editingEntryId ? "Save Changes" : "Save Photo")}
               </button>
-              <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary text-sm">Cancel</button>
+              <button type="button" onClick={() => { setShowAdd(false); cancelEdit(); }} className="btn-secondary text-sm">Cancel</button>
             </div>
           </form>
         </div>
@@ -338,6 +397,13 @@ export function RacewearManager({ initialEntries }: Props) {
                       </div>
 
                       <div className="flex gap-1">
+                        <button
+                          onClick={() => openEdit(entry)}
+                          title="Edit details"
+                          className="flex-1 flex items-center justify-center py-1 bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white transition-colors"
+                        >
+                          <Pencil size={12} />
+                        </button>
                         <button
                           onClick={() => handleToggleFeatured(entry)}
                           title={entry.is_featured ? "Remove from Services page" : "Show on Services page"}

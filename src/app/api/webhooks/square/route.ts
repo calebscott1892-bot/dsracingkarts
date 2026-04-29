@@ -11,16 +11,27 @@ const WEBHOOK_SECRET = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY || "";
 // Must match the Notification URL registered in the Square Developer portal exactly.
 const WEBHOOK_URL = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dsracingkarts.com.au"}/api/webhooks/square`;
 
-function verifySignature(body: string, signature: string): boolean {
+function normalizeUrlForSignature(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+function verifySignature(body: string, signature: string, candidateUrls: string[]): boolean {
   if (!WEBHOOK_SECRET) return false;
-  const hmac = createHmac("sha256", WEBHOOK_SECRET);
-  hmac.update(WEBHOOK_URL + body);
-  const expected = hmac.digest("base64");
-  try {
-    return timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
-  } catch {
-    return false;
+
+  for (const url of candidateUrls) {
+    const hmac = createHmac("sha256", WEBHOOK_SECRET);
+    hmac.update(normalizeUrlForSignature(url) + body);
+    const expected = hmac.digest("base64");
+    try {
+      if (timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+        return true;
+      }
+    } catch {
+      // try next candidate
+    }
   }
+
+  return false;
 }
 
 /**
@@ -51,13 +62,15 @@ async function recordHeartbeat(eventType: string) {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const signature = request.headers.get("x-square-hmacsha256-signature") || "";
+  const requestUrl = request.url;
+  const typoWebhookUrl = `${process.env.NEXT_PUBLIC_SITE_URL ?? "https://dsracingkarts.com.au"}/api/webhooks/squar`;
 
   if (!WEBHOOK_SECRET) {
     console.error("Square webhook: SQUARE_WEBHOOK_SIGNATURE_KEY is not configured");
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
-  if (!verifySignature(rawBody, signature)) {
+  if (!verifySignature(rawBody, signature, [requestUrl, WEBHOOK_URL, typoWebhookUrl])) {
     console.error("Square webhook: invalid signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
   }
