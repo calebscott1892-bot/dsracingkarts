@@ -11,6 +11,8 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = "force-dynamic";
+
 const FALLBACK_GALLERY = [
   { id: "1", group_label: "Wilson / Enhanced HVAC", image_url: "/images/history/Racewear1.jpeg", alt_text: "Wilson Enhanced HVAC race suit design render" },
   { id: "2", group_label: "NCR / No Chance Racing", image_url: "/images/history/racewear2.webp", alt_text: "NCR No Chance Racing race suit design render" },

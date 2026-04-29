@@ -9,6 +9,7 @@ export const metadata: Metadata = {
 
 const GA_PROPERTY = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-VKQDZ8KQ8J";
 const GA_PROPERTY_ID = process.env.GA4_PROPERTY_ID ?? null;
+
 export default async function AnalyticsPage() {
   const realData = await getAnalyticsData();
   const isConnected = !!realData;
@@ -20,6 +21,11 @@ export default async function AnalyticsPage() {
     process.env.GA4_OAUTH_REFRESH_TOKEN
   );
   const data = realData ?? getStubAnalyticsData();
+  const generatedAt = new Intl.DateTimeFormat("en-AU", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Australia/Perth",
+  }).format(new Date());
   const analyticsHref = GA_PROPERTY_ID
     ? `https://analytics.google.com/analytics/web/#/p${GA_PROPERTY_ID}/reports/intelligenthome`
     : "https://analytics.google.com/analytics/web/";
@@ -51,10 +57,14 @@ export default async function AnalyticsPage() {
                 ? `GA4 measurement ID ${GA_PROPERTY} is active. Displaying live admin metrics below.`
                 : `Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured.`}
             </p>
-            {!hasPropertyId && (
+            {hasPropertyId ? (
+              <p className="text-text-muted text-xs mt-2">
+                Live GA4 connection active. Realtime users update first; summary reports can take a little longer to settle. Last refresh: {generatedAt}.
+              </p>
+            ) : (
               <>
                 <p className="text-text-muted text-xs mt-2">
-                  📍 Find your numeric Property ID: GA4 → Admin (gear) → Property Settings → Property ID
+                  Find your numeric Property ID: GA4 {"->"} Admin {"->"} Property Settings {"->"} Property ID
                 </p>
                 <p className="text-text-muted text-xs mt-1">
                   Missing now: {!GA_PROPERTY_ID ? "GA4_PROPERTY_ID " : ""}{!hasServiceAccount && !hasOAuth ? "analytics credentials" : ""}
@@ -67,30 +77,28 @@ export default async function AnalyticsPage() {
 
       <AnalyticsDashboard data={data} />
 
-      <div className="card p-6 border border-surface-600/30 mt-10">
-        <h2 className="font-heading text-lg uppercase tracking-wider mb-4">Enable Real Analytics</h2>
-        <p className="text-text-muted text-sm mb-4">
-          The dashboard above shows sample data. To display REAL metrics from your Google Analytics account:
-        </p>
-        <ol className="space-y-3 text-sm text-text-muted list-decimal list-inside mb-4">
-          <li>
-            Find your GA4 Property ID (numeric, like 123456789):
-            <br />
-            <span className="text-xs ml-6 block">Google Analytics → Admin → Property Settings → Property ID</span>
-          </li>
-          <li>
-            Add to your .env.local:
-            <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">
-              GA4_PROPERTY_ID=123456789
-            </pre>
-          </li>
-          <li>
-            Restart the app after adding the environment variables.
-          </li>
-          <li>
-            Add one of these authentication methods so the admin panel can read GA4 directly:
-            <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">
-{`# Create Google Cloud service account
+      {!hasPropertyId && (
+        <div className="card p-6 border border-surface-600/30 mt-10">
+          <h2 className="font-heading text-lg uppercase tracking-wider mb-4">Enable Real Analytics</h2>
+          <p className="text-text-muted text-sm mb-4">
+            The dashboard above shows sample data. To display real metrics from your Google Analytics account:
+          </p>
+          <ol className="space-y-3 text-sm text-text-muted list-decimal list-inside mb-4">
+            <li>
+              Find your GA4 Property ID (numeric, like 123456789):
+              <br />
+              <span className="text-xs ml-6 block">Google Analytics {"->"} Admin {"->"} Property Settings {"->"} Property ID</span>
+            </li>
+            <li>
+              Add to your environment variables:
+              <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">
+                GA4_PROPERTY_ID=123456789
+              </pre>
+            </li>
+            <li>Redeploy after adding the environment variables.</li>
+            <li>
+              Add one of these authentication methods so the admin panel can read GA4 directly:
+              <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">{`# Create Google Cloud service account
 # Grant it Viewer access to your GA4 property
 # Then add these secrets:
 GA4_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
@@ -99,14 +107,14 @@ GA4_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n..."
 # OR use a normal Google account OAuth refresh token:
 GA4_OAUTH_CLIENT_ID=...
 GA4_OAUTH_CLIENT_SECRET=...
-GA4_OAUTH_REFRESH_TOKEN=...`}
-            </pre>
-          </li>
-        </ol>
-        <p className="text-text-muted text-xs">
-          The cards above switch from sample data to live GA4 data as soon as these variables are available.
-        </p>
-      </div>
+GA4_OAUTH_REFRESH_TOKEN=...`}</pre>
+            </li>
+          </ol>
+          <p className="text-text-muted text-xs">
+            The cards above switch from sample data to live GA4 data as soon as these variables are available.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
