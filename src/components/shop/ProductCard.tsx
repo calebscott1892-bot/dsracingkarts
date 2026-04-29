@@ -22,6 +22,10 @@ function isRealProductImage(url: string | null | undefined): url is string {
   return !url.endsWith("/images/image-coming-soon.svg");
 }
 
+function isRemoteImage(url: string) {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
 export function ProductCard({ product, priority = false }: Props) {
   const hasVariations = product.product_variations && product.product_variations.length > 1;
   const lowestPrice = product.base_price || product.product_variations?.[0]?.price || 0;
@@ -39,6 +43,7 @@ export function ProductCard({ product, priority = false }: Props) {
               src={product.primary_image_url as string}
               alt={product.name}
               fill
+              unoptimized={isRemoteImage(product.primary_image_url as string)}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               placeholder="blur"

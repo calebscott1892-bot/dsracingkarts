@@ -22,6 +22,10 @@ interface Props {
   initialQuery?: string;
 }
 
+function isRemoteImage(url: string) {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
 export function SearchAutocomplete({ initialQuery = "" }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -248,6 +252,7 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
                             src={r.image_url}
                             alt={r.name}
                             fill
+                            unoptimized={isRemoteImage(r.image_url)}
                             sizes="56px"
                             className="object-cover"
                           />

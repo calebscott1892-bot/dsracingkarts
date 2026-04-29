@@ -15,6 +15,10 @@ interface Props {
   productName: string;
 }
 
+function isRemoteImage(url: string) {
+  return url.startsWith("http://") || url.startsWith("https://");
+}
+
 export function ProductImageGallery({ images, productName }: Props) {
   const sorted = [...images]
     .filter((image) => image.url && !image.url.endsWith("/images/image-coming-soon.svg"))
@@ -53,6 +57,7 @@ export function ProductImageGallery({ images, productName }: Props) {
           src={sorted[activeIndex].url}
           alt={sorted[activeIndex].alt_text || productName}
           fill
+          unoptimized={isRemoteImage(sorted[activeIndex].url)}
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-contain group-hover:scale-105 transition-transform duration-500"
           priority
@@ -84,6 +89,7 @@ export function ProductImageGallery({ images, productName }: Props) {
                 alt={img.alt_text || `${productName} thumbnail ${i + 1}`}
                 width={64}
                 height={64}
+                unoptimized={isRemoteImage(img.url)}
                 className="object-cover w-full h-full"
               />
             </button>
