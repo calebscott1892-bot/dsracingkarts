@@ -41,28 +41,36 @@ export function AnalyticsDashboard({ data }: { data: MetricsData }) {
           value={data.audienceMetrics.activeUsers}
           subtext="Last 30 mins"
           icon={<Activity size={20} className="text-blue-400" />}
-          trend="+12%"
+        />
+        <MetricCard
+          label="Sessions"
+          value={data.audienceMetrics.sessions}
+          subtext="Last 30 days"
+          icon={<BarChart3 size={20} className="text-cyan-400" />}
+        />
+        <MetricCard
+          label="New Users"
+          value={data.audienceMetrics.newUsers}
+          subtext="Last 30 days"
+          icon={<Users size={20} className="text-emerald-400" />}
         />
         <MetricCard
           label="Total Users"
           value={data.audienceMetrics.totalUsers}
           subtext="Last 30 days"
           icon={<Users size={20} className="text-green-400" />}
-          trend="+8%"
         />
         <MetricCard
           label="Bounce Rate"
           value={data.audienceMetrics.bounceRate}
           subtext="Last 7 days"
           icon={<Target size={20} className="text-purple-400" />}
-          trend="-3%"
         />
         <MetricCard
           label="Avg Session"
           value={data.audienceMetrics.avgSessionDuration}
           subtext="Last 7 days"
           icon={<Calendar size={20} className="text-amber-400" />}
-          trend="+5%"
         />
       </div>
 

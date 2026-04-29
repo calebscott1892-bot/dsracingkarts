@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import ServiceExpandGrid from "@/components/sections/ServiceExpandGrid";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Our Services",
@@ -13,6 +13,7 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const services = [
   {
@@ -151,7 +152,7 @@ const FALLBACK_GALLERY = [
 ];
 
 export default async function ServicesPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")

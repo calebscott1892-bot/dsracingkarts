@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Quote, Flag, Timer } from "lucide-react";
 import { DEFAULT_TEAM_PROFILES, TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl, SCAFF_LOGO_URL } from "@/lib/teamLogos";
 
 // Always render fresh — admin team-profile changes must show up instantly.
@@ -22,7 +22,7 @@ export default async function AboutPage() {
   // Fetch team profiles from DB; fall back to empty (carousel uses hardcoded data)
   let dbTeams: Team[] = [];
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const [{ data: teamData }, { data: resultsData }] = await Promise.all([
       supabase
         .from("team_profiles")
@@ -51,17 +51,13 @@ export default async function AboutPage() {
         website: t.website_url || undefined,
         websiteLabel: t.team_name.toLowerCase().includes("claw racing") ? "See Our Other Work" : undefined,
         results: resultsByTeam[t.id] ?? [],
-      }))
-        .filter((team) => team.number !== "555")
-        .map((team) => {
+      })).map((team) => {
           if (team.name.toLowerCase() === "scaff it up") {
             return { ...team, logo: SCAFF_LOGO_URL };
           }
           if (team.name.toLowerCase().includes("claw racing")) {
             return {
               ...team,
-              number: "5",
-              name: "Claw Racing #2",
               logo: CLAW_RACING_PHOTO_URL,
               secondaryLogo: CLAW_CONSTRUCTION_LOGO_URL,
               website: "https://clawconstruction.com.au/",
@@ -97,6 +93,7 @@ export default async function AboutPage() {
   } catch {
     // use hardcoded fallback
   }
+  const displayTeams = dbTeams.length > 0 ? dbTeams : DEFAULT_TEAM_PROFILES;
   return (
     <>
       {/* Hero */}
@@ -247,7 +244,13 @@ export default async function AboutPage() {
 
         {/* Mini team number strip */}
         <div className="flex flex-wrap items-center gap-3 mt-6 mb-2">
-          {["338", "43", "114", "5", "555", "272", "285", "22", "249"].map((num) => (
+          {Array.from(
+            new Set(
+              displayTeams
+                .map((team) => team.number?.trim())
+                .filter((num): num is string => Boolean(num))
+            )
+          ).map((num) => (
             <span
               key={num}
               className="font-heading text-xs uppercase tracking-[0.15em] text-white/30 border border-white/10 px-2 py-1"
@@ -257,7 +260,7 @@ export default async function AboutPage() {
           ))}
         </div>
 
-        <TeamCarouselUI teams={dbTeams} />
+        <TeamCarouselUI teams={displayTeams} />
       </section>
 
       <div className="chequered-stripe" />

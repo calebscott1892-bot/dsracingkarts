@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Custom Racewear Gallery",
@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const FALLBACK_GALLERY = [
   { id: "1", group_label: "Wilson / Enhanced HVAC", image_url: "/images/history/Racewear1.jpeg", alt_text: "Wilson Enhanced HVAC race suit design render" },
@@ -30,7 +31,7 @@ const FALLBACK_GALLERY = [
 ];
 
 export default async function RacewearGalleryPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
     .select("id, group_label, image_url, alt_text")

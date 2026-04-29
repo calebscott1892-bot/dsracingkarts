@@ -57,8 +57,8 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     tagline: "Leaving our mark on every lap",
   },
   {
-    number: "5",
-    name: "Claw Racing #2",
+    number: "555",
+    name: "Claw Racing",
     accent: "#a855f7",
     accentRgb: "168,85,247",
     logo: CLAW_RACING_PHOTO_URL,

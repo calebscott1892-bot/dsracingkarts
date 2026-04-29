@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidatePath("/services");
+  revalidatePath("/services/racewear-gallery");
   revalidatePath("/admin/racewear");
   return NextResponse.json({ entry: data }, { status: 201 });
 }
@@ -95,6 +96,7 @@ export async function PATCH(request: NextRequest) {
   const { error } = await supabase.from("racewear_gallery").update(updates).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidatePath("/services");
+  revalidatePath("/services/racewear-gallery");
   revalidatePath("/admin/racewear");
   return NextResponse.json({ success: true });
 }
@@ -112,6 +114,7 @@ export async function DELETE(request: NextRequest) {
   const { error } = await supabase.from("racewear_gallery").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidatePath("/services");
+  revalidatePath("/services/racewear-gallery");
   revalidatePath("/admin/racewear");
   return NextResponse.json({ success: true });
 }

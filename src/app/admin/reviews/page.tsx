@@ -9,5 +9,14 @@ export default async function AdminReviewsPage() {
     .order("sort_order")
     .order("created_at");
 
-  return <ReviewsManager initialReviews={reviews ?? []} />;
+  return (
+    <div>
+      <div className="card p-5 mb-6 border border-surface-600/40">
+        <p className="text-sm text-text-secondary">
+          Use the pencil icon on any review to edit every field: name, text, platform, rating, date, visibility, and sort order.
+        </p>
+      </div>
+      <ReviewsManager initialReviews={reviews ?? []} />
+    </div>
+  );
 }
