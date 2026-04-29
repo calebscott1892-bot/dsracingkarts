@@ -14,6 +14,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function isRemoteImage(src: string) {
+  return src.startsWith("http://") || src.startsWith("https://");
+}
+
 const FALLBACK_GALLERY = [
   { id: "1", group_label: "Wilson / Enhanced HVAC", image_url: "/images/history/Racewear1.jpeg", alt_text: "Wilson Enhanced HVAC race suit design render" },
   { id: "2", group_label: "NCR / No Chance Racing", image_url: "/images/history/racewear2.webp", alt_text: "NCR No Chance Racing race suit design render" },
@@ -67,6 +71,7 @@ export default async function RacewearGalleryPage() {
               src={entry.image_url}
               alt={entry.alt_text || entry.group_label || "Custom racewear"}
               fill
+              unoptimized={isRemoteImage(entry.image_url)}
               className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />

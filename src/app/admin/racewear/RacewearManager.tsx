@@ -1,9 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import Image from "next/image";
 
 interface Entry {
   id: string;
@@ -12,6 +11,7 @@ interface Entry {
   alt_text: string;
   sort_order: number;
   is_active: boolean;
+  is_featured: boolean;
   created_at: string;
 }
 
@@ -19,6 +19,7 @@ const emptyForm = () => ({
   group_label: "",
   alt_text: "",
   sort_order: 0,
+  is_featured: false,
 });
 
 interface Props { initialEntries: Entry[] }
@@ -83,6 +84,7 @@ export function RacewearManager({ initialEntries }: Props) {
           image_url: urlData.publicUrl,
           alt_text: form.alt_text.trim(),
           sort_order: form.sort_order,
+          is_featured: form.is_featured,
         }),
       });
       if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Save failed"); }
@@ -129,6 +131,20 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
+  async function handleToggleFeatured(entry: Entry) {
+    try {
+      const res = await fetch("/api/admin/racewear", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id, is_featured: !entry.is_featured }),
+      });
+      if (!res.ok) throw new Error("Feature toggle failed");
+      setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_featured: !e.is_featured } : e));
+    } catch {
+      alert("Failed to update featured setting");
+    }
+  }
+
   async function handleSaveSort(id: string) {
     try {
       const res = await fetch("/api/admin/racewear", {
@@ -147,7 +163,6 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
-  // Group entries by label for display
   const groups = entries.reduce<Record<string, Entry[]>>((acc, e) => {
     (acc[e.group_label] ??= []).push(e);
     return acc;
@@ -166,11 +181,11 @@ export function RacewearManager({ initialEntries }: Props) {
       </div>
 
       <p className="text-text-muted text-sm mb-8">
-        Photos appear on the Services page under &ldquo;Custom Racewear&rdquo;. They are grouped by the label you assign.
-        Use &ldquo;Sort order&rdquo; to control position within a group — lower numbers appear first.
+        Choose which images are featured on the main Services page and which stay tucked behind the
+        <span className="text-white"> See More </span>
+        gallery. Sort order controls the display order in both places.
       </p>
 
-      {/* Add form */}
       {showAdd && (
         <div className="card p-6 mb-8 border-brand-red/30">
           <div className="flex items-center justify-between mb-5">
@@ -201,26 +216,36 @@ export function RacewearManager({ initialEntries }: Props) {
                   className="input-dark w-full"
                   value={form.alt_text}
                   onChange={(e) => setField("alt_text", e.target.value)}
-                  placeholder="e.g. Kart Blanche – race suit front view"
+                  placeholder="e.g. Kart Blanche - race suit front view"
                 />
               </div>
             </div>
-            <div className="w-32">
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Sort Order</label>
-              <input
-                type="number"
-                className="input-dark w-full"
-                value={form.sort_order}
-                onChange={(e) => setField("sort_order", parseInt(e.target.value) || 0)}
-              />
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="w-32">
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Sort Order</label>
+                <input
+                  type="number"
+                  className="input-dark w-full"
+                  value={form.sort_order}
+                  onChange={(e) => setField("sort_order", parseInt(e.target.value) || 0)}
+                />
+              </div>
+              <div className="flex items-center gap-3 pb-1">
+                <label className="text-sm text-text-secondary">Featured on Services page</label>
+                <button
+                  type="button"
+                  onClick={() => setField("is_featured", !form.is_featured)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${form.is_featured ? "bg-brand-red" : "bg-surface-500"}`}
+                >
+                  <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${form.is_featured ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
             </div>
 
-            {/* Photo upload */}
             <div>
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Photo *</label>
               {photoPreview ? (
                 <div className="relative inline-block">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={photoPreview} alt="Preview" className="max-h-48 rounded border border-surface-600 object-cover" />
                   <button
                     type="button"
@@ -236,7 +261,7 @@ export function RacewearManager({ initialEntries }: Props) {
                   onClick={() => fileInputRef.current?.click()}
                   className="flex items-center gap-2 border border-dashed border-surface-500 hover:border-brand-red/60 bg-surface-800/50 text-text-muted hover:text-white transition-colors px-4 py-3 text-sm w-full justify-center"
                 >
-                  <Camera size={16} /> Upload photo (JPG, PNG, WebP — max 10 MB)
+                  <Camera size={16} /> Upload photo (JPG, PNG, WebP - max 10 MB)
                 </button>
               )}
               <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlePhotoChange} />
@@ -245,7 +270,7 @@ export function RacewearManager({ initialEntries }: Props) {
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {saving ? "Uploading…" : "Save Photo"}
+                {saving ? "Uploading..." : "Save Photo"}
               </button>
               <button type="button" onClick={() => setShowAdd(false)} className="btn-secondary text-sm">Cancel</button>
             </div>
@@ -253,7 +278,6 @@ export function RacewearManager({ initialEntries }: Props) {
         </div>
       )}
 
-      {/* Gallery grouped view */}
       {Object.keys(groups).length === 0 ? (
         <div className="card p-8 text-center text-text-muted">
           <Camera size={32} className="mx-auto mb-3 opacity-30" />
@@ -268,7 +292,6 @@ export function RacewearManager({ initialEntries }: Props) {
                 {groupEntries.map((entry) => (
                   <div key={entry.id} className={`card overflow-hidden ${!entry.is_active ? "opacity-40" : ""}`}>
                     <div className="relative aspect-[3/4] bg-surface-900">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={entry.image_url}
                         alt={entry.alt_text || entry.group_label}
@@ -276,9 +299,19 @@ export function RacewearManager({ initialEntries }: Props) {
                       />
                     </div>
                     <div className="p-2 space-y-1.5">
-                      <p className="text-[10px] text-text-muted truncate">{entry.alt_text || "—"}</p>
+                      <p className="text-[10px] text-text-muted truncate">{entry.alt_text || "-"}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {entry.is_featured ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-brand-red/15 px-2 py-0.5 text-[10px] uppercase tracking-wider text-brand-red">
+                            <Star size={10} /> Featured
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded bg-surface-700 px-2 py-0.5 text-[10px] uppercase tracking-wider text-text-muted">
+                            <StarOff size={10} /> See More Only
+                          </span>
+                        )}
+                      </div>
 
-                      {/* Sort order inline edit */}
                       <div className="flex items-center gap-1">
                         <GripVertical size={12} className="text-text-muted shrink-0" />
                         {editingSort === entry.id ? (
@@ -304,8 +337,18 @@ export function RacewearManager({ initialEntries }: Props) {
                         )}
                       </div>
 
-                      {/* Actions */}
                       <div className="flex gap-1">
+                        <button
+                          onClick={() => handleToggleFeatured(entry)}
+                          title={entry.is_featured ? "Remove from Services page" : "Show on Services page"}
+                          className={`flex-1 flex items-center justify-center py-1 transition-colors ${
+                            entry.is_featured
+                              ? "bg-brand-red/15 text-brand-red hover:bg-brand-red/25"
+                              : "bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white"
+                          }`}
+                        >
+                          {entry.is_featured ? <Star size={12} /> : <StarOff size={12} />}
+                        </button>
                         <button
                           onClick={() => handleToggle(entry)}
                           disabled={toggling === entry.id}

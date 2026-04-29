@@ -15,6 +15,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function isRemoteImage(src: string) {
+  return src.startsWith("http://") || src.startsWith("https://");
+}
+
 const services = [
   {
     iconName: "Wrench" as const,
@@ -156,8 +160,9 @@ export default async function ServicesPage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
-    .select("id, group_label, image_url, alt_text")
+    .select("id, group_label, image_url, alt_text, is_featured")
     .eq("is_active", true)
+    .eq("is_featured", true)
     .order("sort_order")
     .order("created_at");
 
@@ -312,6 +317,7 @@ export default async function ServicesPage() {
                     src={src}
                     alt={alt}
                     fill
+                    unoptimized={isRemoteImage(src)}
                     className="object-cover transition-transform duration-500 group-hover/img:scale-105"
                     sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   />

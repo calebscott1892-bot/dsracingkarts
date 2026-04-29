@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await request.json();
-  const { group_label, image_url, alt_text, sort_order } = body;
+  const { group_label, image_url, alt_text, sort_order, is_featured } = body;
 
   if (!group_label || typeof group_label !== "string" || !group_label.trim()) {
     return NextResponse.json({ error: "group_label is required" }, { status: 400 });
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       image_url: String(image_url).trim().slice(0, 500),
       alt_text: String(alt_text || "").trim().slice(0, 300),
       sort_order: Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0,
+      is_featured: Boolean(is_featured),
       is_active: true,
     })
     .select("*")
@@ -80,13 +81,14 @@ export async function PATCH(request: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const body = await request.json();
-  const { id, sort_order, is_active } = body;
+  const { id, sort_order, is_active, is_featured } = body;
 
   if (!id) return NextResponse.json({ error: "id is required" }, { status: 400 });
 
   const updates: Record<string, unknown> = {};
   if (sort_order !== undefined) updates.sort_order = Number(sort_order);
   if (is_active !== undefined) updates.is_active = Boolean(is_active);
+  if (is_featured !== undefined) updates.is_featured = Boolean(is_featured);
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
