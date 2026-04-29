@@ -46,10 +46,28 @@ export default async function AboutPage() {
         website: t.website_url || undefined,
         results: resultsByTeam[t.id] ?? [],
       }));
-      const seen = new Set(dbTeams.map((team) => team.number || team.name.toLowerCase()));
+      const seenNumbers = new Set(
+        dbTeams
+          .map((team) => team.number?.trim())
+          .filter((value): value is string => Boolean(value))
+      );
+      const seenNames = new Set(
+        dbTeams
+          .map((team) => team.name.trim().toLowerCase())
+          .filter(Boolean)
+      );
       for (const fallbackTeam of DEFAULT_TEAM_PROFILES) {
-        const key = fallbackTeam.number || fallbackTeam.name.toLowerCase();
-        if (!seen.has(key)) dbTeams.push(fallbackTeam);
+        const fallbackNumber = fallbackTeam.number?.trim();
+        const fallbackName = fallbackTeam.name.trim().toLowerCase();
+        const alreadyPresent =
+          (fallbackNumber && seenNumbers.has(fallbackNumber)) ||
+          seenNames.has(fallbackName);
+
+        if (!alreadyPresent) {
+          dbTeams.push(fallbackTeam);
+          if (fallbackNumber) seenNumbers.add(fallbackNumber);
+          seenNames.add(fallbackName);
+        }
       }
     }
   } catch {
