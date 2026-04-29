@@ -18,7 +18,37 @@ function getPrivateKey() {
   return process.env.GA4_PRIVATE_KEY?.replace(/\\n/g, "\n");
 }
 
+async function getOAuthRefreshAccessToken() {
+  const clientId = process.env.GA4_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GA4_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GA4_OAUTH_REFRESH_TOKEN;
+  if (!clientId || !clientSecret || !refreshToken) return null;
+
+  const response = await fetch(TOKEN_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }),
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`GA refresh token request failed (${response.status}): ${text.slice(0, 160)}`);
+  }
+
+  const data = await response.json();
+  return data.access_token as string;
+}
+
 async function getAccessToken() {
+  const oauthAccessToken = await getOAuthRefreshAccessToken();
+  if (oauthAccessToken) return oauthAccessToken;
+
   const clientEmail = process.env.GA4_SERVICE_ACCOUNT_EMAIL;
   const privateKey = getPrivateKey();
   if (!clientEmail || !privateKey) return null;
@@ -100,11 +130,18 @@ function secondsToDuration(seconds: number) {
  * Replace with real GA4 API calls when credentials are configured
  */
 export async function getAnalyticsData() {
-  const hasConfig = !!(
+  const hasServiceAccountConfig = !!(
     process.env.GA4_PROPERTY_ID &&
     process.env.GA4_SERVICE_ACCOUNT_EMAIL &&
     process.env.GA4_PRIVATE_KEY
   );
+  const hasOAuthConfig = !!(
+    process.env.GA4_PROPERTY_ID &&
+    process.env.GA4_OAUTH_CLIENT_ID &&
+    process.env.GA4_OAUTH_CLIENT_SECRET &&
+    process.env.GA4_OAUTH_REFRESH_TOKEN
+  );
+  const hasConfig = hasServiceAccountConfig || hasOAuthConfig;
 
   if (!hasConfig) {
     return null;

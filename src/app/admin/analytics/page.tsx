@@ -14,6 +14,11 @@ export default async function AnalyticsPage() {
   const isConnected = !!realData;
   const hasPropertyId = isConnected;
   const hasServiceAccount = !!(process.env.GA4_SERVICE_ACCOUNT_EMAIL && process.env.GA4_PRIVATE_KEY);
+  const hasOAuth = !!(
+    process.env.GA4_OAUTH_CLIENT_ID &&
+    process.env.GA4_OAUTH_CLIENT_SECRET &&
+    process.env.GA4_OAUTH_REFRESH_TOKEN
+  );
   const data = realData ?? getStubAnalyticsData();
   const analyticsHref = GA_PROPERTY_ID
     ? `https://analytics.google.com/analytics/web/#/p${GA_PROPERTY_ID}/reports/intelligenthome`
@@ -44,7 +49,7 @@ export default async function AnalyticsPage() {
             <p className="text-text-muted text-sm">
               {hasPropertyId
                 ? `GA4 measurement ID ${GA_PROPERTY} is active. Displaying live admin metrics below.`
-                : `Showing sample metrics until GA4_PROPERTY_ID, GA4_SERVICE_ACCOUNT_EMAIL, and GA4_PRIVATE_KEY are configured.`}
+                : `Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured.`}
             </p>
             {!hasPropertyId && (
               <>
@@ -52,7 +57,7 @@ export default async function AnalyticsPage() {
                   📍 Find your numeric Property ID: GA4 → Admin (gear) → Property Settings → Property ID
                 </p>
                 <p className="text-text-muted text-xs mt-1">
-                  Missing now: {!GA_PROPERTY_ID ? "GA4_PROPERTY_ID " : ""}{!hasServiceAccount ? "service account credentials" : ""}
+                  Missing now: {!GA_PROPERTY_ID ? "GA4_PROPERTY_ID " : ""}{!hasServiceAccount && !hasOAuth ? "analytics credentials" : ""}
                 </p>
               </>
             )}
@@ -83,13 +88,18 @@ export default async function AnalyticsPage() {
             Restart the app after adding the environment variables.
           </li>
           <li>
-            Add service account credentials so the admin panel can read GA4 directly:
+            Add one of these authentication methods so the admin panel can read GA4 directly:
             <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">
 {`# Create Google Cloud service account
 # Grant it Viewer access to your GA4 property
 # Then add these secrets:
 GA4_SERVICE_ACCOUNT_EMAIL=...@....iam.gserviceaccount.com
-GA4_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n..."`}
+GA4_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\\n..."
+
+# OR use a normal Google account OAuth refresh token:
+GA4_OAUTH_CLIENT_ID=...
+GA4_OAUTH_CLIENT_SECRET=...
+GA4_OAUTH_REFRESH_TOKEN=...`}
             </pre>
           </li>
         </ol>
