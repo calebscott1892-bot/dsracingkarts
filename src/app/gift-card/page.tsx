@@ -5,9 +5,12 @@ import { GiftCardClient } from "./GiftCardClient";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "E-Gift Card | DS Racing Karts",
+  title: "E-Gift Card",
   description:
     "Give the gift of speed. DS Racing Karts e-gift cards are available in $50, $100, $200 and $500 — or any custom amount.",
+  alternates: {
+    canonical: "/gift-card",
+  },
 };
 
 export default async function GiftCardPage() {

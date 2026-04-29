@@ -83,7 +83,7 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  // Global ⌘K / Ctrl+K to focus
+  // Global Cmd+K / Ctrl+K to focus
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -299,7 +299,7 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
 
           {/* Footer hint */}
           {(results.length > 0 || query.trim().length >= 2) && (
-            <div className="px-4 py-2 bg-surface-900 border-t border-surface-700 flex items-center gap-3 text-[10px] text-text-muted font-heading uppercase tracking-[0.15em]">
+            <div className="hidden md:flex px-4 py-2 bg-surface-900 border-t border-surface-700 items-center gap-3 text-[10px] text-text-muted font-heading uppercase tracking-[0.15em]">
               <span className="flex items-center gap-1">
                 <kbd className="px-1.5 py-0.5 bg-surface-700 border border-surface-600 rounded-sm">↑↓</kbd>
                 navigate
@@ -323,3 +323,5 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
 function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
+
+

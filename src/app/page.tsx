@@ -236,6 +236,16 @@ export default async function HomePage() {
                 priceRange: "$$",
               },
               {
+                "@type": "WebSite",
+                name: "DS Racing Karts",
+                url: siteUrl,
+                potentialAction: {
+                  "@type": "SearchAction",
+                  target: `${siteUrl}/shop?search={search_term_string}`,
+                  "query-input": "required name=search_term_string",
+                },
+              },
+              {
                 "@type": "FAQPage",
                 mainEntity: HOME_FAQS.map((faq) => ({
                   "@type": "Question",

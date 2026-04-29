@@ -3,9 +3,12 @@ import Image from "next/image";
 import C4SponsorCard from "@/components/c4-footer-credit/C4SponsorCard";
 
 export const metadata: Metadata = {
-  title: "Our Sponsors & Partners | DS Racing Karts",
+  title: "Our Sponsors & Partners",
   description:
     "The incredible brands and businesses that support DS Racing Karts. Proud partners in Australian karting.",
+  alternates: {
+    canonical: "/sponsors",
+  },
 };
 
 interface SponsorLogo {

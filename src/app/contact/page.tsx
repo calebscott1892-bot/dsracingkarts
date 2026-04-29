@@ -5,8 +5,11 @@ import ContactForm from "@/components/ContactForm";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "Contact Us | DS Racing Karts",
+  title: "Contact Us",
   description: "Get in touch with DS Racing Karts, Sydney's go kart specialists. Parts, servicing, and race support.",
+  alternates: {
+    canonical: "/contact",
+  },
 };
 
 interface Props {
@@ -20,6 +23,7 @@ export default async function ContactPage({ searchParams }: Props) {
   const params = await searchParams;
   const defaultSubject = params.subject?.slice(0, 200);
   const defaultMessage = params.message?.slice(0, 2000);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
 
   return (
     <>
@@ -191,6 +195,38 @@ export default async function ContactPage({ searchParams }: Props) {
           </div>
         </div>
       </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "ContactPage",
+                name: "Contact DS Racing Karts",
+                url: `${siteUrl}/contact`,
+                description: "Contact DS Racing Karts for go kart parts, servicing, race preparation, and workshop bookings.",
+              },
+              {
+                "@type": "AutoPartsStore",
+                name: "DS Racing Karts",
+                url: siteUrl,
+                telephone: "+61492454854",
+                email: "dsracing@bigpond.com",
+                address: {
+                  "@type": "PostalAddress",
+                  streetAddress: "Long Reef Crescent",
+                  addressLocality: "Woodbine",
+                  addressRegion: "NSW",
+                  addressCountry: "AU",
+                },
+                sameAs: ["https://www.facebook.com/dsracingkarts"],
+              },
+            ],
+          }),
+        }}
+      />
     </>
   );
 }

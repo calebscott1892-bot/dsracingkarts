@@ -5,8 +5,11 @@ import ServiceExpandGrid from "@/components/sections/ServiceExpandGrid";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Our Services | DS Racing Karts",
+  title: "Our Services",
   description: "Go kart servicing, engine tuning, chassis setup, and race preparation. Sydney's trusted kart specialists.",
+  alternates: {
+    canonical: "/services",
+  },
 };
 
 const services = [
@@ -147,6 +150,7 @@ const FALLBACK_GALLERY = [
 
 export default async function ServicesPage() {
   const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
     .select("id, group_label, image_url, alt_text")
@@ -430,6 +434,33 @@ export default async function ServicesPage() {
         </p>
         <Link href="/shop" className="btn-primary px-8">Shop Now</Link>
       </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "WebPage",
+                name: "DS Racing Karts Services",
+                url: `${siteUrl}/services`,
+              },
+              ...services.map((service) => ({
+                "@type": "Service",
+                serviceType: service.title,
+                provider: {
+                  "@type": "Organization",
+                  name: "DS Racing Karts",
+                  url: siteUrl,
+                },
+                areaServed: "AU",
+                description: service.description,
+              })),
+            ],
+          }),
+        }}
+      />
     </>
   );
 }

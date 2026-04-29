@@ -64,6 +64,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createClient();
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
 
   const { data: product } = await supabase
     .from("products")
@@ -206,22 +207,58 @@ export default async function ProductPage({ params }: Props) {
             dangerouslySetInnerHTML={{
               __html: JSON.stringify({
                 "@context": "https://schema.org",
-                "@type": "Product",
-                name: product.name,
-                description: product.description_plain,
-                sku: displaySku,
-                image: images[0]?.url,
-                offers: hasVariations
-                  ? {
-                      "@type": "AggregateOffer",
-                      lowPrice: Math.min(...variationPrices),
-                      highPrice: Math.max(
-                        ...variations.map((v: any) => v.price)
-                      ),
-                      priceCurrency: "AUD",
-                      availability: "https://schema.org/InStock",
-                    }
-                  : undefined,
+                "@graph": [
+                  {
+                    "@type": "BreadcrumbList",
+                    itemListElement: [
+                      {
+                        "@type": "ListItem",
+                        position: 1,
+                        name: "Home",
+                        item: siteUrl,
+                      },
+                      {
+                        "@type": "ListItem",
+                        position: 2,
+                        name: "Shop",
+                        item: `${siteUrl}/shop`,
+                      },
+                      ...(categories[0]
+                        ? [{
+                            "@type": "ListItem",
+                            position: 3,
+                            name: categories[0].name,
+                            item: `${siteUrl}/shop?category=${categories[0].slug}`,
+                          }]
+                        : []),
+                      {
+                        "@type": "ListItem",
+                        position: categories[0] ? 4 : 3,
+                        name: product.name,
+                        item: `${siteUrl}/product/${product.slug}`,
+                      },
+                    ],
+                  },
+                  {
+                    "@type": "Product",
+                    name: product.name,
+                    description: product.description_plain,
+                    sku: displaySku,
+                    url: `${siteUrl}/product/${product.slug}`,
+                    category: categories[0]?.name,
+                    image: images.map((image: any) => image.url).filter(Boolean),
+                    offers: hasVariations && variationPrices.length > 0
+                      ? {
+                          "@type": "AggregateOffer",
+                          lowPrice: Math.min(...variationPrices),
+                          highPrice: Math.max(...variationPrices),
+                          priceCurrency: "AUD",
+                          offerCount: variations.length,
+                          availability: "https://schema.org/InStock",
+                        }
+                      : undefined,
+                  },
+                ],
               }),
             }}
           />

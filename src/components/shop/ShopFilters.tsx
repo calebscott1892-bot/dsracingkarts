@@ -160,3 +160,4 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
     </div>
   );
 }
+

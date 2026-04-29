@@ -4,8 +4,11 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Custom Racewear Gallery | DS Racing Karts",
+  title: "Custom Racewear Gallery",
   description: "Explore the full DS Racing Karts custom racewear gallery.",
+  alternates: {
+    canonical: "/services/racewear-gallery",
+  },
 };
 
 const FALLBACK_GALLERY = [

@@ -2,8 +2,11 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms & Conditions | DS Racing Karts",
+  title: "Terms & Conditions",
   description: "Terms and Conditions for DS Racing Karts. Read our terms of use, purchase conditions and policies.",
+  alternates: {
+    canonical: "/terms",
+  },
 };
 
 export default function TermsPage() {

@@ -7,13 +7,10 @@ import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
+const SHOP_DESCRIPTION =
+  "Browse our full range of go kart parts, engines, chassis, brakes, racewear and accessories.";
 
 export const dynamic = "force-dynamic";
-
-export const metadata: Metadata = {
-  title: "Shop All Products",
-  description: "Browse our full range of go kart parts, engines, chassis, brakes, racewear and accessories.",
-};
 
 interface Props {
   searchParams: Promise<{
@@ -22,6 +19,37 @@ interface Props {
     sort?: string;
     page?: string;
   }>;
+}
+
+export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
+  const params = await searchParams;
+  const canonicalParams = new URLSearchParams();
+  if (params.category) canonicalParams.set("category", params.category);
+  if (params.page && params.page !== "1") canonicalParams.set("page", params.page);
+
+  const hasSearchQuery = Boolean(params.search?.trim());
+  const categoryLabel = params.category
+    ? params.category
+        .split("-")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ")
+    : null;
+
+  return {
+    title: categoryLabel ? `${categoryLabel} Parts` : "Shop All Products",
+    description: categoryLabel
+      ? `Shop ${categoryLabel.toLowerCase()} and related go kart parts at DS Racing Karts.`
+      : SHOP_DESCRIPTION,
+    alternates: {
+      canonical: canonicalParams.toString() ? `/shop?${canonicalParams.toString()}` : "/shop",
+    },
+    robots: hasSearchQuery
+      ? {
+          index: false,
+          follow: true,
+        }
+      : undefined,
+  };
 }
 
 const PAGE_SIZE = 24;

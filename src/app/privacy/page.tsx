@@ -2,8 +2,11 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | DS Racing Karts",
+  title: "Privacy Policy",
   description: "Privacy Policy for DS Racing Karts. How we collect, use and protect your personal information.",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPage() {

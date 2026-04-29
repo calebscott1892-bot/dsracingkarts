@@ -10,11 +10,15 @@ import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "About Us | DS Racing Karts",
+  title: "About Us",
   description: "Decades of karting and motorsport experience. Sydney's trusted kart specialists.",
+  alternates: {
+    canonical: "/about",
+  },
 };
 
 export default async function AboutPage() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   // Fetch team profiles from DB; fall back to empty (carousel uses hardcoded data)
   let dbTeams: Team[] = [];
   try {
@@ -402,6 +406,33 @@ export default async function AboutPage() {
           <Link href="/contact" className="btn-secondary px-8">Get in Touch</Link>
         </div>
       </section>
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "AboutPage",
+                name: "About DS Racing Karts",
+                url: `${siteUrl}/about`,
+                description: "Learn about DS Racing Karts, its racing background, founder Dion Scott, and supported endurance karting teams.",
+              },
+              {
+                "@type": "Person",
+                name: "Dion Scott",
+                jobTitle: "Founder & Lead Engineer",
+                worksFor: {
+                  "@type": "Organization",
+                  name: "DS Racing Karts",
+                  url: siteUrl,
+                },
+              },
+            ],
+          }),
+        }}
+      />
     </>
   );
 }

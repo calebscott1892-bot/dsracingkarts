@@ -32,7 +32,7 @@ const digital = Orbitron({
 
 export const metadata: Metadata = {
   title: {
-    default: "DS Racing Karts — Go Kart Parts & Service | Sydney",
+    default: "DS Racing Karts - Go Kart Parts & Service | Sydney",
     template: "%s | DS Racing Karts",
   },
   description:
@@ -80,12 +80,12 @@ export const metadata: Metadata = {
     locale: "en_AU",
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au",
     siteName: "DS Racing Karts",
-    title: "DS Racing Karts — Go Kart Parts & Service | Sydney",
+    title: "DS Racing Karts - Go Kart Parts & Service | Sydney",
     description: "Australia's trusted go kart parts supplier. Engines, chassis, brakes, racewear and more.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "DS Racing Karts — Go Kart Parts & Service | Sydney",
+    title: "DS Racing Karts - Go Kart Parts & Service | Sydney",
     description: "Australia's trusted go kart parts supplier. Engines, chassis, brakes, racewear and more.",
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au"),
@@ -118,3 +118,6 @@ export default function RootLayout({
     </html>
   );
 }
+
+
+

@@ -3,8 +3,11 @@ import { PredatorChassisClient } from "./PredatorChassisClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Preloved Predator Chassis Available | DS Racing Karts",
+  title: "Preloved Predator Chassis Available",
   description: "The DSR Predator — Australian-built enduro kart chassis designed and tuned by DS Racing Karts. Buy or sell a used Predator through our community board.",
+  alternates: {
+    canonical: "/predator-chassis",
+  },
 };
 
 const FEATURES = [
