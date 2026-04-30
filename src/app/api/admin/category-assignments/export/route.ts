@@ -1,6 +1,27 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+async function fetchPaginated<T>(
+  runQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>
+) {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await runQuery(from, to);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    page += 1;
+  }
+
+  return rows;
+}
+
 async function verifyAdmin() {
   const supabase = await createClient();
   const {
@@ -51,15 +72,20 @@ export async function GET() {
     return NextResponse.json({ error: "No category assignment run found" }, { status: 404 });
   }
 
-  const [{ data: suggestions }, { data: categories }] = await Promise.all([
-    service
-      .from("category_assignment_suggestions")
-      .select(
-        "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
-      )
-      .eq("run_id", latestRun.id)
-      .order("confidence", { ascending: false }),
-    service.from("categories").select("id, name, parent_id"),
+  const [suggestions, categories] = await Promise.all([
+    fetchPaginated<any>(async (from, to) =>
+      await service
+        .from("category_assignment_suggestions")
+        .select(
+          "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
+        )
+        .eq("run_id", latestRun.id)
+        .order("confidence", { ascending: false })
+        .range(from, to)
+    ),
+    fetchPaginated<{ id: string; name: string; parent_id: string | null }>(async (from, to) =>
+      await service.from("categories").select("id, name, parent_id").range(from, to)
+    ),
   ]);
 
   const categoryMap = new Map((categories || []).map((category) => [category.id, category]));

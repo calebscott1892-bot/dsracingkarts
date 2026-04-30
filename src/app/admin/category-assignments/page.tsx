@@ -3,6 +3,27 @@ import { CategoryAssignmentsManager } from "./CategoryAssignmentsManager";
 
 export const dynamic = "force-dynamic";
 
+async function fetchPaginated<T>(
+  runQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>
+) {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  let page = 0;
+
+  while (true) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await runQuery(from, to);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+    page += 1;
+  }
+
+  return rows;
+}
+
 function confidenceBand(confidence: number) {
   if (confidence >= 0.55) return "high";
   if (confidence >= 0.35) return "medium";
@@ -47,19 +68,27 @@ export default async function AdminCategoryAssignmentsPage() {
   };
 
   if (latestRun) {
-    const [{ data: allRows }, { data: visibleRows }, { data: categories }] = await Promise.all([
-      service
-        .from("category_assignment_suggestions")
-        .select("id, status, confidence")
-        .eq("run_id", latestRun.id),
-      service
-        .from("category_assignment_suggestions")
-        .select(
-          "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
-        )
-        .eq("run_id", latestRun.id)
-        .order("confidence", { ascending: false }),
-      service.from("categories").select("id, name, parent_id"),
+    const [allRows, visibleRows, categories] = await Promise.all([
+      fetchPaginated<{ id: string; status: string; confidence: number }>(async (from, to) =>
+        await service
+          .from("category_assignment_suggestions")
+          .select("id, status, confidence")
+          .eq("run_id", latestRun.id)
+          .range(from, to)
+      ),
+      fetchPaginated<any>(async (from, to) =>
+        await service
+          .from("category_assignment_suggestions")
+          .select(
+            "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
+          )
+          .eq("run_id", latestRun.id)
+          .order("confidence", { ascending: false })
+          .range(from, to)
+      ),
+      fetchPaginated<{ id: string; name: string; parent_id: string | null }>(async (from, to) =>
+        await service.from("categories").select("id, name, parent_id").range(from, to)
+      ),
     ]);
 
     const categoryMap = new Map((categories || []).map((category) => [category.id, category]));
