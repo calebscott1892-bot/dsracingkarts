@@ -25,6 +25,36 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/shop/:slug/:legacyId",
+        destination: "/shop?category=:slug",
+        permanent: true,
+      },
+      {
+        source: "/custom-racewear",
+        destination: "/services#custom-racewear",
+        permanent: true,
+      },
+      {
+        source: "/our-services",
+        destination: "/services",
+        permanent: true,
+      },
+      {
+        source: "/about-us",
+        destination: "/about",
+        permanent: true,
+      },
+      {
+        source: "/gallery",
+        destination: "/services/racewear-gallery",
+        permanent: true,
+      },
+      {
+        source: "/4-stroke-go-kart-servicing-sydney",
+        destination: "/services",
+        permanent: true,
+      },
+      {
         source: "/product/:slug/:rest+",
         destination: "/product/:slug",
         permanent: true,
