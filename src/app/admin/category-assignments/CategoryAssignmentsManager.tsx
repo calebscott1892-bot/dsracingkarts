@@ -63,12 +63,19 @@ export function CategoryAssignmentsManager({
   const router = useRouter();
   const [isGenerating, startGenerating] = useTransition();
   const [actingId, setActingId] = useState<string | null>(null);
+  const [isBulkActing, startBulkAction] = useTransition();
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "applied">("all");
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const visibleSuggestions = useMemo(() => {
     if (statusFilter === "all") return suggestions;
     return suggestions.filter((suggestion) => suggestion.status === statusFilter);
   }, [statusFilter, suggestions]);
+
+  const selectableSuggestions = useMemo(
+    () => visibleSuggestions.filter((suggestion) => ["pending", "approved", "rejected"].includes(suggestion.status)),
+    [visibleSuggestions]
+  );
 
   function generateSuggestions() {
     startGenerating(async () => {
@@ -82,6 +89,43 @@ export function CategoryAssignmentsManager({
         return;
       }
 
+      router.refresh();
+    });
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
+    );
+  }
+
+  function selectVisible() {
+    setSelectedIds(selectableSuggestions.map((suggestion) => suggestion.id));
+  }
+
+  function clearSelection() {
+    setSelectedIds([]);
+  }
+
+  function runBulkAction(action: "approve" | "reject") {
+    if (selectedIds.length === 0) return;
+
+    startBulkAction(async () => {
+      const response = await fetch("/api/admin/category-assignments/bulk", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action, ids: selectedIds }),
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        alert(payload?.error || "Bulk action failed.");
+        return;
+      }
+
+      setSelectedIds([]);
       router.refresh();
     });
   }
@@ -195,6 +239,48 @@ export function CategoryAssignmentsManager({
         ))}
       </div>
 
+      <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="text-sm text-white/80">
+          <p className="font-medium text-white">
+            {selectedIds.length} suggestion{selectedIds.length === 1 ? "" : "s"} selected
+          </p>
+          <p className="text-text-muted text-xs mt-1">
+            Bulk actions only approve or reject. Apply and revert stay individual for safety.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={selectVisible}
+            disabled={selectableSuggestions.length === 0}
+            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors disabled:opacity-50"
+          >
+            Select Visible
+          </button>
+          <button
+            onClick={clearSelection}
+            disabled={selectedIds.length === 0}
+            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors disabled:opacity-50"
+          >
+            Clear
+          </button>
+          <button
+            onClick={() => runBulkAction("approve")}
+            disabled={selectedIds.length === 0 || isBulkActing}
+            className="btn-secondary text-xs px-3 py-2 flex items-center gap-1 disabled:opacity-50"
+          >
+            <Check size={14} /> Bulk Approve
+          </button>
+          <button
+            onClick={() => runBulkAction("reject")}
+            disabled={selectedIds.length === 0 || isBulkActing}
+            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1 disabled:opacity-50"
+          >
+            <X size={14} /> Bulk Reject
+          </button>
+        </div>
+      </div>
+
       <div className="card overflow-hidden">
         <div className="px-4 py-3 border-b border-surface-600 flex items-center justify-between">
           <div>
@@ -217,19 +303,28 @@ export function CategoryAssignmentsManager({
               return (
                 <div key={suggestion.id} className="p-4 md:p-5 space-y-3">
                   <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="min-w-0">
-                      <p className="font-medium text-white">{suggestion.product_name}</p>
-                      <p className="text-text-muted text-xs mt-1">
-                        Suggested category:{" "}
-                        <span className="text-white">
-                          {suggestion.suggested_parent_name
-                            ? `${suggestion.suggested_parent_name} / ${suggestion.suggested_category_name}`
-                            : suggestion.suggested_category_name}
-                        </span>
-                      </p>
-                      <p className="text-text-muted text-xs mt-1">
-                        Confidence: {band} ({Math.round(Number(suggestion.confidence) * 100)}%)
-                      </p>
+                    <div className="min-w-0 flex gap-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.includes(suggestion.id)}
+                        disabled={!["pending", "approved", "rejected"].includes(suggestion.status)}
+                        onChange={() => toggleSelected(suggestion.id)}
+                        className="mt-1 h-4 w-4 rounded border-surface-500 bg-surface-800 text-brand-red focus:ring-brand-red/50 disabled:opacity-40"
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium text-white">{suggestion.product_name}</p>
+                        <p className="text-text-muted text-xs mt-1">
+                          Suggested category:{" "}
+                          <span className="text-white">
+                            {suggestion.suggested_parent_name
+                              ? `${suggestion.suggested_parent_name} / ${suggestion.suggested_category_name}`
+                              : suggestion.suggested_category_name}
+                          </span>
+                        </p>
+                        <p className="text-text-muted text-xs mt-1">
+                          Confidence: {band} ({Math.round(Number(suggestion.confidence) * 100)}%)
+                        </p>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
