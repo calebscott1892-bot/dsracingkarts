@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2 } from "lucide-react";
+import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download } from "lucide-react";
 
 type Suggestion = {
   id: string;
@@ -164,14 +164,22 @@ export function CategoryAssignmentsManager({
           </p>
         </div>
 
-        <button
-          onClick={generateSuggestions}
-          disabled={isGenerating}
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {isGenerating ? "Generating..." : "Generate Suggestions"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="/api/admin/category-assignments/export"
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <Download size={16} /> Export CSV
+          </a>
+          <button
+            onClick={generateSuggestions}
+            disabled={isGenerating}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {isGenerating ? "Generating..." : "Generate Suggestions"}
+          </button>
+        </div>
       </div>
 
       <div className="border border-green-500/30 bg-green-500/10 px-4 py-4 flex gap-3">
