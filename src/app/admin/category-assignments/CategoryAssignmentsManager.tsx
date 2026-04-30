@@ -9,10 +9,11 @@ type Suggestion = {
   product_id: string;
   product_square_token: string | null;
   product_name: string;
-  suggested_category_id: string;
+  suggested_category_id: string | null;
   suggested_category_name: string;
   suggested_parent_name: string | null;
   confidence: number;
+  confidence_band: "high" | "medium" | "low" | "no_match";
   rationale: string;
   status: "pending" | "approved" | "rejected" | "applied" | "skipped" | "reverted";
   created_at: string;
@@ -34,9 +35,11 @@ type Props = {
     rejected: number;
     applied: number;
     skipped: number;
+    reverted: number;
     high: number;
     medium: number;
     low: number;
+    no_match: number;
   };
   suggestions: Suggestion[];
 };
@@ -65,12 +68,17 @@ export function CategoryAssignmentsManager({
   const [actingId, setActingId] = useState<string | null>(null);
   const [isBulkActing, startBulkAction] = useTransition();
   const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "applied">("all");
+  const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low" | "no_match">("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const visibleSuggestions = useMemo(() => {
-    if (statusFilter === "all") return suggestions;
-    return suggestions.filter((suggestion) => suggestion.status === statusFilter);
-  }, [statusFilter, suggestions]);
+    return suggestions.filter((suggestion) => {
+      const statusOkay = statusFilter === "all" ? true : suggestion.status === statusFilter;
+      const confidenceOkay =
+        confidenceFilter === "all" ? true : suggestion.confidence_band === confidenceFilter;
+      return statusOkay && confidenceOkay;
+    });
+  }, [statusFilter, confidenceFilter, suggestions]);
 
   const selectableSuggestions = useMemo(
     () => visibleSuggestions.filter((suggestion) => ["pending", "approved", "rejected"].includes(suggestion.status)),
@@ -247,6 +255,30 @@ export function CategoryAssignmentsManager({
         ))}
       </div>
 
+      <div className="card p-4 flex flex-wrap gap-2">
+        {[
+          { key: "all", label: "All Confidence" },
+          { key: "high", label: `High (${summary.high})` },
+          { key: "medium", label: `Medium (${summary.medium})` },
+          { key: "low", label: `Low (${summary.low})` },
+          { key: "no_match", label: `No Match (${summary.no_match})` },
+        ].map((filter) => (
+          <button
+            key={filter.key}
+            onClick={() =>
+              setConfidenceFilter(filter.key as "all" | "high" | "medium" | "low" | "no_match")
+            }
+            className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
+              confidenceFilter === filter.key
+                ? "bg-brand-red text-white"
+                : "bg-surface-700 text-text-secondary hover:bg-surface-600"
+            }`}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+
       <div className="card p-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="text-sm text-white/80">
           <p className="font-medium text-white">
@@ -294,8 +326,8 @@ export function CategoryAssignmentsManager({
           <div>
             <h2 className="font-heading text-xl uppercase tracking-wider">Suggestions</h2>
             <p className="text-text-muted text-xs mt-1">
-              Showing high and medium confidence suggestions only. Low-confidence items remain for
-              manual review.
+              You can now review high, medium, low, and no-match items. No-match rows are included
+              so every uncategorised product can appear somewhere in the workflow.
             </p>
           </div>
           <p className="text-text-muted text-xs">{visibleSuggestions.length} visible</p>
@@ -324,13 +356,14 @@ export function CategoryAssignmentsManager({
                         <p className="text-text-muted text-xs mt-1">
                           Suggested category:{" "}
                           <span className="text-white">
-                            {suggestion.suggested_parent_name
+                            {suggestion.suggested_category_id && suggestion.suggested_parent_name
                               ? `${suggestion.suggested_parent_name} / ${suggestion.suggested_category_name}`
                               : suggestion.suggested_category_name}
                           </span>
                         </p>
                         <p className="text-text-muted text-xs mt-1">
-                          Confidence: {band} ({Math.round(Number(suggestion.confidence) * 100)}%)
+                          Confidence: {suggestion.confidence_band === "no_match" ? "No Match" : band}{" "}
+                          ({Math.round(Number(suggestion.confidence) * 100)}%)
                         </p>
                       </div>
                     </div>
@@ -374,7 +407,7 @@ export function CategoryAssignmentsManager({
                       {suggestion.status === "approved" && (
                         <button
                           onClick={() => runAction(suggestion.id, "apply")}
-                          disabled={isBusy}
+                          disabled={isBusy || !suggestion.suggested_category_id}
                           className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
                         >
                           <Play size={14} /> Apply

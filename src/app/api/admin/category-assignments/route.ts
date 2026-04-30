@@ -60,6 +60,17 @@ type UncategorizedProduct = {
   description_plain: string | null;
 };
 
+type SuggestionInsertRow = {
+  product_id: string;
+  product_square_token: string | null;
+  product_name: string;
+  previous_category_ids: string[];
+  suggested_category_id: string | null;
+  confidence: number;
+  rationale: string;
+  status: "pending";
+};
+
 function tokenize(value: string) {
   return (value || "")
     .toLowerCase()
@@ -242,20 +253,12 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     }
   }
 
-  const suggestionRows: {
-    product_id: string;
-    product_square_token: string | null;
-    product_name: string;
-    previous_category_ids: string[];
-    suggested_category_id: string;
-    confidence: number;
-    rationale: string;
-    status: "pending";
-  }[] = [];
+  const suggestionRows: SuggestionInsertRow[] = [];
 
   let highConfidenceCount = 0;
   let mediumConfidenceCount = 0;
-  let manualReviewCount = 0;
+  let lowConfidenceCount = 0;
+  let noMatchCount = 0;
 
   for (const product of uncategorizedProducts) {
     const productTokens = tokenize(
@@ -263,7 +266,17 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     );
 
     if (productTokens.length === 0) {
-      manualReviewCount += 1;
+      noMatchCount += 1;
+      suggestionRows.push({
+        product_id: product.id,
+        product_square_token: product.square_token,
+        product_name: product.name,
+        previous_category_ids: [],
+        suggested_category_id: null,
+        confidence: 0,
+        rationale: "No useful tokens found in product title, SKU, or description. Manual review required.",
+        status: "pending",
+      });
       continue;
     }
 
@@ -278,7 +291,17 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
 
     const best = ranked[0];
     if (!best) {
-      manualReviewCount += 1;
+      noMatchCount += 1;
+      suggestionRows.push({
+        product_id: product.id,
+        product_square_token: product.square_token,
+        product_name: product.name,
+        previous_category_ids: [],
+        suggested_category_id: null,
+        confidence: 0,
+        rationale: "No category overlap detected from existing categorised products. Manual review required.",
+        status: "pending",
+      });
       continue;
     }
 
@@ -293,7 +316,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
 
     if (confidenceBand === "high") highConfidenceCount += 1;
     else if (confidenceBand === "medium") mediumConfidenceCount += 1;
-    else manualReviewCount += 1;
+    else lowConfidenceCount += 1;
 
     suggestionRows.push({
       product_id: product.id,
@@ -327,7 +350,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     .insert({
       mode: "suggestion",
       source: "admin",
-      notes: `Generated ${suggestionRows.length} suggestions from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Manual review: ${manualReviewCount}.`,
+      notes: `Generated ${suggestionRows.length} review rows from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}.`,
       created_by: userId,
     })
     .select("id")
@@ -354,7 +377,8 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     suggestedCount: suggestionRows.length,
     highConfidenceCount,
     mediumConfidenceCount,
-    manualReviewCount,
+    lowConfidenceCount,
+    noMatchCount,
   };
 }
 

@@ -21,7 +21,8 @@ async function verifyAdmin() {
 function confidenceBand(confidence: number) {
   if (confidence >= 0.55) return "high";
   if (confidence >= 0.35) return "medium";
-  return "low";
+  if (confidence > 0) return "low";
+  return "no_match";
 }
 
 function csvEscape(value: unknown) {
@@ -80,7 +81,9 @@ export async function GET() {
   const lines = [header.join(",")];
 
   for (const suggestion of suggestions || []) {
-    const category = categoryMap.get(suggestion.suggested_category_id);
+    const category = suggestion.suggested_category_id
+      ? categoryMap.get(suggestion.suggested_category_id)
+      : null;
     const parent = category?.parent_id ? categoryMap.get(category.parent_id) : null;
 
     lines.push(

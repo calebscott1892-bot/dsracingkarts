@@ -58,7 +58,7 @@ export async function PATCH(
 
   const { data: suggestion, error: suggestionError } = await service
     .from("category_assignment_suggestions")
-    .select("status")
+    .select("status, suggested_category_id")
     .eq("id", id)
     .single();
 
@@ -90,6 +90,13 @@ export async function PATCH(
     revalidatePath("/shop");
 
     return NextResponse.json({ result: data });
+  }
+
+  if (!suggestion.suggested_category_id) {
+    return NextResponse.json(
+      { error: "This item has no suggested category yet and cannot be applied automatically" },
+      { status: 400 }
+    );
   }
 
   if (suggestion.status !== "approved") {

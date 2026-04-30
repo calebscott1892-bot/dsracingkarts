@@ -6,7 +6,15 @@ export const dynamic = "force-dynamic";
 function confidenceBand(confidence: number) {
   if (confidence >= 0.55) return "high";
   if (confidence >= 0.35) return "medium";
-  return "low";
+  if (confidence > 0) return "low";
+  return "no_match";
+}
+
+function confidenceLabel(confidence: number) {
+  if (confidence >= 0.55) return "high";
+  if (confidence >= 0.35) return "medium";
+  if (confidence > 0) return "low";
+  return "no_match";
 }
 
 export default async function AdminCategoryAssignmentsPage() {
@@ -31,9 +39,11 @@ export default async function AdminCategoryAssignmentsPage() {
     rejected: 0,
     applied: 0,
     skipped: 0,
+    reverted: 0,
     high: 0,
     medium: 0,
     low: 0,
+    no_match: 0,
   };
 
   if (latestRun) {
@@ -48,7 +58,6 @@ export default async function AdminCategoryAssignmentsPage() {
           "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
         )
         .eq("run_id", latestRun.id)
-        .gte("confidence", 0.35)
         .order("confidence", { ascending: false }),
       service.from("categories").select("id, name, parent_id"),
     ]);
@@ -61,7 +70,7 @@ export default async function AdminCategoryAssignmentsPage() {
         summary[row.status as keyof typeof summary] += 1;
       }
       const band = confidenceBand(Number(row.confidence || 0));
-      summary[band as "high" | "medium" | "low"] += 1;
+      summary[band as "high" | "medium" | "low" | "no_match"] += 1;
     }
 
     suggestions = (visibleRows || []).map((row) => {
@@ -69,8 +78,9 @@ export default async function AdminCategoryAssignmentsPage() {
       const parent = category?.parent_id ? categoryMap.get(category.parent_id) : null;
       return {
         ...row,
-        suggested_category_name: category?.name || "Unknown category",
+        suggested_category_name: category?.name || "No strong match yet",
         suggested_parent_name: parent?.name || null,
+        confidence_band: confidenceLabel(Number(row.confidence || 0)),
       };
     });
   }
