@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw } from "lucide-react";
+import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2 } from "lucide-react";
 
 type Suggestion = {
   id: string;
@@ -14,7 +14,7 @@ type Suggestion = {
   suggested_parent_name: string | null;
   confidence: number;
   rationale: string;
-  status: "pending" | "approved" | "rejected" | "applied" | "skipped";
+  status: "pending" | "approved" | "rejected" | "applied" | "skipped" | "reverted";
   created_at: string;
 };
 
@@ -63,7 +63,7 @@ export function CategoryAssignmentsManager({
   const router = useRouter();
   const [isGenerating, startGenerating] = useTransition();
   const [actingId, setActingId] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "applied">("all");
 
   const visibleSuggestions = useMemo(() => {
     if (statusFilter === "all") return suggestions;
@@ -86,7 +86,7 @@ export function CategoryAssignmentsManager({
     });
   }
 
-  async function runAction(id: string, action: "approve" | "reject" | "apply") {
+  async function runAction(id: string, action: "approve" | "reject" | "apply" | "revert") {
     setActingId(id);
     try {
       const response = await fetch(`/api/admin/category-assignments/${id}`, {
@@ -135,8 +135,9 @@ export function CategoryAssignmentsManager({
         <div className="text-sm text-white/80 leading-relaxed">
           <p className="font-medium text-white mb-1">Safety guard is active.</p>
           <p>
-            Even if a suggestion is approved, the database will still refuse to apply it if that
-            product has been categorised manually in the meantime.
+            Suggestions do not auto-apply. They stay pending until someone explicitly approves and
+            applies them one by one. Even then, the database will refuse to apply if the product
+            has been categorised manually in the meantime.
           </p>
         </div>
       </div>
@@ -147,6 +148,10 @@ export function CategoryAssignmentsManager({
             Uncategorised Now
           </p>
           <p className="font-heading text-3xl text-white">{uncategorizedCount}</p>
+          <p className="text-text-muted text-xs mt-2 leading-relaxed">
+            Count comes from the website database: active products with zero category assignments
+            after the latest Square sync. It is not read live from Square.
+          </p>
         </div>
         <div className="card p-4">
           <p className="text-text-muted text-xs uppercase tracking-[0.2em] mb-2">Latest Run</p>
@@ -174,10 +179,11 @@ export function CategoryAssignmentsManager({
           { key: "all", label: "All Reviewable" },
           { key: "pending", label: "Pending" },
           { key: "approved", label: "Approved" },
+          { key: "applied", label: "Applied" },
         ].map((filter) => (
           <button
             key={filter.key}
-            onClick={() => setStatusFilter(filter.key as "all" | "pending" | "approved")}
+            onClick={() => setStatusFilter(filter.key as "all" | "pending" | "approved" | "applied")}
             className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
               statusFilter === filter.key
                 ? "bg-brand-red text-white"
@@ -233,6 +239,8 @@ export function CategoryAssignmentsManager({
                             ? "bg-green-900/30 text-green-400"
                             : suggestion.status === "applied"
                               ? "bg-blue-900/30 text-blue-300"
+                              : suggestion.status === "reverted"
+                                ? "bg-purple-900/30 text-purple-300"
                               : suggestion.status === "rejected"
                                 ? "bg-surface-600 text-text-muted"
                                 : "bg-yellow-900/30 text-yellow-300"
@@ -267,6 +275,16 @@ export function CategoryAssignmentsManager({
                           className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
                         >
                           <Play size={14} /> Apply
+                        </button>
+                      )}
+
+                      {suggestion.status === "applied" && (
+                        <button
+                          onClick={() => runAction(suggestion.id, "revert")}
+                          disabled={isBusy}
+                          className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                        >
+                          <Undo2 size={14} /> Revert
                         </button>
                       )}
                     </div>
