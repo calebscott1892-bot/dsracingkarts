@@ -27,6 +27,18 @@ export function OrderStatusSelect({ orderId, initialStatus }: Props) {
 
   async function handleChange(newStatus: OrderStatus) {
     if (newStatus === status) return;
+
+    // Hard-confirm anything destructive or customer-visible. The dropdown
+    // is a tiny one-tap target and refunded/cancelled changes cannot be
+    // silently undone.
+    const dangerous: OrderStatus[] = ["refunded", "cancelled"];
+    if (dangerous.includes(newStatus)) {
+      const ok = confirm(
+        `Mark this order as "${newStatus}"? This may notify the customer and cannot be reversed by simply switching the status back.`
+      );
+      if (!ok) return;
+    }
+
     setSaving(true);
     setError(false);
     const previous = status;

@@ -76,7 +76,9 @@ export function CategoryAssignmentsManager({
   const [isGenerating, startGenerating] = useTransition();
   const [actingId, setActingId] = useState<string | null>(null);
   const [isBulkActing, startBulkAction] = useTransition();
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected" | "applied">("all");
+  // Default to "todo" so already-applied work disappears once the client
+  // hits Apply — keeps the queue focused on what still needs attention.
+  const [statusFilter, setStatusFilter] = useState<"todo" | "all" | "pending" | "approved" | "rejected" | "applied">("todo");
   const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low" | "no_match">("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [pickerFor, setPickerFor] = useState<Suggestion | null>(null);
@@ -125,7 +127,12 @@ export function CategoryAssignmentsManager({
 
   const visibleSuggestions = useMemo(() => {
     return suggestions.filter((suggestion) => {
-      const statusOkay = statusFilter === "all" ? true : suggestion.status === statusFilter;
+      const statusOkay =
+        statusFilter === "all"
+          ? true
+          : statusFilter === "todo"
+            ? !["applied", "reverted", "skipped"].includes(suggestion.status)
+            : suggestion.status === statusFilter;
       const confidenceOkay =
         confidenceFilter === "all" ? true : suggestion.confidence_band === confidenceFilter;
       return statusOkay && confidenceOkay;
@@ -169,6 +176,16 @@ export function CategoryAssignmentsManager({
 
   function runBulkAction(action: "approve" | "reject") {
     if (selectedIds.length === 0) return;
+
+    const verb = action === "approve" ? "approve" : "reject";
+    const noun = selectedIds.length === 1 ? "suggestion" : "suggestions";
+    if (
+      !confirm(
+        `${verb === "approve" ? "Approve" : "Reject"} ${selectedIds.length} ${noun}? You can change individual rows back afterwards, but this is a single click for all of them.`
+      )
+    ) {
+      return;
+    }
 
     startBulkAction(async () => {
       const response = await fetch("/api/admin/category-assignments/bulk", {
@@ -319,7 +336,11 @@ export function CategoryAssignmentsManager({
 
       <div className="card p-4 flex flex-wrap gap-2">
         {[
-          { key: "all", label: "All Reviewable" },
+          {
+            key: "todo",
+            label: `Still To Do (${summary.pending + summary.approved + summary.rejected})`,
+          },
+          { key: "all", label: "All" },
           { key: "pending", label: `Pending (${summary.pending})` },
           { key: "approved", label: `Approved (${summary.approved})` },
           { key: "rejected", label: `Rejected (${summary.rejected})` },
@@ -327,7 +348,7 @@ export function CategoryAssignmentsManager({
         ].map((filter) => (
           <button
             key={filter.key}
-            onClick={() => setStatusFilter(filter.key as "all" | "pending" | "approved" | "rejected" | "applied")}
+            onClick={() => setStatusFilter(filter.key as "todo" | "all" | "pending" | "approved" | "rejected" | "applied")}
             className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
               statusFilter === filter.key
                 ? "bg-brand-red text-white"
@@ -471,21 +492,34 @@ export function CategoryAssignmentsManager({
 
                       {suggestion.status === "pending" && (
                         <>
-                          <button
-                            onClick={() => runAction(suggestion.id, "approve")}
-                            disabled={isBusy || !suggestion.suggested_category_id}
-                            className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
-                          >
-                            <Check size={14} /> Approve
-                          </button>
-                          <button
-                            onClick={() => openPicker(suggestion)}
-                            disabled={isBusy}
-                            title="Pick a different category for this product"
-                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
-                          >
-                            <Target size={14} /> Pick Category
-                          </button>
+                          {suggestion.suggested_category_id ? (
+                            <button
+                              onClick={() => runAction(suggestion.id, "approve")}
+                              disabled={isBusy}
+                              className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
+                            >
+                              <Check size={14} /> Approve
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => openPicker(suggestion)}
+                              disabled={isBusy}
+                              title="No suggestion was found — pick a category to use"
+                              className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
+                            >
+                              <Target size={14} /> Pick Category
+                            </button>
+                          )}
+                          {suggestion.suggested_category_id && (
+                            <button
+                              onClick={() => openPicker(suggestion)}
+                              disabled={isBusy}
+                              title="Pick a different category for this product"
+                              className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                            >
+                              <Target size={14} /> Pick Different
+                            </button>
+                          )}
                           <button
                             onClick={() => runAction(suggestion.id, "reject")}
                             disabled={isBusy}

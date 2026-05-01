@@ -191,19 +191,32 @@ export function RacewearManager({ initialEntries }: Props) {
 
     setMovingId(entry.id);
     try {
-      const responses = await Promise.all([
-        fetch("/api/admin/racewear", {
+      // Sequential, not parallel: if the first save succeeds and the second
+      // fails, we still know exactly which row got persisted and can roll
+      // back the local state to match. Promise.all would leave both rows in
+      // an unknown state on a network blip.
+      const firstRes = await fetch("/api/admin/racewear", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: entry.id, sort_order: finalEntryOrder }),
+      });
+      if (!firstRes.ok) throw new Error("Reorder failed");
+
+      const secondRes = await fetch("/api/admin/racewear", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: neighbour.id, sort_order: finalNeighbourOrder }),
+      });
+
+      if (!secondRes.ok) {
+        // Roll back the first save so the database stays consistent.
+        await fetch("/api/admin/racewear", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: entry.id, sort_order: finalEntryOrder }),
-        }),
-        fetch("/api/admin/racewear", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: neighbour.id, sort_order: finalNeighbourOrder }),
-        }),
-      ]);
-      if (responses.some((res) => !res.ok)) throw new Error("Reorder failed");
+          body: JSON.stringify({ id: entry.id, sort_order: entry.sort_order }),
+        }).catch(() => {});
+        throw new Error("Reorder failed");
+      }
 
       setEntries((prev) =>
         prev

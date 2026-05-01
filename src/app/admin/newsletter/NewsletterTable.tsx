@@ -34,6 +34,8 @@ export function NewsletterTable({ initialSubscribers }: Props) {
       const updated: Subscriber = await res.json();
       setSubscribers((prev) => prev.map((s) => (s.id === updated.id ? { ...s, subscribed: updated.subscribed } : s)));
     } catch (e: unknown) {
+      // The optimistic toggle never ran (we only commit on success), so the
+      // local list still matches the server. Just surface the error.
       setError(e instanceof Error ? e.message : "Update failed");
     } finally {
       setToggling(null);
@@ -41,7 +43,14 @@ export function NewsletterTable({ initialSubscribers }: Props) {
   }
 
   async function deleteSubscriber(id: string) {
-    if (!confirm("Permanently delete this subscriber?")) return;
+    const target = subscribers.find((s) => s.id === id);
+    if (!target) return;
+    if (
+      !confirm(
+        `Permanently delete the subscriber "${target.email}"? This removes them from the list — they will need to re-subscribe themselves to come back.`
+      )
+    )
+      return;
     setDeleting(id);
     setError("");
     try {
