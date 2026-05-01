@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff, Pencil } from "lucide-react";
+import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff, Pencil, ArrowUp, ArrowDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 interface Entry {
@@ -39,6 +39,7 @@ export function RacewearManager({ initialEntries }: Props) {
   const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState(emptyForm());
   const [errorMsg, setErrorMsg] = useState("");
+  const [movingId, setMovingId] = useState<string | null>(null);
 
   function setField<K extends keyof ReturnType<typeof emptyForm>>(key: K, value: ReturnType<typeof emptyForm>[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -165,6 +166,61 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
+  async function moveWithinGroup(entry: Entry, direction: "up" | "down") {
+    const peers = entries
+      .filter((e) => e.group_label === entry.group_label)
+      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
+    const index = peers.findIndex((p) => p.id === entry.id);
+    if (index === -1) return;
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= peers.length) return;
+
+    const neighbour = peers[swapIndex];
+    const entryNewOrder = neighbour.sort_order;
+    const neighbourNewOrder = entry.sort_order;
+
+    // If both share the same sort_order (common when first added), nudge so the
+    // swap is visible.
+    const finalEntryOrder =
+      entryNewOrder === neighbourNewOrder
+        ? direction === "up"
+          ? neighbourNewOrder - 1
+          : neighbourNewOrder + 1
+        : entryNewOrder;
+    const finalNeighbourOrder = neighbourNewOrder;
+
+    setMovingId(entry.id);
+    try {
+      const responses = await Promise.all([
+        fetch("/api/admin/racewear", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: entry.id, sort_order: finalEntryOrder }),
+        }),
+        fetch("/api/admin/racewear", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: neighbour.id, sort_order: finalNeighbourOrder }),
+        }),
+      ]);
+      if (responses.some((res) => !res.ok)) throw new Error("Reorder failed");
+
+      setEntries((prev) =>
+        prev
+          .map((e) => {
+            if (e.id === entry.id) return { ...e, sort_order: finalEntryOrder };
+            if (e.id === neighbour.id) return { ...e, sort_order: finalNeighbourOrder };
+            return e;
+          })
+          .sort((a, b) => a.sort_order - b.sort_order)
+      );
+    } catch {
+      alert("Failed to reorder photos. Refresh and try again.");
+    } finally {
+      setMovingId(null);
+    }
+  }
+
   function openEdit(entry: Entry) {
     setEditingEntryId(entry.id);
     setEditForm({
@@ -225,6 +281,10 @@ export function RacewearManager({ initialEntries }: Props) {
     return acc;
   }, {});
 
+  const existingGroupLabels = Array.from(new Set(entries.map((e) => e.group_label)))
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+
   return (
     <div>
       <div className="flex items-center justify-between mb-8">
@@ -240,7 +300,11 @@ export function RacewearManager({ initialEntries }: Props) {
       <p className="text-text-muted text-sm mb-8">
         Choose which images are featured on the main Services page and which stay tucked behind the
         <span className="text-white"> See More </span>
-        gallery. Sort order controls the display order in both places.
+        gallery. Use the
+        <ArrowUp size={11} className="inline mx-1 align-middle" />
+        and
+        <ArrowDown size={11} className="inline mx-1 align-middle" />
+        arrows to shuffle photos within a group, or click the order number to set it directly.
       </p>
 
       {(showAdd || editingEntryId) && (
@@ -260,12 +324,21 @@ export function RacewearManager({ initialEntries }: Props) {
                 <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Group / Client Name *</label>
                 <input
                   required
+                  list="racewear-group-suggestions"
                   className="input-dark w-full"
                   value={editingEntryId ? editForm.group_label : form.group_label}
                   onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, group_label: e.target.value })) : setField("group_label", e.target.value)}
                   placeholder="e.g. Kart Blanche Racing"
                 />
-                <p className="text-xs text-text-muted mt-1">Photos with the same group name appear together.</p>
+                <datalist id="racewear-group-suggestions">
+                  {existingGroupLabels.map((label) => (
+                    <option key={label} value={label} />
+                  ))}
+                </datalist>
+                <p className="text-xs text-text-muted mt-1">
+                  Photos with the same group name appear together. Pick an existing group from
+                  the suggestions to keep all photos of one custom kit under one header.
+                </p>
               </div>
               <div>
                 <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Alt Text (description)</label>
@@ -348,7 +421,7 @@ export function RacewearManager({ initialEntries }: Props) {
             <div key={label}>
               <h3 className="font-heading text-sm uppercase tracking-[0.15em] text-brand-red mb-3">{label}</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {groupEntries.map((entry) => (
+                {groupEntries.map((entry, idx) => (
                   <div key={entry.id} className={`card overflow-hidden ${!entry.is_active ? "opacity-40" : ""}`}>
                     <div className="relative aspect-[3/4] bg-surface-900">
                       <img
@@ -372,7 +445,23 @@ export function RacewearManager({ initialEntries }: Props) {
                       </div>
 
                       <div className="flex items-center gap-1">
-                        <GripVertical size={12} className="text-text-muted shrink-0" />
+                        <button
+                          onClick={() => moveWithinGroup(entry, "up")}
+                          disabled={idx === 0 || movingId === entry.id}
+                          title="Move earlier"
+                          className="px-1.5 py-0.5 bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {movingId === entry.id ? <Loader2 size={11} className="animate-spin" /> : <ArrowUp size={11} />}
+                        </button>
+                        <button
+                          onClick={() => moveWithinGroup(entry, "down")}
+                          disabled={idx === groupEntries.length - 1 || movingId === entry.id}
+                          title="Move later"
+                          className="px-1.5 py-0.5 bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {movingId === entry.id ? <Loader2 size={11} className="animate-spin" /> : <ArrowDown size={11} />}
+                        </button>
+                        <GripVertical size={12} className="text-text-muted shrink-0 ml-1" />
                         {editingSort === entry.id ? (
                           <div className="flex items-center gap-1 flex-1">
                             <input
