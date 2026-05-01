@@ -10,7 +10,8 @@
     "lint": "next lint",
     "import-csv": "node scripts/import-square-csv.js",
     "migrate-images": "node scripts/migrate-images.js",
-    "increase-prices": "node scripts/increase-prices.js"
+    "increase-prices": "node scripts/increase-prices.js",
+    "find-duplicates": "node scripts/find-duplicate-products.js"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
