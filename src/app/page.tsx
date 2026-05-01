@@ -94,9 +94,12 @@ export default async function HomePage() {
 
   return (
     <>
-      <h1 className="sr-only">
-        DS Racing Karts - Go kart parts, kart servicing, racewear, and performance support in Sydney
-      </h1>
+      {/* Single H1 lives inside HeroVideo. The screen-reader-only paragraph
+          here adds brand + location context for assistive tech without
+          competing for H1 weight. */}
+      <p className="sr-only">
+        DS Racing Karts — go kart parts, kart servicing, racewear, and performance support in Sydney, Australia.
+      </p>
 
       <HeroVideo />
 
@@ -216,17 +219,29 @@ export default async function HomePage() {
                 ],
               },
               {
-                "@type": "LocalBusiness",
+                "@type": ["LocalBusiness", "AutoPartsStore", "Store"],
+                "@id": `${siteUrl}#business`,
                 name: "DS Racing Karts",
                 url: siteUrl,
-                description: "Go kart parts supplier and service centre in Sydney, Australia.",
+                description:
+                  "Go kart parts supplier and service centre in south-west Sydney. Specialists in endurance karting, 2-stroke and 4-stroke engines, chassis setup, and custom racewear. Australia-wide shipping.",
                 telephone: "+61492454854",
+                email: "dsracing@bigpond.com",
+                image: `${siteUrl}/images/history/Site Logo (2).png`,
+                logo: `${siteUrl}/images/history/Site Logo (2).png`,
                 address: {
                   "@type": "PostalAddress",
-                  addressLocality: "Sydney",
+                  streetAddress: "Long Reef Crescent",
+                  addressLocality: "Woodbine",
                   addressRegion: "NSW",
+                  postalCode: "2560",
                   addressCountry: "AU",
                 },
+                areaServed: [
+                  { "@type": "Country", name: "Australia" },
+                  { "@type": "AdministrativeArea", name: "New South Wales" },
+                  { "@type": "City", name: "Sydney" },
+                ],
                 openingHoursSpecification: {
                   "@type": "OpeningHoursSpecification",
                   dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
@@ -234,6 +249,7 @@ export default async function HomePage() {
                   closes: "17:00",
                 },
                 priceRange: "$$",
+                sameAs: ["https://www.facebook.com/dsracingkarts"],
               },
               {
                 "@type": "WebSite",

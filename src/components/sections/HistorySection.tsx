@@ -73,11 +73,18 @@ const TIMELINE: {
     side: "right",
   },
   {
+    year: "Race Day",
+    title: "When The Lights Go Out",
+    text: "Years of preparation crystallise the moment the lights drop. Setup notes, fresh tyres, fuel jet just right — then it's just the driver, the kart, and the next braking point.",
+    image: { src: "/images/history/new-history.jpeg", alt: "DS Racing endurance kart at full pace" },
+    side: "left",
+  },
+  {
     year: "The Collection",
     title: "And the Rest Was History",
     text: "Decades of dedication, hundreds of races, and a trophy cabinet that tells the story better than words ever could.",
     image: { src: "/images/history/Trophies.webp", alt: "The trophy collection" },
-    side: "left",
+    side: "right",
   },
 ];
 

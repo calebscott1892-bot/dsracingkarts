@@ -247,6 +247,10 @@ export default async function ProductPage({ params }: Props) {
                     url: `${siteUrl}/product/${product.slug}`,
                     category: categories[0]?.name,
                     image: images.map((image: any) => image.url).filter(Boolean),
+                    brand: {
+                      "@type": "Brand",
+                      name: "DS Racing Karts",
+                    },
                     offers: hasVariations && variationPrices.length > 0
                       ? {
                           "@type": "AggregateOffer",
@@ -255,6 +259,11 @@ export default async function ProductPage({ params }: Props) {
                           priceCurrency: "AUD",
                           offerCount: variations.length,
                           availability: "https://schema.org/InStock",
+                          seller: {
+                            "@type": "Organization",
+                            name: "DS Racing Karts",
+                            url: siteUrl,
+                          },
                         }
                       : undefined,
                   },

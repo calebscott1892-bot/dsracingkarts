@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Search, ExternalLink } from "lucide-react";
+import { Search, ExternalLink, Archive } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
 interface Props {
@@ -52,6 +52,27 @@ export default async function AdminProductsPage({ searchParams }: Props) {
           <ExternalLink size={16} /> Manage in Square
         </a>
       </div>
+
+      {statusFilter === "archived" && (
+        <div className="border border-amber-500/30 bg-amber-500/10 px-4 py-4 mb-6 flex gap-3">
+          <Archive size={18} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-sm text-white/80 leading-relaxed">
+            <p className="font-medium text-white mb-1">What &ldquo;archived&rdquo; means.</p>
+            <p>
+              A product becomes archived automatically when Square either deletes it
+              or hides it from the catalog the next time the website syncs. The
+              website will not show archived items to customers.
+            </p>
+            <p className="mt-2">
+              <span className="text-white">To bring one back:</span> open the item in
+              Square (use <span className="text-white">Manage in Square</span> above
+              or click into a row and use the per-product resync), make sure it is
+              <em className="text-white not-italic"> visible / not deleted</em> there,
+              then resync. The website will flip it back to active automatically.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Filters bar */}
       <div className="card p-4 mb-6 flex flex-wrap gap-4">
