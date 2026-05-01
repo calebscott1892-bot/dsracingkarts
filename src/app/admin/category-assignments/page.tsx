@@ -53,6 +53,12 @@ export default async function AdminCategoryAssignmentsPage() {
   ]);
 
   let suggestions: any[] = [];
+  let allCategoriesForPicker: {
+    id: string;
+    name: string;
+    parent_name: string | null;
+    full_label: string;
+  }[] = [];
   let summary = {
     total: 0,
     pending: 0,
@@ -112,6 +118,17 @@ export default async function AdminCategoryAssignmentsPage() {
         confidence_band: confidenceLabel(Number(row.confidence || 0)),
       };
     });
+
+    allCategoriesForPicker = (categories || []).map((category) => {
+      const parent = category.parent_id ? categoryMap.get(category.parent_id) : null;
+      return {
+        id: category.id,
+        name: category.name,
+        parent_name: parent?.name || null,
+        full_label: parent ? `${parent.name} / ${category.name}` : category.name,
+      };
+    });
+    allCategoriesForPicker.sort((a, b) => a.full_label.localeCompare(b.full_label));
   }
 
   return (
@@ -120,6 +137,7 @@ export default async function AdminCategoryAssignmentsPage() {
       uncategorizedCount={uncategorizedCount || 0}
       summary={summary}
       suggestions={suggestions}
+      allCategories={allCategoriesForPicker}
     />
   );
 }

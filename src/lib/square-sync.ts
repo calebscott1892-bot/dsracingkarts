@@ -617,6 +617,95 @@ export async function archiveCatalogItem(squareToken: string) {
     .eq("square_token", squareToken);
 }
 
+// ── Push category assignments back to Square ────────────────
+//
+// Used by the admin category assignment review flow. After we've written a
+// category locally (via the apply RPC) we call this so Square — which is the
+// source of truth — also reflects the change. If we skipped this, the next
+// full catalog resync from Square would happily overwrite the local change
+// with Square's empty category list.
+//
+// `mode = "add"`     adds `categorySquareId` to the item (idempotent).
+// `mode = "remove"`  strips it.
+//
+// Square's item model has a deprecated `categoryId` (single) and the modern
+// `categories` array. We update both so older API surfaces stay consistent.
+export async function pushItemCategoryToSquare(
+  itemSquareToken: string,
+  categorySquareId: string,
+  mode: "add" | "remove",
+  idempotencyKey: string
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const square = getSquareClient();
+
+  let item: any;
+  try {
+    const { result } = await square.catalogApi.retrieveCatalogObject(
+      itemSquareToken,
+      false
+    );
+    item = result.object;
+  } catch (err: any) {
+    return { ok: false, reason: `Square retrieve failed: ${err?.message || err}` };
+  }
+
+  if (!item || item.type !== "ITEM" || !item.itemData) {
+    return { ok: false, reason: "Square object is not an ITEM" };
+  }
+
+  const itemData = { ...item.itemData };
+  const existingArray: { id: string; ordinal?: number | bigint }[] = Array.isArray(
+    itemData.categories
+  )
+    ? [...itemData.categories]
+    : [];
+  const existingHas = existingArray.some((c) => c?.id === categorySquareId);
+
+  if (mode === "add") {
+    if (!existingHas) {
+      existingArray.push({ id: categorySquareId, ordinal: existingArray.length });
+    }
+    // Legacy single-category field still respected by older Square integrations.
+    if (!itemData.categoryId) {
+      itemData.categoryId = categorySquareId;
+    }
+    if (!itemData.reportingCategory?.id) {
+      itemData.reportingCategory = { id: categorySquareId };
+    }
+  } else {
+    // remove
+    const filtered = existingArray.filter((c) => c?.id !== categorySquareId);
+    existingArray.splice(0, existingArray.length, ...filtered);
+    if (itemData.categoryId === categorySquareId) {
+      itemData.categoryId = filtered[0]?.id || undefined;
+    }
+    if (itemData.reportingCategory?.id === categorySquareId) {
+      itemData.reportingCategory = filtered[0]?.id ? { id: filtered[0].id } : undefined;
+    }
+  }
+  itemData.categories = existingArray;
+
+  const updatedObject = {
+    ...item,
+    itemData,
+  };
+
+  try {
+    await square.catalogApi.upsertCatalogObject({
+      idempotencyKey,
+      object: updatedObject,
+    });
+  } catch (err: any) {
+    const detail =
+      err?.errors?.map?.((e: any) => `${e.code}: ${e.detail}`).join("; ") ||
+      err?.message ||
+      String(err);
+    return { ok: false, reason: `Square upsert failed: ${detail}` };
+  }
+
+  return { ok: true };
+}
+
 // ── Full catalog reconciliation ──────────────────────────────
 
 /**

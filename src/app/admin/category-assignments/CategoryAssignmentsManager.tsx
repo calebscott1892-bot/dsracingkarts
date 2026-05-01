@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download } from "lucide-react";
+import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download, RotateCcw, Target, Search } from "lucide-react";
 
 type Suggestion = {
   id: string;
@@ -17,6 +17,13 @@ type Suggestion = {
   rationale: string;
   status: "pending" | "approved" | "rejected" | "applied" | "skipped" | "reverted";
   created_at: string;
+};
+
+type CategoryOption = {
+  id: string;
+  name: string;
+  parent_name: string | null;
+  full_label: string;
 };
 
 type Props = {
@@ -42,6 +49,7 @@ type Props = {
     no_match: number;
   };
   suggestions: Suggestion[];
+  allCategories: CategoryOption[];
 };
 
 function formatDate(value: string) {
@@ -62,14 +70,58 @@ export function CategoryAssignmentsManager({
   uncategorizedCount,
   summary,
   suggestions,
+  allCategories,
 }: Props) {
   const router = useRouter();
   const [isGenerating, startGenerating] = useTransition();
   const [actingId, setActingId] = useState<string | null>(null);
   const [isBulkActing, startBulkAction] = useTransition();
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "applied">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "approved" | "rejected" | "applied">("all");
   const [confidenceFilter, setConfidenceFilter] = useState<"all" | "high" | "medium" | "low" | "no_match">("all");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [pickerFor, setPickerFor] = useState<Suggestion | null>(null);
+  const [pickerQuery, setPickerQuery] = useState("");
+  const [pickerSubmitting, setPickerSubmitting] = useState(false);
+
+  const filteredPickerCategories = useMemo(() => {
+    const q = pickerQuery.trim().toLowerCase();
+    if (!q) return allCategories.slice(0, 50);
+    return allCategories
+      .filter((category) => category.full_label.toLowerCase().includes(q))
+      .slice(0, 50);
+  }, [pickerQuery, allCategories]);
+
+  function openPicker(suggestion: Suggestion) {
+    setPickerFor(suggestion);
+    setPickerQuery("");
+  }
+
+  function closePicker() {
+    setPickerFor(null);
+    setPickerQuery("");
+    setPickerSubmitting(false);
+  }
+
+  async function pickCategory(categoryId: string) {
+    if (!pickerFor) return;
+    setPickerSubmitting(true);
+    try {
+      const response = await fetch(`/api/admin/category-assignments/${pickerFor.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reassign", category_id: categoryId }),
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        alert(payload?.error || "Reassign failed.");
+        return;
+      }
+      closePicker();
+      router.refresh();
+    } finally {
+      setPickerSubmitting(false);
+    }
+  }
 
   const visibleSuggestions = useMemo(() => {
     return suggestions.filter((suggestion) => {
@@ -138,7 +190,7 @@ export function CategoryAssignmentsManager({
     });
   }
 
-  async function runAction(id: string, action: "approve" | "reject" | "apply" | "revert") {
+  async function runAction(id: string, action: "approve" | "reject" | "repend" | "apply" | "revert") {
     setActingId(id);
     try {
       const response = await fetch(`/api/admin/category-assignments/${id}`, {
@@ -153,6 +205,17 @@ export function CategoryAssignmentsManager({
         const payload = await response.json().catch(() => null);
         alert(payload?.error || "Action failed.");
         return;
+      }
+
+      // For apply / revert, the API also pushes the change to Square. If
+      // that step failed (network, Square 4xx, missing IDs) the local row
+      // has already changed but Square is still out of sync — surface the
+      // warning so the user can retry.
+      if (action === "apply" || action === "revert") {
+        const payload = await response.json().catch(() => null);
+        if (payload?.squareWarning) {
+          alert(`Saved locally, but Square was not updated: ${payload.squareWarning}`);
+        }
       }
 
       router.refresh();
@@ -199,8 +262,28 @@ export function CategoryAssignmentsManager({
             applies them one by one. Even then, the database will refuse to apply if the product
             has been categorised manually in the meantime.
           </p>
+          <p className="mt-2">
+            <span className="text-white">Apply now also pushes to Square</span> — the same change
+            is written back to the Square catalog so it sticks across future syncs. Revert removes
+            it from Square as well.
+          </p>
         </div>
       </div>
+
+      {latestRun && latestRun.notes && !latestRun.notes.includes("Completed") && (
+        <div className="border border-amber-500/40 bg-amber-500/10 px-4 py-4 flex gap-3">
+          <RefreshCw size={18} className="text-amber-400 shrink-0 mt-0.5" />
+          <div className="text-sm text-white/80 leading-relaxed">
+            <p className="font-medium text-white mb-1">Last run looks incomplete.</p>
+            <p>
+              The previous suggestion run finished without writing its &ldquo;Completed&rdquo;
+              marker, which usually means it timed out partway through the catalog. Click
+              <span className="text-white"> Generate Suggestions </span> again to start a fresh
+              full pass — the runtime cap has been raised so it should complete this time.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-4">
         <div className="card p-4">
@@ -237,13 +320,14 @@ export function CategoryAssignmentsManager({
       <div className="card p-4 flex flex-wrap gap-2">
         {[
           { key: "all", label: "All Reviewable" },
-          { key: "pending", label: "Pending" },
-          { key: "approved", label: "Approved" },
-          { key: "applied", label: "Applied" },
+          { key: "pending", label: `Pending (${summary.pending})` },
+          { key: "approved", label: `Approved (${summary.approved})` },
+          { key: "rejected", label: `Rejected (${summary.rejected})` },
+          { key: "applied", label: `Applied (${summary.applied})` },
         ].map((filter) => (
           <button
             key={filter.key}
-            onClick={() => setStatusFilter(filter.key as "all" | "pending" | "approved" | "applied")}
+            onClick={() => setStatusFilter(filter.key as "all" | "pending" | "approved" | "rejected" | "applied")}
             className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
               statusFilter === filter.key
                 ? "bg-brand-red text-white"
@@ -389,10 +473,18 @@ export function CategoryAssignmentsManager({
                         <>
                           <button
                             onClick={() => runAction(suggestion.id, "approve")}
-                            disabled={isBusy}
+                            disabled={isBusy || !suggestion.suggested_category_id}
                             className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
                           >
                             <Check size={14} /> Approve
+                          </button>
+                          <button
+                            onClick={() => openPicker(suggestion)}
+                            disabled={isBusy}
+                            title="Pick a different category for this product"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <Target size={14} /> Pick Category
                           </button>
                           <button
                             onClick={() => runAction(suggestion.id, "reject")}
@@ -405,13 +497,68 @@ export function CategoryAssignmentsManager({
                       )}
 
                       {suggestion.status === "approved" && (
-                        <button
-                          onClick={() => runAction(suggestion.id, "apply")}
-                          disabled={isBusy || !suggestion.suggested_category_id}
-                          className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
-                        >
-                          <Play size={14} /> Apply
-                        </button>
+                        <>
+                          <button
+                            onClick={() => runAction(suggestion.id, "apply")}
+                            disabled={isBusy || !suggestion.suggested_category_id}
+                            className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
+                          >
+                            <Play size={14} /> Apply
+                          </button>
+                          <button
+                            onClick={() => openPicker(suggestion)}
+                            disabled={isBusy}
+                            title="Pick a different category before applying"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <Target size={14} /> Pick Category
+                          </button>
+                          <button
+                            onClick={() => runAction(suggestion.id, "reject")}
+                            disabled={isBusy}
+                            title="Change your mind — mark this as rejected instead"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <X size={14} /> Reject
+                          </button>
+                          <button
+                            onClick={() => runAction(suggestion.id, "repend")}
+                            disabled={isBusy}
+                            title="Move this back to pending for another look"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <RotateCcw size={14} /> Re-pend
+                          </button>
+                        </>
+                      )}
+
+                      {suggestion.status === "rejected" && (
+                        <>
+                          <button
+                            onClick={() => runAction(suggestion.id, "approve")}
+                            disabled={isBusy || !suggestion.suggested_category_id}
+                            title="Change your mind — approve this after all"
+                            className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
+                          >
+                            <Check size={14} /> Approve
+                          </button>
+                          <button
+                            onClick={() => openPicker(suggestion)}
+                            disabled={isBusy}
+                            title="Pick a different category"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <Target size={14} /> Pick Category
+                          </button>
+                          <button
+                            onClick={() => runAction(suggestion.id, "repend")}
+                            disabled={isBusy}
+                            title="Move this back to pending"
+                            className="px-3 py-2 rounded text-xs uppercase tracking-wider bg-surface-700 text-text-secondary hover:bg-surface-600 transition-colors flex items-center gap-1"
+                          >
+                            <RotateCcw size={14} /> Re-pend
+                          </button>
+                        </>
                       )}
 
                       {suggestion.status === "applied" && (
@@ -433,6 +580,101 @@ export function CategoryAssignmentsManager({
           </div>
         )}
       </div>
+
+      {pickerFor && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={closePicker}
+        >
+          <div
+            className="bg-surface-800 border border-surface-600 max-w-2xl w-full max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-surface-600 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="font-heading text-lg uppercase tracking-wider text-white">
+                  Pick a category
+                </h3>
+                <p className="text-text-muted text-xs mt-1 truncate">
+                  For: <span className="text-white">{pickerFor.product_name}</span>
+                </p>
+                {pickerFor.suggested_category_name && (
+                  <p className="text-text-muted text-xs mt-1">
+                    Currently suggested:{" "}
+                    <span className="text-white">
+                      {pickerFor.suggested_parent_name
+                        ? `${pickerFor.suggested_parent_name} / ${pickerFor.suggested_category_name}`
+                        : pickerFor.suggested_category_name}
+                    </span>
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={closePicker}
+                className="text-text-muted hover:text-white transition-colors shrink-0"
+                type="button"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="px-5 py-3 border-b border-surface-600 relative">
+              <Search size={14} className="absolute left-7 top-1/2 -translate-y-1/2 text-text-muted" />
+              <input
+                type="text"
+                value={pickerQuery}
+                onChange={(e) => setPickerQuery(e.target.value)}
+                placeholder="Search categories…"
+                autoFocus
+                className="w-full bg-surface-700 border border-surface-600 rounded pl-9 pr-4 py-2 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-red/50"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1">
+              {filteredPickerCategories.length === 0 ? (
+                <p className="text-text-muted text-center py-8 text-sm">
+                  No categories match &ldquo;{pickerQuery}&rdquo;.
+                </p>
+              ) : (
+                <ul className="divide-y divide-surface-600/50">
+                  {filteredPickerCategories.map((category) => (
+                    <li key={category.id}>
+                      <button
+                        onClick={() => pickCategory(category.id)}
+                        disabled={pickerSubmitting}
+                        className="w-full text-left px-5 py-3 hover:bg-surface-700/60 transition-colors disabled:opacity-50 flex items-center justify-between gap-3"
+                      >
+                        <span className="min-w-0">
+                          {category.parent_name && (
+                            <span className="text-text-muted text-xs">
+                              {category.parent_name} /{" "}
+                            </span>
+                          )}
+                          <span className="text-white">{category.name}</span>
+                        </span>
+                        <Check
+                          size={14}
+                          className={`shrink-0 ${
+                            category.id === pickerFor.suggested_category_id
+                              ? "text-brand-red"
+                              : "text-text-muted opacity-0"
+                          }`}
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-surface-600 text-text-muted text-xs">
+              Picking a category marks this suggestion as approved with the new category.
+              Click <span className="text-white">Apply</span> on the row afterwards to push it
+              live (website + Square).
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

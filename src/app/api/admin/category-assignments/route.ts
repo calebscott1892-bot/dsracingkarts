@@ -2,6 +2,25 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
+// Generation walks every uncategorised product (~4k+ items), scores them
+// against every category profile, and bulk-inserts the suggestion rows.
+// Default Vercel timeouts (10s hobby / 60s default Pro) were too short and
+// cut the run off after ~1000 rows had landed — leaving partial state in
+// the suggestions table. Bump the cap to 5 minutes which fits the catalog
+// comfortably and use the Node.js runtime so streaming inserts work.
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
+// Manual hints: when a product's name/SKU/description matches any of `keywords`,
+// the suggestion engine prefers the category whose name matches `categoryName`
+// (case-insensitive substring). Hints win over the token-frequency scorer and
+// are flagged as high confidence so the client can sweep them in bulk.
+//
+// Add new entries here as the client discovers patterns. Use lower-case.
+const MANUAL_CATEGORY_HINTS: { keywords: string[]; categoryName: string }[] = [
+  { keywords: ["tie rod", "tie rods", "tie-rod", "tierod"], categoryName: "Steering & Components" },
+];
+
 const STOP_WORDS = new Set([
   "and",
   "the",
@@ -70,6 +89,24 @@ type SuggestionInsertRow = {
   rationale: string;
   status: "pending";
 };
+
+function findManualHintCategoryId(
+  productText: string,
+  categories: Category[]
+): { categoryId: string; matchedKeyword: string; categoryName: string } | null {
+  const haystack = productText.toLowerCase();
+  for (const hint of MANUAL_CATEGORY_HINTS) {
+    const matched = hint.keywords.find((keyword) => haystack.includes(keyword.toLowerCase()));
+    if (!matched) continue;
+    const target = categories.find(
+      (category) => category.name.toLowerCase() === hint.categoryName.toLowerCase()
+    );
+    if (target) {
+      return { categoryId: target.id, matchedKeyword: matched, categoryName: target.name };
+    }
+  }
+  return null;
+}
 
 function tokenize(value: string) {
   return (value || "")
@@ -261,9 +298,26 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
   let noMatchCount = 0;
 
   for (const product of uncategorizedProducts) {
-    const productTokens = tokenize(
-      [product.name, product.sku, product.description_plain].filter(Boolean).join(" ")
-    );
+    const joinedText = [product.name, product.sku, product.description_plain]
+      .filter(Boolean)
+      .join(" ");
+    const productTokens = tokenize(joinedText);
+
+    const manualHint = findManualHintCategoryId(joinedText, categories);
+    if (manualHint) {
+      highConfidenceCount += 1;
+      suggestionRows.push({
+        product_id: product.id,
+        product_square_token: product.square_token,
+        product_name: product.name,
+        previous_category_ids: [],
+        suggested_category_id: manualHint.categoryId,
+        confidence: 0.95,
+        rationale: `Manual override: matched keyword "${manualHint.matchedKeyword}" → ${manualHint.categoryName}.`,
+        status: "pending",
+      });
+      continue;
+    }
 
     if (productTokens.length === 0) {
       noMatchCount += 1;
@@ -360,7 +414,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     throw runError || new Error("Failed to create category assignment run");
   }
 
-  const chunkSize = 200;
+  const chunkSize = 500;
   for (let index = 0; index < suggestionRows.length; index += chunkSize) {
     const chunk = suggestionRows.slice(index, index + chunkSize).map((row) => ({
       run_id: run.id,
@@ -370,6 +424,16 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     const { error } = await service.from("category_assignment_suggestions").insert(chunk);
     if (error) throw error;
   }
+
+  // Mark the run "complete" by appending a final summary line. If the
+  // function times out before this point the notes will read "Generated …"
+  // without "Completed" — a quick visual signal in the admin UI.
+  await service
+    .from("category_assignment_runs")
+    .update({
+      notes: `${run.id ? "" : ""}Generated ${suggestionRows.length} review rows from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}. Completed.`,
+    })
+    .eq("id", run.id);
 
   return {
     runId: run.id,

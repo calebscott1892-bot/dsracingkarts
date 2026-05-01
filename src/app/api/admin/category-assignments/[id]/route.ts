@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { pushItemCategoryToSquare } from "@/lib/square-sync";
+
+// Square pushes can take several seconds per item; allow up to 60s.
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
+async function lookupSquareIds(
+  service: ReturnType<typeof createServiceClient>,
+  productId: string,
+  categoryId: string | null
+) {
+  const [{ data: product }, categoryResp] = await Promise.all([
+    service.from("products").select("square_token").eq("id", productId).maybeSingle(),
+    categoryId
+      ? service.from("categories").select("square_id").eq("id", categoryId).maybeSingle()
+      : Promise.resolve({ data: null as any }),
+  ]);
+  return {
+    productSquareToken: product?.square_token ?? null,
+    categorySquareId: (categoryResp as any)?.data?.square_id ?? null,
+  };
+}
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -28,16 +50,94 @@ export async function PATCH(
 
   const { id } = await params;
   const body = await request.json();
-  const action = body?.action as "approve" | "reject" | "apply" | "revert" | undefined;
+  const action = body?.action as
+    | "approve"
+    | "reject"
+    | "repend"
+    | "apply"
+    | "revert"
+    | "reassign"
+    | undefined;
 
-  if (!action || !["approve", "reject", "apply", "revert"].includes(action)) {
+  if (
+    !action ||
+    !["approve", "reject", "repend", "apply", "revert", "reassign"].includes(action)
+  ) {
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
   }
 
   const service = createServiceClient();
 
-  if (action === "approve" || action === "reject") {
-    const nextStatus = action === "approve" ? "approved" : "rejected";
+  // ── reassign: change the suggested category and mark approved ────────
+  if (action === "reassign") {
+    const newCategoryId = body?.category_id;
+    if (!newCategoryId || typeof newCategoryId !== "string") {
+      return NextResponse.json({ error: "category_id is required" }, { status: 400 });
+    }
+
+    const { data: target } = await service
+      .from("categories")
+      .select("id")
+      .eq("id", newCategoryId)
+      .maybeSingle();
+    if (!target) {
+      return NextResponse.json({ error: "Category not found" }, { status: 404 });
+    }
+
+    const { data: existing } = await service
+      .from("category_assignment_suggestions")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!existing) {
+      return NextResponse.json({ error: "Suggestion not found" }, { status: 404 });
+    }
+    if (existing.status === "applied") {
+      return NextResponse.json(
+        { error: "Revert this suggestion before reassigning a different category." },
+        { status: 400 }
+      );
+    }
+
+    const { error } = await service
+      .from("category_assignment_suggestions")
+      .update({
+        suggested_category_id: newCategoryId,
+        status: "approved",
+        approved_by: admin.userId,
+        approved_at: new Date().toISOString(),
+        rationale: "Manually reassigned via admin category picker.",
+      })
+      .eq("id", id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    revalidatePath("/admin/category-assignments");
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "approve" || action === "reject" || action === "repend") {
+    const nextStatus =
+      action === "approve" ? "approved" : action === "reject" ? "rejected" : "pending";
+
+    const { data: existing, error: existingError } = await service
+      .from("category_assignment_suggestions")
+      .select("status")
+      .eq("id", id)
+      .single();
+
+    if (existingError || !existing) {
+      return NextResponse.json({ error: "Suggestion not found" }, { status: 404 });
+    }
+
+    if (existing.status === "applied" || existing.status === "reverted") {
+      return NextResponse.json(
+        { error: `Cannot ${action} a suggestion that is already ${existing.status}.` },
+        { status: 400 }
+      );
+    }
 
     const { error } = await service
       .from("category_assignment_suggestions")
@@ -58,7 +158,7 @@ export async function PATCH(
 
   const { data: suggestion, error: suggestionError } = await service
     .from("category_assignment_suggestions")
-    .select("status, suggested_category_id")
+    .select("status, suggested_category_id, product_id")
     .eq("id", id)
     .single();
 
@@ -74,6 +174,14 @@ export async function PATCH(
       );
     }
 
+    // Resolve Square IDs *before* the RPC so we can still push the revert if
+    // the local row is gone.
+    const { productSquareToken, categorySquareId } = await lookupSquareIds(
+      service,
+      suggestion.product_id,
+      suggestion.suggested_category_id
+    );
+
     const { data, error } = await service.rpc("revert_category_assignment_suggestion", {
       p_suggestion_id: id,
       p_changed_by: admin.userId,
@@ -84,12 +192,29 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    let squarePushed = false;
+    let squareWarning: string | null = null;
+    if (productSquareToken && categorySquareId) {
+      const result = await pushItemCategoryToSquare(
+        productSquareToken,
+        categorySquareId,
+        "remove",
+        `revert-${id}-${Date.now()}`
+      );
+      squarePushed = result.ok;
+      if (!result.ok) squareWarning = result.reason;
+    } else if (!productSquareToken) {
+      squareWarning = "Product has no square_token — Square not updated.";
+    } else if (!categorySquareId) {
+      squareWarning = "Category has no square_id — Square not updated.";
+    }
+
     revalidatePath("/admin/category-assignments");
     revalidatePath("/admin/categories");
     revalidatePath("/admin/products");
     revalidatePath("/shop");
 
-    return NextResponse.json({ result: data });
+    return NextResponse.json({ result: data, squarePushed, squareWarning });
   }
 
   if (!suggestion.suggested_category_id) {
@@ -106,6 +231,14 @@ export async function PATCH(
     );
   }
 
+  // Resolve Square IDs before applying so we can fail fast if Square IDs are
+  // missing — better to skip the push than to half-apply.
+  const { productSquareToken, categorySquareId } = await lookupSquareIds(
+    service,
+    suggestion.product_id,
+    suggestion.suggested_category_id
+  );
+
   const { data, error } = await service.rpc("apply_category_assignment_suggestion", {
     p_suggestion_id: id,
     p_changed_by: admin.userId,
@@ -116,10 +249,27 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  let squarePushed = false;
+  let squareWarning: string | null = null;
+  if (productSquareToken && categorySquareId) {
+    const result = await pushItemCategoryToSquare(
+      productSquareToken,
+      categorySquareId,
+      "add",
+      `apply-${id}-${Date.now()}`
+    );
+    squarePushed = result.ok;
+    if (!result.ok) squareWarning = result.reason;
+  } else if (!productSquareToken) {
+    squareWarning = "Product has no square_token — Square not updated.";
+  } else if (!categorySquareId) {
+    squareWarning = "Category has no square_id — Square not updated.";
+  }
+
   revalidatePath("/admin/category-assignments");
   revalidatePath("/admin/categories");
   revalidatePath("/admin/products");
   revalidatePath("/shop");
 
-  return NextResponse.json({ result: data });
+  return NextResponse.json({ result: data, squarePushed, squareWarning });
 }
