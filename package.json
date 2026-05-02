@@ -12,6 +12,8 @@
     "migrate-images": "node scripts/migrate-images.js",
     "increase-prices": "node scripts/increase-prices.js",
     "find-duplicates": "node scripts/find-duplicate-products.js",
+    "find-duplicate-categories": "node scripts/find-duplicate-categories.js",
+    "merge-duplicate-categories": "node scripts/merge-duplicate-categories.js",
     "reconcile-categories": "node scripts/reconcile-categories-square.js"
   },
   "dependencies": {
