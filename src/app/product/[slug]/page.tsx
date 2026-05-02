@@ -16,6 +16,17 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+// Treat the static SVG placeholder url as "no real image" — same convention
+// the storefront card uses. Anything else (including remote Square images)
+// counts as a real photo.
+function isRealImageUrl(url: string | null | undefined): url is string {
+  return Boolean(url && !url.endsWith("/images/image-coming-soon.svg"));
+}
+
+function placeholderOgUrl(siteUrl: string, productName: string) {
+  return `${siteUrl}/api/og/coming-soon?name=${encodeURIComponent(productName)}`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
@@ -33,13 +44,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     product.description_plain?.substring(0, 160) ||
     "";
 
-  const images = (product.product_images || [])
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+
+  const realImages = (product.product_images || [])
+    .filter((image: any) => isRealImageUrl(image.url))
     .sort((a: any, b: any) => {
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
       return (a.sort_order ?? 0) - (b.sort_order ?? 0);
     });
-  const ogImage = images[0]?.url;
+
+  // Always supply at least one image so Facebook / Meta Catalog / Google
+  // Shopping previews never show a blank tile. Falls back to a dynamic
+  // branded "image coming soon" PNG with the product name baked in.
+  const ogImage = realImages[0]?.url || placeholderOgUrl(siteUrl, product.name);
 
   return {
     title,
@@ -50,13 +68,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       type: "website",
       url: `/product/${slug}`,
-      images: ogImage ? [{ url: ogImage }] : undefined,
+      images: [{ url: ogImage }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: ogImage ? [ogImage] : undefined,
+      images: [ogImage],
     },
   };
 }
@@ -246,7 +264,21 @@ export default async function ProductPage({ params }: Props) {
                     sku: displaySku,
                     url: `${siteUrl}/product/${product.slug}`,
                     category: categories[0]?.name,
-                    image: images.map((image: any) => image.url).filter(Boolean),
+                    // Always advertise at least one image so Google
+                    // Merchant / Meta Catalog won't drop the product for
+                    // missing media. Falls back to the dynamic branded
+                    // placeholder PNG with the product name baked in.
+                    image: (() => {
+                      const real = images
+                        .map((image: any) => image.url)
+                        .filter(
+                          (url: any) =>
+                            typeof url === "string" &&
+                            !url.endsWith("/images/image-coming-soon.svg")
+                        );
+                      if (real.length > 0) return real;
+                      return [`${siteUrl}/api/og/coming-soon?name=${encodeURIComponent(product.name)}`];
+                    })(),
                     brand: {
                       "@type": "Brand",
                       name: "DS Racing Karts",
