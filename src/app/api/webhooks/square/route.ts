@@ -57,6 +57,30 @@ async function recordHeartbeat(eventType: string) {
   }
 }
 
+/**
+ * Records that a webhook reached the endpoint but failed signature
+ * verification. Lets us tell the difference between "Square never hit us"
+ * (network / wrong URL / disabled subscription) and "Square is hitting us
+ * but the signing secret is wrong". Best-effort.
+ */
+async function recordInvalid(reason: string) {
+  try {
+    const supabase = createServiceClient();
+    await supabase
+      .from("sync_status")
+      .upsert(
+        {
+          key: "square_webhook_invalid",
+          last_event_at: new Date().toISOString(),
+          last_event_type: reason,
+        },
+        { onConflict: "key" }
+      );
+  } catch {
+    // ignore
+  }
+}
+
 // ── Webhook handler ──────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -67,11 +91,18 @@ export async function POST(request: NextRequest) {
 
   if (!WEBHOOK_SECRET) {
     console.error("Square webhook: SQUARE_WEBHOOK_SIGNATURE_KEY is not configured");
+    void recordInvalid("missing_signature_key");
     return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
+  }
+
+  if (!signature) {
+    void recordInvalid("missing_signature_header");
+    return NextResponse.json({ error: "Missing signature header" }, { status: 400 });
   }
 
   if (!verifySignature(rawBody, signature, [requestUrl, WEBHOOK_URL, typoWebhookUrl])) {
     console.error("Square webhook: invalid signature");
+    void recordInvalid("bad_signature");
     return NextResponse.json({ error: "Invalid signature" }, { status: 403 });
   }
 

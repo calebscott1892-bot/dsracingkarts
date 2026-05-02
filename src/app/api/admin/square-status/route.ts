@@ -83,6 +83,8 @@ export async function GET() {
   let lastWebhookType: string | null = null;
   let lastResyncAt: string | null = null;
   let lastResyncSummary: string | null = null;
+  let lastWebhookInvalidAt: string | null = null;
+  let lastWebhookInvalidReason: string | null = null;
 
   const writeClient = process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createServiceClient()
@@ -115,6 +117,13 @@ export async function GET() {
       lastResyncAt = resyncRow.last_event_at ?? null;
       lastResyncSummary = resyncRow.last_event_type ?? null;
     }
+    const invalidRow = (heartbeats || []).find(
+      (r: any) => r.key === "square_webhook_invalid"
+    );
+    if (invalidRow) {
+      lastWebhookInvalidAt = invalidRow.last_event_at ?? null;
+      lastWebhookInvalidReason = invalidRow.last_event_type ?? null;
+    }
   } catch {
     // sync_status table may not exist yet; counts may also fail. Surface
     // partials and let the UI render what it can.
@@ -131,6 +140,8 @@ export async function GET() {
       lastWebhookType,
       lastResyncAt,
       lastResyncSummary,
+      lastWebhookInvalidAt,
+      lastWebhookInvalidReason,
     },
   });
 }

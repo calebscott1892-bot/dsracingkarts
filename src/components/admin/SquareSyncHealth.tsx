@@ -21,6 +21,8 @@ type Status = {
     lastWebhookType: string | null;
     lastResyncAt: string | null;
     lastResyncSummary: string | null;
+    lastWebhookInvalidAt?: string | null;
+    lastWebhookInvalidReason?: string | null;
   };
 };
 
@@ -260,7 +262,9 @@ export function SquareSyncHealth() {
             value={
               status.db.lastWebhookAt
                 ? `${timeAgo(status.db.lastWebhookAt)}${status.db.lastWebhookType ? ` - ${status.db.lastWebhookType}` : ""}`
-                : "No events received yet"
+                : status.db.lastWebhookInvalidAt
+                  ? `Reaching us but failing — ${timeAgo(status.db.lastWebhookInvalidAt)} (${status.db.lastWebhookInvalidReason || "rejected"})`
+                  : "No events received yet"
             }
           />
           <Row
