@@ -97,9 +97,14 @@ export function SquareSyncHealth() {
         failures: [],
       };
 
-      for (let step = 0; step < 1200; step++) {
+      // Server has up to 5 minutes per chunk. The client gives each chunk
+      // 110 seconds — well inside the server budget but generous enough to
+      // ride out a slow item or cold-start without aborting prematurely.
+      // (Was 55s, which Australian-to-US-Vercel users were hitting on
+      //  chunks that contained a couple of large items.)
+      for (let step = 0; step < 1500; step++) {
         const controller = new AbortController();
-        const timeout = window.setTimeout(() => controller.abort(), 55_000);
+        const timeout = window.setTimeout(() => controller.abort(), 110_000);
         const res: Response = await fetch("/api/admin/square-resync", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,11 +154,17 @@ export function SquareSyncHealth() {
 
       setResyncResult("Resync paused after too many batches. Click Resync Now again to continue.");
     } catch (err: any) {
-      setResyncResult(
-        err?.name === "AbortError"
-          ? "This sync batch took too long and was stopped. Refresh and try Resync Now again."
-          : err?.message || "Network error during resync"
-      );
+      if (err?.name === "AbortError") {
+        // The chunk took longer than the 110s client window. Anything
+        // already written to Supabase from earlier chunks stays — the
+        // resync is safe to restart and will redo the in-progress work.
+        setResyncResult(
+          "This batch took too long on a slow connection and was stopped. " +
+            "Earlier batches already saved. Click Resync Now again to keep going."
+        );
+      } else {
+        setResyncResult(err?.message || "Network error during resync");
+      }
     } finally {
       setResyncing(false);
     }

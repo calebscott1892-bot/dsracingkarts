@@ -48,7 +48,12 @@ type SyncCatalogItemOptions = {
   retrieveMissingImages?: boolean;
 };
 
-const CHUNK_ITEM_TIMEOUT_MS = 8_000;
+// Per-item timeout during chunked resync. Lower is better — a single
+// stuck item then can't poison the whole chunk. The chunked endpoint
+// works through 3 items at a time, so worst case 3 * 6s = 18s of item
+// work per chunk + a Square API call, comfortably inside the client's
+// AbortController window.
+const CHUNK_ITEM_TIMEOUT_MS = 6_000;
 
 async function withTimeout<T>(
   promise: Promise<T>,

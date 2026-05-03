@@ -82,6 +82,10 @@ export async function POST(request: NextRequest) {
             ? "items"
             : "categories",
         cursor: body.cursor || null,
+        // Worst-case per chunk: 5 × CHUNK_ITEM_TIMEOUT_MS (6s = 30s) plus
+        // one Square API call. Comfortably inside the client's 110s
+        // AbortController, while keeping the round-trip count down on slow
+        // (Australia → US-Vercel) connections.
         limit: 5,
       });
       const totals = {
