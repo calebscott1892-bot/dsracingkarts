@@ -134,7 +134,7 @@ export function HeroVideo() {
         </div>
 
         <h1 className="font-heading text-3xl md:text-5xl lg:text-6xl uppercase tracking-[0.08em] text-white mb-4">
-          Go Kart Parts, Service <span className="text-racing-red">&amp;</span> Racewear
+          Go Kart Chassis, Parts, Service <span className="text-racing-red">&amp;</span> Racewear
         </h1>
 
         {/* Tagline */}

@@ -14,7 +14,7 @@ import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Go Kart Parts, Service & Racewear | Sydney",
+  title: "Go Kart Chassis, Parts, Service & Racewear | Sydney",
   description:
     "Shop go kart parts, racewear, servicing, engine tuning and custom race gear from DS Racing Karts in Sydney.",
   alternates: {
