@@ -142,9 +142,14 @@ export function HeroVideo() {
           Built for Speed. Engineered to Win.
         </p>
 
-        {/* CTAs */}
+        {/* CTAs — Chassis first as the flagship offer; Parts and Services
+            sit behind it as secondary outline buttons so the eye lands on
+            Chassis instead of three identical red blocks. */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <Link href="/shop" className="btn-primary text-base px-10">
+          <Link href="/shop?category=chassis" className="btn-primary text-base px-10">
+            Shop Chassis
+          </Link>
+          <Link href="/shop" className="btn-secondary text-base px-10">
             Shop Parts
           </Link>
           <Link href="/services" className="btn-secondary text-base px-10">

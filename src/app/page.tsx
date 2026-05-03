@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Go Kart Chassis, Parts, Service & Racewear | Sydney",
   description:
-    "Shop go kart parts, racewear, servicing, engine tuning and custom race gear from DS Racing Karts in Sydney.",
+    "Having problems in karting? DS Racing Karts is your karting solutions specialist in Sydney — chassis, parts, servicing, engine tuning, and custom racewear, shipped Australia-wide.",
   alternates: {
     canonical: "/",
   },
@@ -104,6 +104,26 @@ export default async function HomePage() {
       <HeroVideo />
 
       <div className="chequered-stripe" />
+
+      {/* Karting solutions strapline — sits between the hero and the value-
+          prop cards. Doubles as a positioning statement and a "Karting
+          Solutions" keyword anchor for SEO without keyword-stuffing. */}
+      <section className="relative bg-racing-black border-b border-surface-600/20">
+        <div className="max-w-4xl mx-auto px-4 py-10 md:py-12 text-center">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <span className="h-[1px] w-8 bg-racing-red" />
+            <span className="font-heading text-xs tracking-[0.4em] text-racing-red uppercase">
+              Your Karting Solutions
+            </span>
+            <span className="h-[1px] w-8 bg-racing-red" />
+          </div>
+          <p className="font-heading text-lg md:text-2xl uppercase tracking-[0.06em] text-white leading-snug">
+            Having problems in karting?
+            <br className="hidden md:block" />{" "}
+            <span className="text-racing-red">Direct your attention to DSR</span> for your karting solutions.
+          </p>
+        </div>
+      </section>
 
       <section className="relative bg-racing-dark carbon-fiber border-b border-surface-600/20">
         <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -224,7 +244,7 @@ export default async function HomePage() {
                 name: "DS Racing Karts",
                 url: siteUrl,
                 description:
-                  "Go kart parts supplier and service centre in south-west Sydney. Specialists in endurance karting, 2-stroke and 4-stroke engines, chassis setup, and custom racewear. Australia-wide shipping.",
+                  "Sydney's karting solutions specialist — chassis, parts, servicing, and racewear. We help racers solve karting problems with hands-on workshop support, endurance kart preparation, 2-stroke and 4-stroke engine tuning, and custom team racewear. Australia-wide shipping.",
                 telephone: "+61492454854",
                 email: "dsracing@bigpond.com",
                 image: `${siteUrl}/images/history/Site Logo (2).png`,

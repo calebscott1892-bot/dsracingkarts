@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     template: "%s | DS Racing Karts",
   },
   description:
-    "Australia's trusted go kart parts supplier. Engines, chassis, brakes, racewear and more. Based in Sydney, shipping nationwide.",
+    "Having problems in karting? DS Racing Karts is your karting solutions specialist in Sydney — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
   keywords: [
     "go kart parts",
     "kart racing",
@@ -84,12 +84,12 @@ export const metadata: Metadata = {
     url: process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au",
     siteName: "DS Racing Karts",
     title: "DS Racing Karts - Go Kart Chassis, Parts & Service | Sydney",
-    description: "Australia's trusted go kart parts supplier. Engines, chassis, brakes, racewear and more.",
+    description: "Sydney's karting solutions specialist — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
   },
   twitter: {
     card: "summary_large_image",
     title: "DS Racing Karts - Go Kart Chassis, Parts & Service | Sydney",
-    description: "Australia's trusted go kart parts supplier. Engines, chassis, brakes, racewear and more.",
+    description: "Sydney's karting solutions specialist — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au"),
 };
