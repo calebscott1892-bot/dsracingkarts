@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
+import { CategoryGrid } from "@/components/shop/CategoryGrid";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 const SHOP_DESCRIPTION =
@@ -18,6 +19,9 @@ interface Props {
     search?: string;
     sort?: string;
     page?: string;
+    // ?view=all opts out of the mobile category-first landing and shows
+    // the flat product list on every device.
+    view?: string;
   }>;
 }
 
@@ -186,10 +190,38 @@ export default async function ShopPage({ searchParams }: Props) {
 
   const { data: categories } = await supabase
     .from("categories")
-    .select("id, name, slug, parent_id, square_id")
+    .select("id, name, slug, parent_id, square_id, image_url, sort_order")
     .order("name");
 
   const dedupedCategories = buildCategoryLookup((categories || []) as ShopCategory[]).dedupedCategories;
+
+  // Top-level categories (no parent) for the mobile category-first landing.
+  // Re-uses the same CategoryGrid the homepage uses, so any new category
+  // the client adds in Square (or accepts via the suggestion flow) shows
+  // up here automatically as soon as the next sync lands.
+  const topLevelCategories = dedupedCategories
+    .filter((c) => !c.parent_id)
+    .map((c) => {
+      const full = (categories || []).find((row) => row.id === c.id);
+      return {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        image_url: (full as any)?.image_url ?? null,
+        sort_order: (full as any)?.sort_order ?? 0,
+      };
+    })
+    .sort(
+      (a, b) =>
+        (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+    );
+
+  // The mobile-only category landing: show categories instead of a wall of
+  // products when the user lands on /shop with no filter applied. ?view=all
+  // bypasses it. Search opts out too — if you typed a search you want to
+  // see results, not categories.
+  const showMobileCategoryLanding =
+    !params.category && !params.search && params.view !== "all";
 
   const categoryTitle = params.category
     ? params.category.replace(/-/g, " ")
@@ -268,7 +300,11 @@ export default async function ShopPage({ searchParams }: Props) {
       </div>
 
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-3">
+        <div
+          className={`flex items-center gap-3 mb-3 ${
+            showMobileCategoryLanding ? "hidden md:flex" : "flex"
+          }`}
+        >
           <span className="h-[1px] w-8 bg-brand-red" />
           <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
             {count || 0} Products
@@ -281,7 +317,39 @@ export default async function ShopPage({ searchParams }: Props) {
         <SearchAutocomplete initialQuery={params.search} />
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      {/* ── Mobile-only category landing ─────────────────────────────
+          When no filter is applied, mobile visitors see the category
+          directory instead of a 24-product wall. Tapping a tile loads
+          /shop?category=<slug> which re-renders this page with the
+          existing product grid. Desktop is unaffected. */}
+      {showMobileCategoryLanding && (
+        <div className="md:hidden mb-10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-[1px] w-8 bg-brand-red" />
+            <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
+              Browse by Category
+            </span>
+          </div>
+          <CategoryGrid
+            categories={topLevelCategories}
+            extraTile={{
+              href: "/shop?view=all",
+              title: "See All Products",
+              subtitle: "Skip the categories",
+            }}
+          />
+          <p className="text-text-muted text-xs mt-4 text-center leading-relaxed">
+            Tap a category to start browsing — or use the search above to jump
+            straight to a part.
+          </p>
+        </div>
+      )}
+
+      <div
+        className={`flex flex-col lg:flex-row gap-8 ${
+          showMobileCategoryLanding ? "hidden md:flex" : ""
+        }`}
+      >
         <aside className="lg:w-60 shrink-0">
           <ShopFilters
             categories={dedupedCategories}
