@@ -740,7 +740,7 @@ export default function C4FooterCredit({
             <feGaussianBlur in="SourceGraphic" stdDeviation="14" />
           </filter>
           <clipPath id={cClipId} clipPathUnits="userSpaceOnUse">
-            <circle ref={cClipRectRef} />
+            <circle ref={cClipRectRef} cx="0" cy="0" r="0" />
           </clipPath>
           <clipPath id={stemUpperClipId} clipPathUnits="userSpaceOnUse">
             <polygon points={FOUR_SEGMENTS.stemUpper} />

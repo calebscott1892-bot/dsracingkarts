@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Facebook, Mail, MapPin, Phone } from "lucide-react";
 import { AppointmentAddress } from "./AppointmentPopup";
-import C4FooterCredit from "../c4-footer-credit/C4FooterCredit";
+import C4FooterCreditMounted from "../c4-footer-credit/C4FooterCreditMounted";
 
 export function Footer() {
   return (
@@ -74,7 +74,7 @@ export function Footer() {
           <p className="text-text-muted text-xs">&copy; {new Date().getFullYear()} DS Racing Karts. All rights reserved.</p>
           <div className="flex items-center gap-2 text-text-muted/60 text-[11px] tracking-wide">
             <span className="uppercase">Designed&nbsp;by</span>
-            <C4FooterCredit
+            <C4FooterCreditMounted
               href="https://c4studios.com.au"
               label="Designed by C4 Studios"
               size={36}

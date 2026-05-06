@@ -3,6 +3,7 @@
 import {
   createContext,
   useContext,
+  useEffect,
   useState,
   useCallback,
   type ReactNode,
@@ -28,15 +29,16 @@ function calcItemCount(items: CartItem[]): number {
 }
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    if (typeof window === "undefined") return [];
+  const [items, setItems] = useState<CartItem[]>([]);
+
+  useEffect(() => {
     try {
       const stored = localStorage.getItem("dsr-cart");
-      return stored ? JSON.parse(stored) : [];
+      if (stored) setItems(JSON.parse(stored));
     } catch {
-      return [];
+      // localStorage not available or invalid cart data.
     }
-  });
+  }, []);
 
   const persist = useCallback((newItems: CartItem[]) => {
     setItems(newItems);

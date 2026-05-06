@@ -28,6 +28,8 @@ export default function CheckoutPage() {
 
   // Load Square Web Payments SDK
   useEffect(() => {
+    if (cart.items.length === 0) return;
+
     const script = document.createElement("script");
     const isProduction = process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === "production";
     script.src = isProduction
@@ -39,10 +41,10 @@ export default function CheckoutPage() {
     return () => {
       document.head.removeChild(script);
     };
-  }, []);
+  }, [cart.items.length]);
 
   async function initializeSquare() {
-    if (!window.Square) return;
+    if (!window.Square || !cardRef.current) return;
 
     const payments = window.Square.payments(
       process.env.NEXT_PUBLIC_SQUARE_APP_ID!,
