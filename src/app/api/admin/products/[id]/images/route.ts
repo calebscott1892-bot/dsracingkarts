@@ -1,5 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+
+async function revalidateProductViews(
+  serviceClient: ReturnType<typeof createServiceClient>,
+  productId: string
+) {
+  const { data: product } = await serviceClient
+    .from("products")
+    .select("slug")
+    .eq("id", productId)
+    .maybeSingle();
+
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+  revalidatePath("/shop");
+  if (product?.slug) revalidatePath(`/product/${product.slug}`);
+}
 
 export async function POST(
   request: NextRequest,
@@ -17,7 +34,9 @@ export async function POST(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!admin || !["admin", "super_admin"].includes(admin.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const serviceClient = createServiceClient();
   const formData = await request.formData();
@@ -74,6 +93,8 @@ export async function POST(
       .eq("id", productId);
   }
 
+  await revalidateProductViews(serviceClient, productId);
+
   return NextResponse.json({ image });
 }
 
@@ -93,7 +114,9 @@ export async function DELETE(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!admin || !["admin", "super_admin"].includes(admin.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const serviceClient = createServiceClient();
   const { imageId } = await request.json();
@@ -144,6 +167,8 @@ export async function DELETE(
     }
   }
 
+  await revalidateProductViews(serviceClient, productId);
+
   return NextResponse.json({ success: true });
 }
 
@@ -163,7 +188,9 @@ export async function PUT(
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!admin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  if (!admin || !["admin", "super_admin"].includes(admin.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const serviceClient = createServiceClient();
   const { imageId } = await request.json();
@@ -189,6 +216,8 @@ export async function PUT(
       .update({ primary_image_url: image.url })
       .eq("id", productId);
   }
+
+  await revalidateProductViews(serviceClient, productId);
 
   return NextResponse.json({ success: true });
 }

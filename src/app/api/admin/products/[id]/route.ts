@@ -43,6 +43,7 @@ export async function PUT(
 
   const body = await request.json();
   const service = createServiceClient();
+  const nextSlug = slugify(body.name);
   const requestedCategoryIds: string[] | null = Array.isArray(body.categories)
     ? body.categories.filter((id: unknown): id is string => typeof id === "string")
     : null;
@@ -70,7 +71,7 @@ export async function PUT(
     .from("products")
     .update({
       name: body.name,
-      slug: slugify(body.name),
+      slug: nextSlug,
       description: body.description,
       description_plain: stripHtml(body.description || ""),
       sku: body.sku || null,
@@ -196,6 +197,7 @@ export async function PUT(
   revalidatePath(`/admin/products/${id}`);
   revalidatePath("/shop");
   if (existingProduct?.slug) revalidatePath(`/product/${existingProduct.slug}`);
+  if (nextSlug && nextSlug !== existingProduct?.slug) revalidatePath(`/product/${nextSlug}`);
 
   return NextResponse.json({ success: true, squareWarning });
 }

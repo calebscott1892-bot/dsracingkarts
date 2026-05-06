@@ -447,7 +447,7 @@ export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team
       setAnimKey((k) => k + 1);
       setTimeout(() => { isAnimating.current = false; }, 350);
     },
-    [],
+    [safeTeams.length],
   );
 
   const goNext = useCallback(() => navigate("right"), [navigate]);

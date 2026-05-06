@@ -13,13 +13,14 @@ async function lookupSquareIds(
   categoryId: string | null
 ) {
   const [{ data: product }, categoryResp] = await Promise.all([
-    service.from("products").select("square_token").eq("id", productId).maybeSingle(),
+    service.from("products").select("square_token, slug").eq("id", productId).maybeSingle(),
     categoryId
       ? service.from("categories").select("square_id").eq("id", categoryId).maybeSingle()
       : Promise.resolve({ data: null as any }),
   ]);
   return {
     productSquareToken: product?.square_token ?? null,
+    productSlug: product?.slug ?? null,
     categorySquareId: (categoryResp as any)?.data?.square_id ?? null,
   };
 }
@@ -176,7 +177,7 @@ export async function PATCH(
 
     // Resolve Square IDs *before* the RPC so we can still push the revert if
     // the local row is gone.
-    const { productSquareToken, categorySquareId } = await lookupSquareIds(
+    const { productSquareToken, productSlug, categorySquareId } = await lookupSquareIds(
       service,
       suggestion.product_id,
       suggestion.suggested_category_id
@@ -213,6 +214,7 @@ export async function PATCH(
     revalidatePath("/admin/categories");
     revalidatePath("/admin/products");
     revalidatePath("/shop");
+    if (productSlug) revalidatePath(`/product/${productSlug}`);
 
     return NextResponse.json({ result: data, squarePushed, squareWarning });
   }
@@ -233,7 +235,7 @@ export async function PATCH(
 
   // Resolve Square IDs before applying so we can fail fast if Square IDs are
   // missing — better to skip the push than to half-apply.
-  const { productSquareToken, categorySquareId } = await lookupSquareIds(
+  const { productSquareToken, productSlug, categorySquareId } = await lookupSquareIds(
     service,
     suggestion.product_id,
     suggestion.suggested_category_id
@@ -270,6 +272,7 @@ export async function PATCH(
   revalidatePath("/admin/categories");
   revalidatePath("/admin/products");
   revalidatePath("/shop");
+  if (productSlug) revalidatePath(`/product/${productSlug}`);
 
   return NextResponse.json({ result: data, squarePushed, squareWarning });
 }
