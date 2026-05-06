@@ -8,7 +8,7 @@ insert into team_profiles (kart_number, team_name, tagline, accent_color, accent
 values
   ('338', 'Scaff It Up',     'Building speed from the ground up', '#f97316', '249,115,22',  null,                                          null,                            0,  true),
   ('43',  'Kart Blanche',    'Full freedom on the track',         '#e2e8f0', '226,232,240', '/images/history/Kart-Blanche-43.jpeg',         null,                            1,  true),
-  ('114', 'Skid Mark Racing','Leaving our mark on every lap',     '#22c55e', '34,197,94',   '/images/history/Skid Mark Marcing.jpeg',       null,                            2,  true),
+  ('83',  'Skid Mark Racing','Leaving our mark on every lap',     '#22c55e', '34,197,94',   '/images/history/Skidmark Logo.jpeg',           null,                            2,  true),
   ('5',   'Claw Racing #2',  'Grip it and rip it',                '#a855f7', '168,85,247',  '/images/history/Claw Racing.jpg',             'https://clawconstruction.com.au/', 3, true),
   ('555', 'Claw Racing',     'Clutching every podium',            '#ef4444', '239,68,68',   '/images/history/Claw Racing.jpg',             'https://clawconstruction.com.au/', 4, true),
   ('272', 'Venom Racing',    'Striking fast, finishing first',    '#84cc16', '132,204,22',  null,                                          null,                            5,  true),

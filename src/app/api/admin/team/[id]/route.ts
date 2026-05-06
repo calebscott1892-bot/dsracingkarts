@@ -26,12 +26,13 @@ export async function PATCH(
   const supabase = await verifyAdmin();
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const service = createServiceClient();
 
   const body = await request.json();
   const { kart_number, team_name, tagline, accent_color, accent_rgb, logo_url, website_url, sort_order, is_active } = body;
   const normalizedLogoUrl = normalizeTeamLogoUrl(logo_url, team_name);
 
-  const { data: team, error } = await supabase
+  const { data: team, error } = await service
     .from("team_profiles")
     .update({
       kart_number,
@@ -62,8 +63,9 @@ export async function DELETE(
   const supabase = await verifyAdmin();
   if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
+  const service = createServiceClient();
 
-  const { error } = await supabase.from("team_profiles").delete().eq("id", id);
+  const { error } = await service.from("team_profiles").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidatePath("/about", "page");
   revalidatePath("/admin/team", "page");

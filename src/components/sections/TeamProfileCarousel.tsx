@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
-import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, SCAFF_LOGO_URL } from "@/lib/teamLogos";
+import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, SCAFF_LOGO_URL, SKIDMARK_LOGO_URL } from "@/lib/teamLogos";
 
 /* ── Team Data ── */
 export interface TeamResult {
@@ -49,11 +49,11 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     tagline: "Full freedom on the track",
   },
   {
-    number: "114",
+    number: "83",
     name: "Skid Mark Racing",
     accent: "#22c55e",
     accentRgb: "34,197,94",
-    logo: "/images/history/Skid Mark Marcing.jpeg",
+    logo: SKIDMARK_LOGO_URL,
     tagline: "Leaving our mark on every lap",
   },
   {
