@@ -18,6 +18,8 @@
 .DS_Store
 *.pem
 .claude/
+supabase/.temp/*
+!supabase/.temp/cli-latest
 
 # debug
 npm-debug.log*

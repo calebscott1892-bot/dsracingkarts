@@ -140,7 +140,8 @@ async function main() {
   const { imageId, created } = await ensurePlaceholderImageId();
   console.log(`${created ? "Created" : "Using existing"} placeholder image ID: ${imageId}`);
 
-  // Square batch limit: max 1,000 objects per batch.
+  // Square batch limit is max 1,000 catalog objects. ITEM payloads can include
+  // nested variation objects, so keep item chunks well below that ceiling.
   const updates = itemsWithoutImages.map((item) => ({
     ...item,
     itemData: {
@@ -150,7 +151,7 @@ async function main() {
   }));
 
   let updated = 0;
-  for (const batch of chunk(updates, 1000)) {
+  for (const batch of chunk(updates, 250)) {
     await square.catalogApi.batchUpsertCatalogObjects({
       idempotencyKey: randomUUID(),
       batches: [{ objects: batch }],
