@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServiceClient, createClient } from "@/lib/supabase/server";
 
 async function verifyAdmin() {
@@ -75,5 +76,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath("/");
+  revalidatePath("/admin/reviews");
   return NextResponse.json(data, { status: 201 });
 }

@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Search, ExternalLink, Archive } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   searchParams: Promise<{ search?: string; page?: string; status?: string }>;
 }

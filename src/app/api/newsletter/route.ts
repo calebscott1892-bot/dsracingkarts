@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createHash } from "crypto";
 
@@ -68,6 +69,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    revalidatePath("/admin/newsletter");
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("Newsletter signup error:", error);

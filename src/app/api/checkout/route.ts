@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
 import { randomUUID } from "crypto";
@@ -249,6 +250,8 @@ export async function POST(request: NextRequest) {
         .update({ status: "cancelled" })
         .eq("id", order.id);
       console.error("Square payment failed:", paymentError);
+      revalidatePath("/admin/orders");
+      revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(
         { error: "Payment failed. Please try again." },
         { status: 402 }
@@ -261,6 +264,8 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", order.id);
+      revalidatePath("/admin/orders");
+      revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(
         { error: "Payment failed. Please try again." },
         { status: 402 }
@@ -344,6 +349,8 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- 7. Return confirmation ----
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${order.id}`);
     return NextResponse.json({
       success: true,
       order_number: order.order_number,

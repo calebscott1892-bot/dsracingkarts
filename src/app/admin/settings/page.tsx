@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Mail, Key, Globe } from "lucide-react";
 import { ChangePasswordForm } from "./ChangePasswordForm";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminSettingsPage() {
   const supabase = await createClient();
   const {

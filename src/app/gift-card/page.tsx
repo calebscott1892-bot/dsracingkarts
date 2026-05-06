@@ -4,6 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { GiftCardClient } from "./GiftCardClient";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "E-Gift Card",
   description:

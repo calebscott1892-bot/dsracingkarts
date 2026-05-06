@@ -12,6 +12,7 @@ const SHOP_DESCRIPTION =
   "Browse our full range of go kart parts, engines, chassis, brakes, racewear and accessories.";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface Props {
   searchParams: Promise<{

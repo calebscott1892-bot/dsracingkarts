@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServiceClient, createClient } from "@/lib/supabase/server";
 
 interface Params { params: Promise<{ id: string }> }
@@ -37,6 +38,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  revalidatePath("/admin/newsletter");
   return NextResponse.json(data);
 }
 
@@ -53,5 +55,6 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
     .eq("id", id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath("/admin/newsletter");
   return NextResponse.json({ success: true });
 }

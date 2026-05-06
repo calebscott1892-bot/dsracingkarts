@@ -12,6 +12,7 @@ import { HomeFaqAccordion } from "@/components/sections/HomeFaqAccordion";
 import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Go Kart Chassis, Parts, Service & Racewear | Sydney",

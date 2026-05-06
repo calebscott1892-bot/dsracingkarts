@@ -3,6 +3,9 @@ import { notFound } from "next/navigation";
 import { ProductEditForm } from "@/components/admin/ProductEditForm";
 import { ResyncProductButton } from "@/components/admin/ResyncProductButton";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ id: string }>;
 }

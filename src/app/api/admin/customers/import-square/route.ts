@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient as createSupabaseAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
@@ -146,6 +147,8 @@ export async function POST() {
         { status: 500 }
       );
     }
+
+    revalidatePath("/admin/customers");
 
     return NextResponse.json({
       imported,

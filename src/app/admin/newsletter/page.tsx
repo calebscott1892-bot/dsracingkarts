@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { CheckCircle2, Download, Mail, Send, Users } from "lucide-react";
 import { NewsletterTable } from "./NewsletterTable";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   searchParams: Promise<{ page?: string; status?: string }>;
 }

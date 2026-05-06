@@ -1,6 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { ChassisListingsManager } from "./ChassisListingsManager";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminChassisListingsPage() {
   const supabase = createServiceClient();
   const { data: listings } = await supabase

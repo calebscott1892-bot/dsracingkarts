@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Pencil, Megaphone } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const TYPE_COLORS: Record<string, string> = {
   info: "bg-blue-500/10 text-blue-400",
   warning: "bg-yellow-500/10 text-yellow-400",

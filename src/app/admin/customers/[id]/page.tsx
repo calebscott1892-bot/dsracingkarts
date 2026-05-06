@@ -4,6 +4,9 @@ import Link from "next/link";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { ArrowLeft, Mail, Phone, MapPin } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ id: string }>;
 }

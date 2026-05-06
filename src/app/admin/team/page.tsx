@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Plus, Pencil, Flag } from "lucide-react";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminTeamPage() {
   const supabase = await createClient();
   const { data: teams } = await supabase

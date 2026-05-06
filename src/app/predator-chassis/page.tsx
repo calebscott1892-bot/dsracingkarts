@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { PredatorChassisClient } from "./PredatorChassisClient";
 import type { Metadata } from "next";
+import { unstable_noStore as noStore } from "next/cache";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "Preloved Predator Chassis Available",
@@ -38,6 +42,7 @@ const FEATURES = [
 ];
 
 export default async function PredatorChassisPage() {
+  noStore();
   const supabase = await createClient();
   const { data: listings } = await supabase
     .from("chassis_listings")

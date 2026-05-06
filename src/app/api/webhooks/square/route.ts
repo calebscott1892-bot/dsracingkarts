@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createHmac, timingSafeEqual } from "crypto";
 import { createServiceClient } from "@/lib/supabase/server";
 import {
@@ -81,6 +82,13 @@ async function recordInvalid(reason: string) {
   }
 }
 
+function revalidateCatalogSurfaces() {
+  revalidatePath("/shop");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/categories");
+  revalidatePath("/admin/category-assignments");
+}
+
 // ── Webhook handler ──────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
@@ -146,6 +154,7 @@ export async function POST(request: NextRequest) {
           console.error(`[catalog-sync] error syncing ${id}:`, err)
         );
       }
+      revalidateCatalogSurfaces();
     }
 
     // ── Catalog item deleted ──
@@ -156,6 +165,7 @@ export async function POST(request: NextRequest) {
           console.error(`[catalog-sync] error archiving ${id}:`, err)
         );
       }
+      revalidateCatalogSurfaces();
     }
 
     // ── Inventory changed ──

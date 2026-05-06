@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { CategoryAssignmentsManager } from "./CategoryAssignmentsManager";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function fetchPaginated<T>(
   runQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>

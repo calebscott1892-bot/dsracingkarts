@@ -4,6 +4,9 @@ import { AnnouncementForm } from "@/components/admin/AnnouncementForm";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   params: Promise<{ id: string }>;
 }

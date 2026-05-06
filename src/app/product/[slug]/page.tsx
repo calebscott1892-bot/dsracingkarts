@@ -11,6 +11,7 @@ import type { Metadata } from "next";
 
 // Always render fresh from Supabase — admin/Square product edits appear instantly.
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface Props {
   params: Promise<{ slug: string }>;

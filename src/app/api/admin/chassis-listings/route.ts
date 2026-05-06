@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createServiceClient, createClient } from "@/lib/supabase/server";
 
 const VALID_CONDITIONS = new Set(["new", "excellent", "good", "fair", "parts-only"]);
@@ -95,5 +96,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  revalidatePath("/admin/chassis-listings");
+  revalidatePath("/predator-chassis");
   return NextResponse.json(data, { status: 201 });
 }

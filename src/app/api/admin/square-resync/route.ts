@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { reconcileCatalogChunk, reconcileCatalogForAdminResync } from "@/lib/square-sync";
 
@@ -51,6 +52,13 @@ async function recordHeartbeat(result: { scanned: number; synced: number; failed
   }
 }
 
+function revalidateCatalogSurfaces() {
+  revalidatePath("/shop");
+  revalidatePath("/admin/products");
+  revalidatePath("/admin/categories");
+  revalidatePath("/admin/category-assignments");
+}
+
 export async function POST(request: NextRequest) {
   const authorised = (await isAuthorisedAdmin()) || isAuthorisedCron(request);
   if (!authorised) {
@@ -99,6 +107,7 @@ export async function POST(request: NextRequest) {
         ].slice(0, 20),
       };
       if (chunk.done) {
+        revalidateCatalogSurfaces();
         void recordHeartbeat(totals);
       }
       return NextResponse.json({
@@ -110,6 +119,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await reconcileCatalogForAdminResync();
+    revalidateCatalogSurfaces();
     void recordHeartbeat(result);
     return NextResponse.json({
       ok: true,

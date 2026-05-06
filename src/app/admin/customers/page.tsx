@@ -2,6 +2,9 @@ import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { ImportSquareCustomersButton } from "./ImportSquareCustomersButton";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 interface Props {
   searchParams: Promise<{ search?: string; page?: string; sort?: string }>;
 }
