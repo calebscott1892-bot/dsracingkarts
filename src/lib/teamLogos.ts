@@ -17,14 +17,9 @@ const SKIDMARK_LEGACY_LOGO_URLS = new Set([
 
 export function normalizeTeamLogoUrl(
   logoUrl?: string | null,
-  teamName?: string | null,
+  _teamName?: string | null,
 ) {
   const trimmedLogoUrl = logoUrl?.trim();
-  const normalizedTeamName = teamName?.trim().toLowerCase();
-
-  if (normalizedTeamName?.includes("claw racing")) {
-    return CLAW_CONSTRUCTION_LOGO_URL;
-  }
 
   if (trimmedLogoUrl && SCAFF_LEGACY_LOGO_URLS.has(trimmedLogoUrl)) {
     return SCAFF_LOGO_URL;
@@ -34,12 +29,5 @@ export function normalizeTeamLogoUrl(
     return SKIDMARK_LOGO_URL;
   }
 
-  if (!trimmedLogoUrl) {
-    if (normalizedTeamName === "scaff it up") return SCAFF_LOGO_URL;
-    if (normalizedTeamName?.includes("claw racing")) return CLAW_CONSTRUCTION_LOGO_URL;
-    if (normalizedTeamName?.includes("skid mark")) return SKIDMARK_LOGO_URL;
-    return undefined;
-  }
-
-  return trimmedLogoUrl;
+  return trimmedLogoUrl || undefined;
 }

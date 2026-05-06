@@ -1,13 +1,15 @@
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { unstable_noStore as noStore } from "next/cache";
 import { Quote, Flag, Timer } from "lucide-react";
 import { DEFAULT_TEAM_PROFILES, TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createServiceClient } from "@/lib/supabase/server";
-import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl, SCAFF_LOGO_URL } from "@/lib/teamLogos";
+import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 // Always render fresh — admin team-profile changes must show up instantly.
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -18,6 +20,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AboutPage() {
+  noStore();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   // Fetch team profiles from DB; fall back to empty (carousel uses hardcoded data)
   let dbTeams: Team[] = [];
@@ -40,32 +43,24 @@ export default async function AboutPage() {
         (acc[r.team_profile_id] ??= []).push(r as TeamResult);
         return acc;
       }, {});
-      dbTeams = teamData.map((t) => ({
-        number: t.kart_number,
-        name: t.team_name,
-        accent: t.accent_color,
-        accentRgb: t.accent_rgb,
-        logo: normalizeTeamLogoUrl(t.logo_url, t.team_name),
-        secondaryLogo: t.team_name.toLowerCase().includes("claw racing") ? CLAW_CONSTRUCTION_LOGO_URL : undefined,
-        tagline: t.tagline || undefined,
-        website: t.website_url || undefined,
-        websiteLabel: t.team_name.toLowerCase().includes("claw racing") ? "See Our Other Work" : undefined,
-        results: resultsByTeam[t.id] ?? [],
-      })).map((team) => {
-          if (team.name.toLowerCase() === "scaff it up") {
-            return { ...team, logo: SCAFF_LOGO_URL };
-          }
-          if (team.name.toLowerCase().includes("claw racing")) {
-            return {
-              ...team,
-              logo: CLAW_RACING_PHOTO_URL,
-              secondaryLogo: CLAW_CONSTRUCTION_LOGO_URL,
-              website: "https://clawconstruction.com.au/",
-              websiteLabel: "See Our Other Work",
-            };
-          }
-          return team;
-        });
+      dbTeams = teamData.map((t) => {
+        const teamName = t.team_name.toLowerCase();
+        const normalizedLogo = normalizeTeamLogoUrl(t.logo_url, t.team_name);
+        const isClaw = teamName.includes("claw racing");
+
+        return {
+          number: t.kart_number,
+          name: t.team_name,
+          accent: t.accent_color,
+          accentRgb: t.accent_rgb,
+          logo: isClaw ? CLAW_RACING_PHOTO_URL : normalizedLogo,
+          secondaryLogo: isClaw ? normalizedLogo || CLAW_CONSTRUCTION_LOGO_URL : undefined,
+          tagline: t.tagline || undefined,
+          website: t.website_url || undefined,
+          websiteLabel: isClaw ? "See Our Other Work" : undefined,
+          results: resultsByTeam[t.id] ?? [],
+        };
+      });
       const seenNumbers = new Set(
         dbTeams
           .map((team) => team.number?.trim())

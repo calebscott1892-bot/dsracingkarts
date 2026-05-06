@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { archiveProductsMissingFromSquare, reconcileCatalogForAdminResync } from "@/lib/square-sync";
 
 // Generation walks every uncategorised product (~4k+ items), scores them
 // against every category profile, and bulk-inserts the suggestion rows.
@@ -452,11 +453,13 @@ export async function POST() {
 
   try {
     const service = createServiceClient();
+    const syncSummary = await reconcileCatalogForAdminResync();
+    const archiveSummary = await archiveProductsMissingFromSquare();
     const summary = await generateSuggestions(service, admin.userId);
 
     revalidatePath("/admin/category-assignments");
 
-    return NextResponse.json({ summary });
+    return NextResponse.json({ summary, syncSummary, archiveSummary });
   } catch (error: any) {
     return NextResponse.json(
       { error: error?.message || "Failed to generate category suggestions" },

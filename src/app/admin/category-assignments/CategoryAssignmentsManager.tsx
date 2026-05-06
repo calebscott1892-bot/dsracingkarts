@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download, RotateCcw, Target, Search } from "lucide-react";
 
@@ -76,6 +76,9 @@ export function CategoryAssignmentsManager({
   const [isGenerating, startGenerating] = useTransition();
   const [actingId, setActingId] = useState<string | null>(null);
   const [isBulkActing, startBulkAction] = useTransition();
+  const [localSuggestions, setLocalSuggestions] = useState(suggestions);
+  const [localSummary, setLocalSummary] = useState(summary);
+  const [generationMessage, setGenerationMessage] = useState<string | null>(null);
   // Default to "todo" so already-applied work disappears once the client
   // hits Apply — keeps the queue focused on what still needs attention.
   const [statusFilter, setStatusFilter] = useState<"todo" | "all" | "pending" | "approved" | "rejected" | "applied">("todo");
@@ -84,6 +87,44 @@ export function CategoryAssignmentsManager({
   const [pickerFor, setPickerFor] = useState<Suggestion | null>(null);
   const [pickerQuery, setPickerQuery] = useState("");
   const [pickerSubmitting, setPickerSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLocalSuggestions(suggestions);
+    setLocalSummary(summary);
+  }, [suggestions, summary]);
+
+  function updateStatusCounts(previousStatus: Suggestion["status"], nextStatus: Suggestion["status"]) {
+    setLocalSummary((current) => {
+      const next = { ...current };
+      if (previousStatus in next) {
+        next[previousStatus as keyof typeof next] = Math.max(
+          0,
+          next[previousStatus as keyof typeof next] - 1
+        );
+      }
+      if (nextStatus in next) {
+        next[nextStatus as keyof typeof next] += 1;
+      }
+      return next;
+    });
+  }
+
+  function updateSuggestion(
+    id: string,
+    buildNext: (suggestion: Suggestion) => Suggestion
+  ) {
+    setLocalSuggestions((current) =>
+      current.map((suggestion) => {
+        if (suggestion.id !== id) return suggestion;
+        const next = buildNext(suggestion);
+        if (next.status !== suggestion.status) {
+          updateStatusCounts(suggestion.status, next.status);
+        }
+        return next;
+      })
+    );
+    setSelectedIds((current) => current.filter((selectedId) => selectedId !== id));
+  }
 
   const filteredPickerCategories = useMemo(() => {
     const q = pickerQuery.trim().toLowerCase();
@@ -118,15 +159,23 @@ export function CategoryAssignmentsManager({
         alert(payload?.error || "Reassign failed.");
         return;
       }
+      const category = allCategories.find((option) => option.id === categoryId);
+      updateSuggestion(pickerFor.id, (suggestion) => ({
+        ...suggestion,
+        suggested_category_id: categoryId,
+        suggested_category_name: category?.name || suggestion.suggested_category_name,
+        suggested_parent_name: category?.parent_name || null,
+        rationale: "Manually reassigned via admin category picker.",
+        status: "approved",
+      }));
       closePicker();
-      router.refresh();
     } finally {
       setPickerSubmitting(false);
     }
   }
 
   const visibleSuggestions = useMemo(() => {
-    return suggestions.filter((suggestion) => {
+    return localSuggestions.filter((suggestion) => {
       const statusOkay =
         statusFilter === "all"
           ? true
@@ -137,7 +186,7 @@ export function CategoryAssignmentsManager({
         confidenceFilter === "all" ? true : suggestion.confidence_band === confidenceFilter;
       return statusOkay && confidenceOkay;
     });
-  }, [statusFilter, confidenceFilter, suggestions]);
+  }, [statusFilter, confidenceFilter, localSuggestions]);
 
   const selectableSuggestions = useMemo(
     () => visibleSuggestions.filter((suggestion) => ["pending", "approved", "rejected"].includes(suggestion.status)),
@@ -156,6 +205,14 @@ export function CategoryAssignmentsManager({
         return;
       }
 
+      const payload = await response.json().catch(() => null);
+      const syncSummary = payload?.syncSummary;
+      const archived = Number(payload?.archiveSummary?.archived || 0);
+      if (syncSummary) {
+        setGenerationMessage(
+          `Synced Square first: ${syncSummary.synced}/${syncSummary.scanned} catalog objects, ${syncSummary.failed} failed. Archived ${archived} stale site products.`
+        );
+      }
       router.refresh();
     });
   }
@@ -202,8 +259,13 @@ export function CategoryAssignmentsManager({
         return;
       }
 
+      for (const id of selectedIds) {
+        updateSuggestion(id, (suggestion) => ({
+          ...suggestion,
+          status: action === "approve" ? "approved" : "rejected",
+        }));
+      }
       setSelectedIds([]);
-      router.refresh();
     });
   }
 
@@ -228,14 +290,24 @@ export function CategoryAssignmentsManager({
       // that step failed (network, Square 4xx, missing IDs) the local row
       // has already changed but Square is still out of sync — surface the
       // warning so the user can retry.
+      const payload = await response.json().catch(() => null);
       if (action === "apply" || action === "revert") {
-        const payload = await response.json().catch(() => null);
         if (payload?.squareWarning) {
           alert(`Saved locally, but Square was not updated: ${payload.squareWarning}`);
         }
       }
 
-      router.refresh();
+      updateSuggestion(id, (suggestion) => {
+        if (action === "approve") return { ...suggestion, status: "approved" };
+        if (action === "reject") return { ...suggestion, status: "rejected" };
+        if (action === "repend") return { ...suggestion, status: "pending" };
+        if (action === "revert") return { ...suggestion, status: "reverted" };
+        const resultStatus = payload?.result?.status;
+        if (action === "apply" && (resultStatus === "applied" || resultStatus === "skipped")) {
+          return { ...suggestion, status: resultStatus };
+        }
+        return suggestion;
+      });
     } finally {
       setActingId(null);
     }
@@ -265,10 +337,16 @@ export function CategoryAssignmentsManager({
             className="btn-primary flex items-center gap-2 text-sm"
           >
             {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {isGenerating ? "Generating..." : "Generate Suggestions"}
+            {isGenerating ? "Syncing + Generating..." : "Sync Square + Generate Suggestions"}
           </button>
         </div>
       </div>
+
+      {generationMessage && (
+        <div className="border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-white/80">
+          {generationMessage}
+        </div>
+      )}
 
       <div className="border border-green-500/30 bg-green-500/10 px-4 py-4 flex gap-3">
         <ShieldCheck size={18} className="text-green-400 shrink-0 mt-0.5" />
@@ -320,16 +398,16 @@ export function CategoryAssignmentsManager({
         </div>
         <div className="card p-4">
           <p className="text-text-muted text-xs uppercase tracking-[0.2em] mb-2">Reviewable</p>
-          <p className="font-heading text-3xl text-white">{summary.high + summary.medium}</p>
+          <p className="font-heading text-3xl text-white">{localSummary.high + localSummary.medium}</p>
           <p className="text-text-muted text-xs mt-2">
-            {summary.high} high confidence / {summary.medium} medium confidence
+            {localSummary.high} high confidence / {localSummary.medium} medium confidence
           </p>
         </div>
         <div className="card p-4">
           <p className="text-text-muted text-xs uppercase tracking-[0.2em] mb-2">Approved / Applied</p>
-          <p className="font-heading text-3xl text-white">{summary.approved + summary.applied}</p>
+          <p className="font-heading text-3xl text-white">{localSummary.approved + localSummary.applied}</p>
           <p className="text-text-muted text-xs mt-2">
-            {summary.approved} approved waiting / {summary.applied} applied
+            {localSummary.approved} approved waiting / {localSummary.applied} applied
           </p>
         </div>
       </div>
@@ -338,13 +416,13 @@ export function CategoryAssignmentsManager({
         {[
           {
             key: "todo",
-            label: `Still To Do (${summary.pending + summary.approved + summary.rejected})`,
+            label: `Still To Do (${localSummary.pending + localSummary.approved + localSummary.rejected})`,
           },
           { key: "all", label: "All" },
-          { key: "pending", label: `Pending (${summary.pending})` },
-          { key: "approved", label: `Approved (${summary.approved})` },
-          { key: "rejected", label: `Rejected (${summary.rejected})` },
-          { key: "applied", label: `Applied (${summary.applied})` },
+          { key: "pending", label: `Pending (${localSummary.pending})` },
+          { key: "approved", label: `Approved (${localSummary.approved})` },
+          { key: "rejected", label: `Rejected (${localSummary.rejected})` },
+          { key: "applied", label: `Applied (${localSummary.applied})` },
         ].map((filter) => (
           <button
             key={filter.key}
@@ -363,10 +441,10 @@ export function CategoryAssignmentsManager({
       <div className="card p-4 flex flex-wrap gap-2">
         {[
           { key: "all", label: "All Confidence" },
-          { key: "high", label: `High (${summary.high})` },
-          { key: "medium", label: `Medium (${summary.medium})` },
-          { key: "low", label: `Low (${summary.low})` },
-          { key: "no_match", label: `No Match (${summary.no_match})` },
+          { key: "high", label: `High (${localSummary.high})` },
+          { key: "medium", label: `Medium (${localSummary.medium})` },
+          { key: "low", label: `Low (${localSummary.low})` },
+          { key: "no_match", label: `No Match (${localSummary.no_match})` },
         ].map((filter) => (
           <button
             key={filter.key}

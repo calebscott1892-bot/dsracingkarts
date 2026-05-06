@@ -33,6 +33,13 @@ export interface Team {
 
 export const DEFAULT_TEAM_PROFILES: Team[] = [
   {
+    number: "77",
+    name: "Dale Arrowsmith",
+    accent: "#831100",
+    accentRgb: "131,17,0",
+    tagline: "4SS Heavy",
+  },
+  {
     number: "338",
     name: "Scaff It Up",
     accent: "#f97316",
@@ -143,7 +150,9 @@ function SpeedLines({ color }: { color: string }) {
 /* ── Single Team Card ── */
 function TeamCard({ team }: { team: Team }) {
   const [showResults, setShowResults] = useState(false);
+  const [expandedMedia, setExpandedMedia] = useState<"primary" | "secondary" | null>(null);
   const hasResults = team.results && team.results.length > 0;
+  const hasSplitMedia = Boolean(team.logo && team.secondaryLogo);
 
   function ordinal(n: number) {
     const s = ["th", "st", "nd", "rd"];
@@ -204,29 +213,65 @@ function TeamCard({ team }: { team: Team }) {
                 className="group/logo relative w-full h-44 bg-black/30 border overflow-hidden"
                 style={{ borderColor: `rgba(${team.accentRgb}, 0.15)` }}
               >
-                {team.secondaryLogo ? (
-                  <>
-                    <Image
-                      src={team.logo}
-                      alt={`${team.name} photo`}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover/logo:scale-105"
-                      sizes="420px"
-                    />
-                    <div
-                      className="absolute inset-0 overflow-hidden transition-all duration-500 group-hover/logo:[clip-path:polygon(0_0,100%_0,100%_100%,38%_100%)]"
-                      style={{ clipPath: "polygon(62% 0, 100% 0, 100% 100%, 0 100%)" }}
+                {hasSplitMedia ? (
+                  <div
+                    className="absolute inset-0"
+                    onMouseLeave={() => setExpandedMedia(null)}
+                  >
+                    <button
+                      type="button"
+                      aria-label={`Expand ${team.name} photo`}
+                      onMouseEnter={() => setExpandedMedia("primary")}
+                      onFocus={() => setExpandedMedia("primary")}
+                      onClick={() =>
+                        setExpandedMedia((current) => current === "primary" ? null : "primary")
+                      }
+                      className="absolute inset-0 overflow-hidden transition-all duration-500"
+                      style={{
+                        clipPath:
+                          expandedMedia === "secondary"
+                            ? "polygon(0 0, 28% 0, 0 100%, 0 100%)"
+                            : expandedMedia === "primary"
+                              ? "polygon(0 0, 100% 0, 72% 100%, 0 100%)"
+                              : "polygon(0 0, 68% 0, 38% 100%, 0 100%)",
+                      }}
                     >
                       <Image
-                        src={team.secondaryLogo}
-                        alt={`${team.name} logo`}
+                        src={team.logo as string}
+                        alt={`${team.name} photo`}
                         fill
-                        className="object-contain bg-black/70 p-4 transition-transform duration-500 group-hover/logo:scale-105"
+                        className="object-cover transition-transform duration-500"
                         sizes="420px"
                       />
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,transparent_46%,rgba(255,255,255,0.18)_49%,transparent_52%)] opacity-80" />
-                  </>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Expand ${team.name} logo`}
+                      onMouseEnter={() => setExpandedMedia("secondary")}
+                      onFocus={() => setExpandedMedia("secondary")}
+                      onClick={() =>
+                        setExpandedMedia((current) => current === "secondary" ? null : "secondary")
+                      }
+                      className="absolute inset-0 overflow-hidden transition-all duration-500"
+                      style={{
+                        clipPath:
+                          expandedMedia === "primary"
+                            ? "polygon(100% 0, 100% 0, 100% 100%, 72% 100%)"
+                            : expandedMedia === "secondary"
+                              ? "polygon(28% 0, 100% 0, 100% 100%, 0 100%)"
+                              : "polygon(68% 0, 100% 0, 100% 100%, 38% 100%)",
+                      }}
+                    >
+                      <Image
+                        src={team.secondaryLogo as string}
+                        alt={`${team.name} logo`}
+                        fill
+                        className="object-contain bg-black/75 p-4 transition-transform duration-500"
+                        sizes="420px"
+                      />
+                    </button>
+                    <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(135deg,transparent_47%,rgba(255,255,255,0.22)_49%,transparent_51%)] opacity-90" />
+                  </div>
                 ) : (
                   <Image
                     src={team.logo}
