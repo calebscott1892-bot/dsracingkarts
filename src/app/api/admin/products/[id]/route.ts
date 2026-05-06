@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { stripHtml, slugify } from "@/lib/utils";
+import { pushItemCategoryToSquare } from "@/lib/square-sync";
 
 async function verifyAdmin() {
   const supabase = await createClient();
@@ -41,6 +43,27 @@ export async function PUT(
 
   const body = await request.json();
   const service = createServiceClient();
+  const requestedCategoryIds: string[] | null = Array.isArray(body.categories)
+    ? body.categories.filter((id: unknown): id is string => typeof id === "string")
+    : null;
+
+  const [{ data: existingProduct }, { data: existingCategories }] = await Promise.all([
+    service
+      .from("products")
+      .select("slug, square_token")
+      .eq("id", id)
+      .maybeSingle(),
+    service
+      .from("product_categories")
+      .select("category_id, categories(square_id)")
+      .eq("product_id", id),
+  ]);
+
+  const existingCategoryIds = new Set<string>(
+    (existingCategories || [])
+      .map((row: any) => row.category_id)
+      .filter((categoryId: unknown): categoryId is string => typeof categoryId === "string")
+  );
 
   // Update product
   const { error: productError } = await service
@@ -91,7 +114,7 @@ export async function PUT(
   }
 
   // Update categories
-  if (body.categories) {
+  if (requestedCategoryIds) {
     // Remove existing
     const { error: deleteCategoriesError } = await service
       .from("product_categories")
@@ -101,9 +124,9 @@ export async function PUT(
       return NextResponse.json({ error: deleteCategoriesError.message }, { status: 500 });
     }
     // Re-insert
-    if (body.categories.length > 0) {
+    if (requestedCategoryIds.length > 0) {
       const { error: insertCategoriesError } = await service.from("product_categories").insert(
-        body.categories.map((catId: string) => ({
+        requestedCategoryIds.map((catId: string) => ({
           product_id: id,
           category_id: catId,
         }))
@@ -114,5 +137,65 @@ export async function PUT(
     }
   }
 
-  return NextResponse.json({ success: true });
+  let squareWarning: string | null = null;
+  if (requestedCategoryIds && existingProduct?.square_token) {
+    const requestedSet = new Set<string>(requestedCategoryIds);
+    const categoryIdsToSync = Array.from(
+      new Set([
+        ...Array.from(existingCategoryIds),
+        ...requestedCategoryIds,
+      ])
+    );
+    const { data: categoryRows, error: categoryFetchError } = await service
+      .from("categories")
+      .select("id, square_id")
+      .in("id", categoryIdsToSync);
+
+    if (categoryFetchError) {
+      squareWarning = `Website saved, but Square category lookup failed: ${categoryFetchError.message}`;
+    } else {
+      const squareIdByCategoryId = new Map<string, string | null>(
+        (categoryRows || []).map((category: any) => [category.id, category.square_id])
+      );
+      const toAdd = requestedCategoryIds.filter((catId) => !existingCategoryIds.has(catId));
+      const toRemove = Array.from(existingCategoryIds).filter((catId) => !requestedSet.has(catId));
+
+      for (const categoryId of toAdd) {
+        const squareCategoryId = squareIdByCategoryId.get(categoryId);
+        if (!squareCategoryId) {
+          squareWarning = "Website saved, but at least one category has no Square ID.";
+          continue;
+        }
+        const result = await pushItemCategoryToSquare(
+          existingProduct.square_token,
+          squareCategoryId,
+          "add",
+          `product-edit-add-${id}-${categoryId}-${Date.now()}`
+        );
+        if (!result.ok) squareWarning = result.reason;
+      }
+
+      for (const categoryId of toRemove) {
+        const squareCategoryId = squareIdByCategoryId.get(categoryId);
+        if (!squareCategoryId) {
+          squareWarning = "Website saved, but at least one removed category has no Square ID.";
+          continue;
+        }
+        const result = await pushItemCategoryToSquare(
+          existingProduct.square_token,
+          squareCategoryId,
+          "remove",
+          `product-edit-remove-${id}-${categoryId}-${Date.now()}`
+        );
+        if (!result.ok) squareWarning = result.reason;
+      }
+    }
+  }
+
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${id}`);
+  revalidatePath("/shop");
+  if (existingProduct?.slug) revalidatePath(`/product/${existingProduct.slug}`);
+
+  return NextResponse.json({ success: true, squareWarning });
 }

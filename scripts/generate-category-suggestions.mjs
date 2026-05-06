@@ -15,6 +15,11 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 const outputDir = path.join(process.cwd(), "tmp");
+const shouldWriteDb = process.argv.includes("--write-db");
+
+const MANUAL_CATEGORY_HINTS = [
+  { keywords: ["tie rod", "tie rods", "tie-rod", "tierod"], categoryName: "Steering & Components" },
+];
 
 const STOP_WORDS = new Set([
   "and",
@@ -87,6 +92,22 @@ function scoreCategory(productTokens, categoryProfile) {
     matchedNameTokens: [...new Set(matchedNameTokens)],
     matchedCorpusTokens: [...new Set(matchedCorpusTokens)].slice(0, 10),
   };
+}
+
+function findManualHintCategory(productText, categories) {
+  const haystack = productText.toLowerCase();
+  for (const hint of MANUAL_CATEGORY_HINTS) {
+    const matchedKeyword = hint.keywords.find((keyword) =>
+      haystack.includes(keyword.toLowerCase())
+    );
+    if (!matchedKeyword) continue;
+
+    const category = categories.find(
+      (candidate) => candidate.name.toLowerCase() === hint.categoryName.toLowerCase()
+    );
+    if (category) return { category, matchedKeyword };
+  }
+  return null;
 }
 
 function csvEscape(value) {
@@ -208,9 +229,26 @@ async function main() {
   const suggestionRows = [];
 
   for (const product of uncategorizedProducts) {
-    const productTokens = tokenize(
-      [product.name, product.sku, product.description_plain].filter(Boolean).join(" ")
-    );
+    const joinedText = [product.name, product.sku, product.description_plain].filter(Boolean).join(" ");
+    const productTokens = tokenize(joinedText);
+
+    const manualHint = findManualHintCategory(joinedText, categories);
+    if (manualHint) {
+      suggestionRows.push({
+        product_id: product.id,
+        square_token: product.square_token,
+        product_name: product.name,
+        sku: product.sku || "",
+        suggested_category_id: manualHint.category.id,
+        suggested_category_name: manualHint.category.name,
+        confidence: 0.95,
+        confidence_band: "high",
+        rationale: `Manual override: matched keyword "${manualHint.matchedKeyword}" -> ${manualHint.category.name}.`,
+        alternatives: "",
+        review_status: "review_recommended",
+      });
+      continue;
+    }
 
     if (productTokens.length === 0) {
       suggestionRows.push({
@@ -321,12 +359,58 @@ async function main() {
 
   await fs.writeFile(csvPath, csv);
 
+  let dbRunId = null;
+  if (shouldWriteDb) {
+    const highConfidenceCount = suggestionRows.filter((row) => row.confidence_band === "high").length;
+    const mediumConfidenceCount = suggestionRows.filter((row) => row.confidence_band === "medium").length;
+    const lowConfidenceCount = suggestionRows.filter((row) => row.confidence_band === "low").length;
+    const noMatchCount = suggestionRows.filter((row) => !row.suggested_category_id).length;
+
+    const notes = `Generated ${suggestionRows.length} review rows from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}. Completed.`;
+    const { data: run, error: runError } = await supabase
+      .from("category_assignment_runs")
+      .insert({
+        mode: "suggestion",
+        source: "script",
+        notes,
+        created_by: null,
+      })
+      .select("id")
+      .single();
+
+    if (runError || !run) {
+      throw runError || new Error("Failed to create category assignment run");
+    }
+
+    dbRunId = run.id;
+    const dbRows = suggestionRows.map((row) => ({
+      run_id: dbRunId,
+      product_id: row.product_id,
+      product_square_token: row.square_token,
+      product_name: row.product_name,
+      previous_category_ids: [],
+      suggested_category_id: row.suggested_category_id || null,
+      confidence: row.confidence || 0,
+      rationale: row.rationale || "",
+      status: "pending",
+    }));
+
+    const chunkSize = 500;
+    for (let index = 0; index < dbRows.length; index += chunkSize) {
+      const { error } = await supabase
+        .from("category_assignment_suggestions")
+        .insert(dbRows.slice(index, index + chunkSize));
+      if (error) throw error;
+    }
+  }
+
   const summary = {
     uncategorizedCount: uncategorizedProducts.length,
     suggestedCount: suggestionRows.filter((row) => row.suggested_category_id).length,
     highConfidenceCount: suggestionRows.filter((row) => row.confidence_band === "high").length,
     mediumConfidenceCount: suggestionRows.filter((row) => row.confidence_band === "medium").length,
     manualReviewCount: suggestionRows.filter((row) => row.review_status === "manual_review_required").length,
+    dbRunId,
     jsonPath,
     csvPath,
   };

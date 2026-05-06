@@ -214,6 +214,7 @@ export function CategoryAssignmentsManager({
         );
       }
       router.refresh();
+      setTimeout(() => router.refresh(), 1000);
     });
   }
 
@@ -308,6 +309,56 @@ export function CategoryAssignmentsManager({
         }
         return suggestion;
       });
+    } finally {
+      setActingId(null);
+    }
+  }
+
+  async function runApproveAndApply(id: string) {
+    const suggestion = localSuggestions.find((row) => row.id === id);
+    if (!suggestion?.suggested_category_id) return;
+    if (
+      !confirm(
+        `Approve and apply this category to "${suggestion.product_name}" now? This will update the website and push the category to Square.`
+      )
+    ) {
+      return;
+    }
+
+    setActingId(id);
+    try {
+      const approveResponse = await fetch(`/api/admin/category-assignments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "approve" }),
+      });
+      if (!approveResponse.ok) {
+        const payload = await approveResponse.json().catch(() => null);
+        alert(payload?.error || "Approve failed.");
+        return;
+      }
+
+      const applyResponse = await fetch(`/api/admin/category-assignments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "apply" }),
+      });
+      if (!applyResponse.ok) {
+        const payload = await applyResponse.json().catch(() => null);
+        alert(payload?.error || "Apply failed.");
+        updateSuggestion(id, (row) => ({ ...row, status: "approved" }));
+        return;
+      }
+
+      const payload = await applyResponse.json().catch(() => null);
+      if (payload?.squareWarning) {
+        alert(`Saved locally, but Square was not updated: ${payload.squareWarning}`);
+      }
+      const resultStatus = payload?.result?.status;
+      updateSuggestion(id, (row) => ({
+        ...row,
+        status: resultStatus === "skipped" ? "skipped" : "applied",
+      }));
     } finally {
       setActingId(null);
     }
@@ -571,13 +622,22 @@ export function CategoryAssignmentsManager({
                       {suggestion.status === "pending" && (
                         <>
                           {suggestion.suggested_category_id ? (
-                            <button
-                              onClick={() => runAction(suggestion.id, "approve")}
-                              disabled={isBusy}
-                              className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
-                            >
-                              <Check size={14} /> Approve
-                            </button>
+                            <>
+                              <button
+                                onClick={() => runApproveAndApply(suggestion.id)}
+                                disabled={isBusy}
+                                className="btn-primary text-xs px-3 py-2 flex items-center gap-1"
+                              >
+                                <Play size={14} /> Approve + Apply
+                              </button>
+                              <button
+                                onClick={() => runAction(suggestion.id, "approve")}
+                                disabled={isBusy}
+                                className="btn-secondary text-xs px-3 py-2 flex items-center gap-1"
+                              >
+                                <Check size={14} /> Approve Only
+                              </button>
+                            </>
                           ) : (
                             <button
                               onClick={() => openPicker(suggestion)}

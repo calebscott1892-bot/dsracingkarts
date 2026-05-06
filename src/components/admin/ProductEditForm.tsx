@@ -108,9 +108,14 @@ export function ProductEditForm({ product, allCategories }: Props) {
       });
 
       if (res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data?.squareWarning) {
+          alert(`Saved locally, but Square was not fully updated: ${data.squareWarning}`);
+        }
         router.refresh();
       } else {
-        alert("Save failed. Check console for details.");
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Save failed. Check console for details.");
       }
     } catch (err) {
       console.error(err);
