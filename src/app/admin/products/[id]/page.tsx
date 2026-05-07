@@ -23,6 +23,11 @@ export default async function AdminProductEditPage({ params }: Props) {
         id, name, sku, price, sale_price, sort_order,
         variation_options ( id, option_name, option_value )
       ),
+      product_supplier_costs (
+        id, supplier_sku, supplier_item_name, wholesale_price, retail_price, currency, source, updated_at,
+        suppliers ( id, name ),
+        product_variations ( id, name, sku, price )
+      ),
       product_categories ( category_id, categories ( id, name, slug ) )
     `)
     .eq("id", id)

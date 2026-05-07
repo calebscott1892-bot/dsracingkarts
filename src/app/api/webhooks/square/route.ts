@@ -195,6 +195,7 @@ export async function GET() {
   return NextResponse.json({
     configured: Boolean(WEBHOOK_SECRET),
     url: WEBHOOK_URL,
+    recommendedUrl: "https://www.dsracingkarts.com.au/api/webhooks/square",
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL || null,
     accessTokenPresent: Boolean(process.env.SQUARE_ACCESS_TOKEN),
     locationIdPresent: Boolean(process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID),

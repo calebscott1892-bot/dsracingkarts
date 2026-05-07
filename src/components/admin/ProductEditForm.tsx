@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Save, ExternalLink, Star, Upload, X } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
 
 interface Props {
   product: any;
@@ -143,6 +144,7 @@ export function ProductEditForm({ product, allCategories }: Props) {
   }
 
   const isSquareSynced = Boolean(product.square_token);
+  const supplierCosts = product.product_supplier_costs || [];
 
   return (
     <div className="space-y-8">
@@ -163,6 +165,58 @@ export function ProductEditForm({ product, allCategories }: Props) {
             </a>{" "}
             or use <span className="text-white">Bulk Pricing</span> for global % price changes. Status, visibility, SEO, categories, and images remain site-only and stick.
           </p>
+        </div>
+      )}
+
+      {supplierCosts.length > 0 && (
+        <div className="card p-6 space-y-4 border-l-4 border-l-cyan-500 bg-cyan-500/5">
+          <div>
+            <h2 className="font-heading text-lg uppercase tracking-wider">
+              Supplier Costs
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">
+              Supplier/vendor reference imported from supplier spreadsheets. This does not overwrite Square pricing.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-600 text-left text-[10px] uppercase tracking-wider text-text-muted">
+                  <th className="pb-2 pr-4">Vendor</th>
+                  <th className="pb-2 pr-4">Supplier SKU</th>
+                  <th className="pb-2 pr-4">Supplier Item</th>
+                  <th className="pb-2 pr-4">Variation</th>
+                  <th className="pb-2 pr-4 text-right">Cost</th>
+                  <th className="pb-2 text-right">RRP</th>
+                </tr>
+              </thead>
+              <tbody>
+                {supplierCosts.map((cost: any) => (
+                  <tr key={cost.id} className="border-b border-surface-700/50">
+                    <td className="py-3 pr-4 font-heading text-xs uppercase tracking-wider text-cyan-300">
+                      {cost.suppliers?.name || "Unknown"}
+                    </td>
+                    <td className="py-3 pr-4 font-mono text-xs text-white">
+                      {cost.supplier_sku}
+                    </td>
+                    <td className="py-3 pr-4 text-text-secondary">
+                      {cost.supplier_item_name}
+                    </td>
+                    <td className="py-3 pr-4 text-text-muted">
+                      {cost.product_variations?.sku || cost.product_variations?.name || "-"}
+                    </td>
+                    <td className="py-3 pr-4 text-right font-mono text-white">
+                      {cost.wholesale_price == null ? "-" : formatPrice(Number(cost.wholesale_price))}
+                    </td>
+                    <td className="py-3 text-right font-mono text-text-secondary">
+                      {cost.retail_price == null ? "-" : formatPrice(Number(cost.retail_price))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

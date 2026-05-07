@@ -41,6 +41,9 @@ export async function GET() {
     webhookSecretPresent: Boolean(process.env.SQUARE_WEBHOOK_SIGNATURE_KEY),
     serviceRolePresent: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     siteUrl: process.env.NEXT_PUBLIC_SITE_URL || null,
+    webhookUrl:
+      process.env.SQUARE_WEBHOOK_URL ||
+      "https://www.dsracingkarts.com.au/api/webhooks/square",
     environment: process.env.SQUARE_ENVIRONMENT || "sandbox",
   };
 

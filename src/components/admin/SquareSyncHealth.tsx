@@ -10,6 +10,7 @@ type Status = {
     webhookSecretPresent: boolean;
     serviceRolePresent: boolean;
     siteUrl: string | null;
+    webhookUrl?: string;
     environment: string;
   };
   square: { ok: boolean; locationName?: string | null; error?: string };
@@ -305,7 +306,7 @@ export function SquareSyncHealth() {
         <p className="mt-4 text-[11px] text-yellow-400 leading-relaxed">
           To enable real-time sync, set <code>SQUARE_WEBHOOK_SIGNATURE_KEY</code> on Vercel
           and register the webhook URL{" "}
-          <code>{status?.env.siteUrl || "https://dsracingkarts.com.au"}/api/webhooks/square</code>{" "}
+          <code>{status?.env.webhookUrl || "https://www.dsracingkarts.com.au/api/webhooks/square"}</code>{" "}
           in the Square Developer portal.
         </p>
       )}

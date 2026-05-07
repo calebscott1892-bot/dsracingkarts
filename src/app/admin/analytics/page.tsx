@@ -13,13 +13,19 @@ const GA_PROPERTY_ID = process.env.GA4_PROPERTY_ID ?? null;
 export default async function AnalyticsPage() {
   const realData = await getAnalyticsData();
   const isConnected = !!realData;
-  const hasPropertyId = isConnected;
+  const hasPropertyId = !!GA_PROPERTY_ID;
   const hasServiceAccount = !!(process.env.GA4_SERVICE_ACCOUNT_EMAIL && process.env.GA4_PRIVATE_KEY);
   const hasOAuth = !!(
     process.env.GA4_OAUTH_CLIENT_ID &&
     process.env.GA4_OAUTH_CLIENT_SECRET &&
     process.env.GA4_OAUTH_REFRESH_TOKEN
   );
+  const hasCredentials = hasServiceAccount || hasOAuth;
+  const missingAnalyticsConfig = [
+    !GA_PROPERTY_ID ? "GA4_PROPERTY_ID" : null,
+    !hasCredentials ? "analytics credentials" : null,
+    GA_PROPERTY_ID && hasCredentials && !isConnected ? "GA4 API access/permissions" : null,
+  ].filter(Boolean);
   const data = realData ?? getStubAnalyticsData();
   const generatedAt = new Intl.DateTimeFormat("en-AU", {
     dateStyle: "medium",
@@ -45,19 +51,21 @@ export default async function AnalyticsPage() {
         </a>
       </div>
 
-      <div className={`mb-8 p-4 border rounded ${hasPropertyId ? "border-green-500/30 bg-green-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+      <div className={`mb-8 p-4 border rounded ${isConnected ? "border-green-500/30 bg-green-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
         <div className="flex items-start gap-3">
-          <BarChart2 size={18} className={hasPropertyId ? "text-green-400 shrink-0 mt-0.5" : "text-amber-400 shrink-0 mt-0.5"} />
+          <BarChart2 size={18} className={isConnected ? "text-green-400 shrink-0 mt-0.5" : "text-amber-400 shrink-0 mt-0.5"} />
           <div>
             <p className="font-heading text-sm uppercase tracking-wider mb-1">
               {isConnected ? "Google Analytics Connected" : "Google Analytics Needs Connection"}
             </p>
             <p className="text-text-muted text-sm">
-              {hasPropertyId
+              {isConnected
                 ? `GA4 measurement ID ${GA_PROPERTY} is active. Displaying live admin metrics below.`
-                : `Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured.`}
+                : hasPropertyId && hasCredentials
+                  ? "Showing sample metrics because GA4 is configured but the API request is still being rejected. Check the GA4 property access granted to the service account/OAuth user."
+                  : "Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured."}
             </p>
-            {hasPropertyId ? (
+            {isConnected ? (
               <p className="text-text-muted text-xs mt-2">
                 Live GA4 connection active. Realtime users update first; summary reports can take a little longer to settle. Last refresh: {generatedAt}.
               </p>
@@ -67,7 +75,7 @@ export default async function AnalyticsPage() {
                   Find your numeric Property ID: GA4 {"->"} Admin {"->"} Property Settings {"->"} Property ID
                 </p>
                 <p className="text-text-muted text-xs mt-1">
-                  Missing now: {!GA_PROPERTY_ID ? "GA4_PROPERTY_ID " : ""}{!hasServiceAccount && !hasOAuth ? "analytics credentials" : ""}
+                  Missing now: {missingAnalyticsConfig.join(", ") || "none detected - check GA4 API access/permissions"}
                 </p>
               </>
             )}
@@ -77,7 +85,7 @@ export default async function AnalyticsPage() {
 
       <AnalyticsDashboard data={data} />
 
-      {!hasPropertyId && (
+      {!isConnected && (
         <div className="card p-6 border border-surface-600/30 mt-10">
           <h2 className="font-heading text-lg uppercase tracking-wider mb-4">Enable Real Analytics</h2>
           <p className="text-text-muted text-sm mb-4">
