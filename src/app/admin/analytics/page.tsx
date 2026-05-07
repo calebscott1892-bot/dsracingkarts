@@ -1,6 +1,6 @@
 import { BarChart2, ExternalLink } from "lucide-react";
 import type { Metadata } from "next";
-import { getAnalyticsData, getStubAnalyticsData } from "@/lib/analytics";
+import { getAnalyticsResult, getStubAnalyticsData } from "@/lib/analytics";
 import { AnalyticsDashboard } from "./AnalyticsDashboard";
 
 export const metadata: Metadata = {
@@ -11,7 +11,8 @@ const GA_PROPERTY = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? "G-VKQDZ8KQ8J";
 const GA_PROPERTY_ID = process.env.GA4_PROPERTY_ID ?? null;
 
 export default async function AnalyticsPage() {
-  const realData = await getAnalyticsData();
+  const analyticsResult = await getAnalyticsResult();
+  const realData = analyticsResult.data;
   const isConnected = !!realData;
   const hasPropertyId = !!GA_PROPERTY_ID;
   const hasServiceAccount = !!(process.env.GA4_SERVICE_ACCOUNT_EMAIL && process.env.GA4_PRIVATE_KEY);
@@ -62,9 +63,14 @@ export default async function AnalyticsPage() {
               {isConnected
                 ? `GA4 measurement ID ${GA_PROPERTY} is active. Displaying live admin metrics below.`
                 : hasPropertyId && hasCredentials
-                  ? "Showing sample metrics because GA4 is configured but the API request is still being rejected. Check the GA4 property access granted to the service account/OAuth user."
+                  ? "Showing sample metrics because GA4 is configured but the API request is still being rejected. Check the diagnostic below."
                   : "Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured."}
             </p>
+            {analyticsResult.error && (
+              <p className="text-amber-200 text-xs mt-2 break-words">
+                Diagnostic: {analyticsResult.error}
+              </p>
+            )}
             {isConnected ? (
               <p className="text-text-muted text-xs mt-2">
                 Live GA4 connection active. Realtime users update first; summary reports can take a little longer to settle. Last refresh: {generatedAt}.

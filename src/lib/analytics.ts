@@ -6,6 +6,10 @@ const DATA_API_BASE = "https://analyticsdata.googleapis.com/v1beta";
 
 type AnalyticsData = ReturnType<typeof getStubAnalyticsData>;
 
+type AnalyticsResult =
+  | { data: AnalyticsData; error: null }
+  | { data: null; error: string | null };
+
 function base64Url(input: string | Buffer) {
   return Buffer.from(input)
     .toString("base64")
@@ -129,7 +133,16 @@ function secondsToDuration(seconds: number) {
  * Mock analytics data for development/demo purposes
  * Replace with real GA4 API calls when credentials are configured
  */
-export async function getAnalyticsData() {
+function publicAnalyticsError(error: unknown) {
+  if (!(error instanceof Error)) return "Unknown GA4 API error";
+
+  return error.message
+    .replace(/"access_token"\s*:\s*"[^"]+"/g, '"access_token":"[redacted]"')
+    .replace(/"refresh_token"\s*:\s*"[^"]+"/g, '"refresh_token":"[redacted]"')
+    .slice(0, 300);
+}
+
+export async function getAnalyticsResult(): Promise<AnalyticsResult> {
   const hasServiceAccountConfig = !!(
     process.env.GA4_PROPERTY_ID &&
     process.env.GA4_SERVICE_ACCOUNT_EMAIL &&
@@ -144,12 +157,12 @@ export async function getAnalyticsData() {
   const hasConfig = hasServiceAccountConfig || hasOAuthConfig;
 
   if (!hasConfig) {
-    return null;
+    return { data: null, error: null };
   }
 
   try {
     const accessToken = await getAccessToken();
-    if (!accessToken) return null;
+    if (!accessToken) return { data: null, error: "GA4 credentials are configured but no access token was returned" };
 
     const [realtime, summary, topPages, trafficSources, conversionEvents] = await Promise.all([
       gaRequest<any>(
@@ -225,6 +238,7 @@ export async function getAnalyticsData() {
     const purchases = Number(eventCounts.get("purchase") || 0);
 
     return {
+      data: {
       audienceMetrics: {
         activeUsers: metric(realtime.rows?.[0], 0),
         newUsers: metric(summaryRow, 1),
@@ -254,11 +268,18 @@ export async function getAnalyticsData() {
         purchase: purchases,
         conversionRate: pageViews > 0 ? `${((purchases / pageViews) * 100).toFixed(2)}%` : "0.00%",
       },
-    } satisfies AnalyticsData;
+      } satisfies AnalyticsData,
+      error: null,
+    };
   } catch (error) {
     console.error("GA4 API Error:", error);
-    return null;
+    return { data: null, error: publicAnalyticsError(error) };
   }
+}
+
+export async function getAnalyticsData() {
+  const result = await getAnalyticsResult();
+  return result.data;
 }
 
 /**
