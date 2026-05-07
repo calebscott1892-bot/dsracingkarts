@@ -63,7 +63,7 @@ export default async function AnalyticsPage() {
               {isConnected
                 ? `GA4 measurement ID ${GA_PROPERTY} is active. Displaying live admin metrics below.`
                 : hasPropertyId && hasCredentials
-                  ? "Showing sample metrics because GA4 is configured but the API request is still being rejected. Check the diagnostic below."
+                  ? "Showing sample metrics because GA4 is configured but the API request is still being rejected. Check the diagnostic below. Service-account credentials are preferred for production."
                   : "Showing sample metrics until GA4_PROPERTY_ID and either service-account or OAuth analytics credentials are configured."}
             </p>
             {analyticsResult.error && (
@@ -111,7 +111,7 @@ export default async function AnalyticsPage() {
             </li>
             <li>Redeploy after adding the environment variables.</li>
             <li>
-              Add one of these authentication methods so the admin panel can read GA4 directly:
+              Add one of these authentication methods so the admin panel can read GA4 directly. Service-account credentials are preferred for production:
               <pre className="mt-2 bg-surface-800 border border-surface-600 p-3 text-xs overflow-x-auto text-white/70 rounded ml-6">{`# Create Google Cloud service account
 # Grant it Viewer access to your GA4 property
 # Then add these secrets:

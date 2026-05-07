@@ -49,10 +49,7 @@ async function getOAuthRefreshAccessToken() {
   return data.access_token as string;
 }
 
-async function getAccessToken() {
-  const oauthAccessToken = await getOAuthRefreshAccessToken();
-  if (oauthAccessToken) return oauthAccessToken;
-
+async function getServiceAccountAccessToken() {
   const clientEmail = process.env.GA4_SERVICE_ACCOUNT_EMAIL;
   const privateKey = getPrivateKey();
   if (!clientEmail || !privateKey) return null;
@@ -90,6 +87,32 @@ async function getAccessToken() {
 
   const data = await response.json();
   return data.access_token as string;
+}
+
+async function getAccessToken() {
+  const hasOAuth = !!(
+    process.env.GA4_OAUTH_CLIENT_ID &&
+    process.env.GA4_OAUTH_CLIENT_SECRET &&
+    process.env.GA4_OAUTH_REFRESH_TOKEN
+  );
+  let oauthError: unknown = null;
+
+  if (hasOAuth) {
+    try {
+      const oauthAccessToken = await getOAuthRefreshAccessToken();
+      if (oauthAccessToken) return oauthAccessToken;
+    } catch (error) {
+      oauthError = error;
+      console.warn("GA4 OAuth token failed; trying service account fallback if configured");
+    }
+  }
+
+  const serviceAccountAccessToken = await getServiceAccountAccessToken();
+  if (serviceAccountAccessToken) return serviceAccountAccessToken;
+
+  if (oauthError) throw oauthError;
+
+  return null;
 }
 
 async function gaRequest<T>(path: string, body: Record<string, unknown>, accessToken: string): Promise<T> {
