@@ -32,6 +32,8 @@ type ShopCategory = {
   slug: string;
   parent_id: string | null;
   square_id?: string | null;
+  image_url?: string | null;
+  sort_order?: number | null;
 };
 
 function normalizeCategoryKey(name: string) {
@@ -74,7 +76,13 @@ function buildCategoryLookup(categories: ShopCategory[]) {
     ]);
   }
 
-  const dedupedCategories = Array.from(canonicalByKey.values()).sort((a, b) =>
+  const dedupedCategories = Array.from(canonicalByKey.values()).map((category) => {
+    if (!category.parent_id) return category;
+    const parent = byId.get(category.parent_id);
+    if (!parent) return category;
+    const canonicalParent = canonicalByKey.get(dedupeKey(parent));
+    return canonicalParent ? { ...category, parent_id: canonicalParent.id } : category;
+  }).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
 
@@ -120,20 +128,46 @@ export default async function ShopPage({ searchParams }: Props) {
   const page = parseInt(params.page || "1", 10);
   const offset = (page - 1) * PAGE_SIZE;
 
+  const { data: allCategories } = await supabase
+    .from("categories")
+    .select("id, name, parent_id, slug, square_id, image_url, sort_order")
+    .order("name");
+
+  const categoryLookup = buildCategoryLookup((allCategories || []) as ShopCategory[]);
+  const dedupedCategories = categoryLookup.dedupedCategories;
+  const selectedCategory = params.category
+    ? dedupedCategories.find((c) => c.slug === params.category)
+    : null;
+
+  const selectedCanonicalIds = selectedCategory
+    ? categoryLookup.idsByCanonicalSlug.get(selectedCategory.slug) || [selectedCategory.id]
+    : [];
+
+  const selectedChildCategories = selectedCategory
+    ? dedupedCategories
+        .filter((category) => category.parent_id && selectedCanonicalIds.includes(category.parent_id))
+        .map((category) => ({
+          id: category.id,
+          name: category.name,
+          slug: category.slug,
+          image_url: category.image_url ?? null,
+          sort_order: category.sort_order ?? 0,
+        }))
+        .sort(
+          (a, b) =>
+            (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name)
+        )
+    : [];
+
+  const showSubcategoryLanding = selectedChildCategories.length > 0;
+
   let categoryProductIds: string[] | null = null;
   if (params.category) {
-    const { data: allCats } = await supabase
-      .from("categories")
-      .select("id, name, parent_id, slug, square_id");
-
-    const categoryLookup = buildCategoryLookup((allCats || []) as ShopCategory[]);
-    const matchedCat = categoryLookup.dedupedCategories.find((c) => c.slug === params.category);
-    if (matchedCat) {
-      const canonicalIds = categoryLookup.idsByCanonicalSlug.get(matchedCat.slug) || [matchedCat.id];
-      const childIds = (allCats || [])
-        .filter((c) => canonicalIds.includes(c.parent_id || ""))
+    if (selectedCategory) {
+      const childIds = (allCategories || [])
+        .filter((c) => selectedCanonicalIds.includes(c.parent_id || ""))
         .map((c) => c.id);
-      const catIds = Array.from(new Set([...canonicalIds, ...childIds]));
+      const catIds = Array.from(new Set([...selectedCanonicalIds, ...childIds]));
       const { data: pcRows } = await supabase
         .from("product_categories")
         .select("product_id")
@@ -189,13 +223,6 @@ export default async function ShopPage({ searchParams }: Props) {
   const { data: products, count } = await query;
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
 
-  const { data: categories } = await supabase
-    .from("categories")
-    .select("id, name, slug, parent_id, square_id, image_url, sort_order")
-    .order("name");
-
-  const dedupedCategories = buildCategoryLookup((categories || []) as ShopCategory[]).dedupedCategories;
-
   // Top-level categories (no parent) for the mobile category-first landing.
   // Re-uses the same CategoryGrid the homepage uses, so any new category
   // the client adds in Square (or accepts via the suggestion flow) shows
@@ -203,13 +230,12 @@ export default async function ShopPage({ searchParams }: Props) {
   const topLevelCategories = dedupedCategories
     .filter((c) => !c.parent_id)
     .map((c) => {
-      const full = (categories || []).find((row) => row.id === c.id);
       return {
         id: c.id,
         name: c.name,
         slug: c.slug,
-        image_url: (full as any)?.image_url ?? null,
-        sort_order: (full as any)?.sort_order ?? 0,
+        image_url: c.image_url ?? null,
+        sort_order: c.sort_order ?? 0,
       };
     })
     .sort(
@@ -308,7 +334,9 @@ export default async function ShopPage({ searchParams }: Props) {
         >
           <span className="h-[1px] w-8 bg-brand-red" />
           <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
-            {count || 0} Products
+            {showSubcategoryLanding
+              ? `${selectedChildCategories.length} Subcategories`
+              : `${count || 0} Products`}
           </span>
         </div>
         <h1 className="section-heading capitalize">{categoryTitle}</h1>
@@ -346,9 +374,28 @@ export default async function ShopPage({ searchParams }: Props) {
         </div>
       )}
 
+      {showSubcategoryLanding && (
+        <div className="mb-10">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="h-[1px] w-8 bg-brand-red" />
+            <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
+              Browse {selectedCategory?.name} Subcategories
+            </span>
+          </div>
+          <CategoryGrid categories={selectedChildCategories} />
+          <p className="text-text-muted text-xs mt-4 text-center leading-relaxed">
+            Choose a subcategory to see the matching products.
+          </p>
+        </div>
+      )}
+
       <div
         className={`flex flex-col lg:flex-row gap-8 ${
-          showMobileCategoryLanding ? "hidden md:flex" : ""
+          showSubcategoryLanding
+            ? "hidden"
+            : showMobileCategoryLanding
+              ? "hidden md:flex"
+              : ""
         }`}
       >
         <aside className="lg:w-60 shrink-0">
