@@ -21,7 +21,21 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
 
 const PAGE_SIZE = 1000;
-const VENDOR = "RPM";
+const BATCH_SIZE = 100;
+const PLACEHOLDER_IMAGE = "/images/image-coming-soon.svg";
+
+function argValue(name, fallback) {
+  const withEquals = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (withEquals) return withEquals.slice(name.length + 1).trim() || fallback;
+  const index = process.argv.indexOf(name);
+  if (index !== -1 && process.argv[index + 1] && !process.argv[index + 1].startsWith("-")) {
+    return process.argv[index + 1].trim() || fallback;
+  }
+  return fallback;
+}
+
+const VENDOR = argValue("--vendor", "Revolution Racegear");
+const isApply = process.argv.includes("--apply") || process.argv.includes("--live");
 
 const filePath = process.argv.find((arg) => {
   const lower = arg.toLowerCase();
@@ -58,10 +72,13 @@ const COLOUR_TOKENS = new Set([
   "BLU",
   "BROWN",
   "CARBON",
+  "CYAN",
   "CHARCOAL",
   "CHROME",
   "CLEAR",
+  "DGRY",
   "FLUO",
+  "FLURO",
   "GOLD",
   "GREEN",
   "GREY",
@@ -80,10 +97,13 @@ const COLOUR_TOKENS = new Set([
   "TAN",
   "WHT",
   "WHITE",
+  "YE",
+  "YEL",
   "YELLOW",
 ]);
 
 const COLOUR_MODIFIERS = new Set([
+  "ANTH",
   "CANDY",
   "DARK",
   "GLOSS",
@@ -92,21 +112,37 @@ const COLOUR_MODIFIERS = new Set([
   "MATTE",
   "METALLIC",
   "NEON",
+  "STEALTH",
 ]);
 
 const SIZE_TOKENS = new Set([
+  "XXXXS",
+  "3XS",
+  "XXXS",
+  "2XS",
   "XXS",
   "XS",
+  "XSM",
   "S",
   "SM",
+  "SML",
   "M",
   "MED",
+  "MEDIUM",
   "L",
   "LG",
+  "LGE",
+  "LRG",
+  "LARGE",
   "XL",
+  "XLG",
+  "2XL",
   "XXL",
+  "3XL",
   "XXXL",
+  "4XL",
   "XXXXL",
+  "5XL",
   "JNR",
   "JR",
   "SNR",
@@ -346,6 +382,103 @@ async function fetchAll(table, columns) {
   return all;
 }
 
+async function ensureSupplier(name) {
+  const { data, error } = await supabase
+    .from("suppliers")
+    .upsert({ name, updated_at: new Date().toISOString() }, { onConflict: "name" })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      `Could not access supplier tables. Run migration 020_supplier_costs.sql first. ${error?.message || ""}`.trim()
+    );
+  }
+
+  return data.id;
+}
+
+async function batchInsert(table, records, selectFields = "id") {
+  const inserted = [];
+  for (let i = 0; i < records.length; i += BATCH_SIZE) {
+    const chunk = records.slice(i, i + BATCH_SIZE);
+    const { data, error } = await supabase
+      .from(table)
+      .insert(chunk)
+      .select(selectFields);
+
+    if (error) throw new Error(`Insert into ${table} failed: ${error.message}`);
+    inserted.push(...(data || []));
+    process.stdout.write(
+      `\r  Inserted ${Math.min(i + BATCH_SIZE, records.length)} / ${records.length} into ${table}   `
+    );
+  }
+  process.stdout.write("\n");
+  return inserted;
+}
+
+async function fetchVariationsBySkus(skus) {
+  const uniqueSkus = [...new Set(skus.filter(Boolean))];
+  const variations = [];
+
+  for (let i = 0; i < uniqueSkus.length; i += BATCH_SIZE) {
+    const chunk = uniqueSkus.slice(i, i + BATCH_SIZE);
+    const { data, error } = await supabase
+      .from("product_variations")
+      .select("id, sku")
+      .in("sku", chunk);
+
+    if (error) {
+      throw new Error(`Variation lookup failed: ${error.message}`);
+    }
+
+    variations.push(...(data || []));
+  }
+
+  return variations;
+}
+
+async function upsertSupplierCosts(rows) {
+  if (rows.length === 0) return 0;
+  let written = 0;
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const chunk = rows.slice(i, i + BATCH_SIZE);
+    const { error } = await supabase
+      .from("product_supplier_costs")
+      .upsert(chunk, { onConflict: "supplier_id,supplier_sku" });
+
+    if (error) throw new Error(`Supplier cost upsert failed: ${error.message}`);
+    written += chunk.length;
+    process.stdout.write(
+      `\r  Supplier costs ${Math.min(i + BATCH_SIZE, rows.length)} / ${rows.length}   `
+    );
+  }
+  process.stdout.write("\n");
+  return written;
+}
+
+function slugify(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 120);
+}
+
+function uniqueSlug(base, usedSlugs) {
+  const cleanBase = base || "retail-product";
+  let candidate = cleanBase;
+  let n = 2;
+  while (usedSlugs.has(candidate)) {
+    candidate = `${cleanBase}-${n}`;
+    n += 1;
+  }
+  usedSlugs.add(candidate);
+  return candidate;
+}
+
 function buildOutputPaths() {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const outputDir = resolve(process.cwd(), "tmp");
@@ -387,7 +520,10 @@ async function main() {
   console.log("DS Racing Karts - RPM Retail Import Planner");
   console.log("===========================================");
   console.log(`File: ${resolvedFile}`);
-  console.log("Mode: DRY RUN / REVIEW ONLY (no database or Square writes)");
+  console.log(`Vendor: ${VENDOR}`);
+  console.log(
+    `Mode: ${isApply ? "LIVE SUPABASE IMPORT (no Square writes)" : "DRY RUN / REVIEW ONLY (no database or Square writes)"}`
+  );
   console.log();
 
   const { sheetName, rows } = parseRows(resolvedFile);
@@ -613,8 +749,157 @@ async function main() {
   console.log(`Detail review CSV:  ${detailPath}`);
   console.log(`Product groups CSV: ${productPath}`);
   console.log(`Summary JSON:       ${summaryPath}`);
+
+  if (!isApply) {
+    console.log();
+    console.log("No database or Square changes were made.");
+    console.log("Run again with --apply after reviewing if these grouped products look correct.");
+    return;
+  }
+
+  if (plannedGroups.size === 0) {
+    console.log();
+    console.log("No new grouped products to import.");
+    return;
+  }
+
   console.log();
-  console.log("No database or Square changes were made.");
+  console.log("Importing planned products into Supabase...");
+  console.log("Square is not touched by this script. Run push-stocklist-to-square.js afterwards.");
+
+  const supplierId = await ensureSupplier(VENDOR);
+  const usedSlugs = new Set(products.map((product) => product.slug).filter(Boolean));
+  const sourceName = resolvedFile.split(/[\\/]/).pop() || "retail-list.xlsx";
+
+  const groupEntries = Array.from(plannedGroups.entries()).map(([groupKey, groupRows]) => {
+    const first = groupRows[0];
+    const prices = groupRows.map((row) => row.price).filter((price) => Number.isFinite(price));
+    const productName = groupRows.length === 1 ? first.source_name : first.planned_product_name;
+    const slug = uniqueSlug(slugify(productName), usedSlugs);
+    return {
+      groupKey,
+      groupRows,
+      productName,
+      slug,
+      basePrice: Math.min(...prices),
+    };
+  });
+
+  const productRecords = groupEntries.map((entry) => ({
+    name: entry.productName,
+    slug: entry.slug,
+    sku: entry.groupRows.length === 1 ? entry.groupRows[0].sku : null,
+    description: `Imported from ${VENDOR} retail list.`,
+    description_plain: `Imported from ${VENDOR} retail list.`,
+    status: "active",
+    visibility: "visible",
+    item_type: "Physical good",
+    base_price: entry.basePrice,
+    shipping_enabled: true,
+    is_sellable: true,
+    is_stockable: true,
+    is_archived: false,
+    primary_image_url: PLACEHOLDER_IMAGE,
+  }));
+
+  const insertedProducts = await batchInsert("products", productRecords, "id, slug");
+  const productIdBySlug = new Map(insertedProducts.map((product) => [product.slug, product.id]));
+
+  const variationMetas = [];
+  const variationRecords = [];
+  for (const entry of groupEntries) {
+    const productId = productIdBySlug.get(entry.slug);
+    if (!productId) throw new Error(`Could not map inserted product slug ${entry.slug}`);
+    entry.groupRows.forEach((row, index) => {
+      variationMetas.push({ ...row, productId });
+      variationRecords.push({
+        product_id: productId,
+        name: row.planned_variation_name || "Regular",
+        sku: row.sku,
+        price: row.price,
+        sort_order: index,
+      });
+    });
+  }
+
+  console.log("Inserting variations...");
+  const insertedVariations = await batchInsert("product_variations", variationRecords, "id, sku");
+  const variationIdBySku = new Map(
+    insertedVariations.map((variation) => [normalizeSku(variation.sku), variation.id])
+  );
+
+  if (variationIdBySku.size < variationRecords.length) {
+    console.log(
+      `Refetching variation IDs by SKU (${variationIdBySku.size}/${variationRecords.length} returned immediately)...`
+    );
+    const fetchedVariations = await fetchVariationsBySkus(
+      variationRecords.map((variation) => variation.sku)
+    );
+    for (const variation of fetchedVariations) {
+      variationIdBySku.set(normalizeSku(variation.sku), variation.id);
+    }
+    console.log(
+      `  Variation ID map contains ${variationIdBySku.size}/${variationRecords.length} SKU(s)`
+    );
+  }
+
+  const optionRecords = [];
+  for (const meta of variationMetas) {
+    const variationId = variationIdBySku.get(meta.sku_key);
+    if (!variationId) continue;
+    for (const option of meta.proposed_options) {
+      optionRecords.push({
+        variation_id: variationId,
+        option_name: option.name,
+        option_value: option.value,
+      });
+    }
+  }
+  if (optionRecords.length > 0) {
+    console.log("Inserting variation options...");
+    await batchInsert("variation_options", optionRecords, "id");
+  }
+
+  console.log("Seeding zero inventory...");
+  await batchInsert(
+    "inventory",
+    insertedVariations.map((variation) => ({
+      variation_id: variation.id,
+      quantity: 0,
+    })),
+    "id"
+  );
+
+  console.log("Writing supplier retail references...");
+  await upsertSupplierCosts(
+    variationMetas
+      .map((row) => {
+        const variationId = variationIdBySku.get(row.sku_key);
+        if (!variationId) return null;
+        return {
+          product_id: row.productId,
+          variation_id: variationId,
+          supplier_id: supplierId,
+          supplier_sku: row.sku,
+          supplier_item_name: row.source_name,
+          wholesale_price: null,
+          retail_price: row.price,
+          currency: "AUD",
+          source: sourceName,
+          source_row_number: row.source_row,
+          updated_at: new Date().toISOString(),
+        };
+      })
+      .filter(Boolean)
+  );
+
+  console.log();
+  console.log("Supabase import complete.");
+  console.log(`  Products inserted:   ${insertedProducts.length}`);
+  console.log(`  Variations inserted: ${insertedVariations.length}`);
+  console.log(`  Option rows:         ${optionRecords.length}`);
+  console.log(`  Supplier rows:       ${variationMetas.length}`);
+  console.log("Next step: run scripts/push-stocklist-to-square.js --dry-run, then live if clean.");
 }
 
 main().catch((error) => {

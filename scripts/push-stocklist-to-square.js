@@ -30,6 +30,22 @@ const WRITE_CONCURRENCY = 25;
 const SUPPLIER_VENDOR_ATTR_KEY = "dsr_supplier_vendor";
 const SUPPLIER_COST_ATTR_KEY = "dsr_supplier_cost";
 
+function argValue(name, fallback = "") {
+  const withEquals = process.argv.find((arg) => arg.startsWith(`${name}=`));
+  if (withEquals) return withEquals.slice(name.length + 1).trim() || fallback;
+  const index = process.argv.indexOf(name);
+  if (
+    index !== -1 &&
+    process.argv[index + 1] &&
+    !process.argv[index + 1].startsWith("-")
+  ) {
+    return process.argv[index + 1].trim() || fallback;
+  }
+  return fallback;
+}
+
+const vendorFilter = argValue("--vendor", "");
+
 const missing = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -68,11 +84,24 @@ function normalizeSku(value) {
   return sku ? sku.toLowerCase() : null;
 }
 
+function normalizeVendor(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
 function getPrimaryVariation(product) {
   const variations = Array.isArray(product.product_variations)
     ? product.product_variations
     : [];
   return variations[0] ?? null;
+}
+
+function getProductVariations(product) {
+  const variations = Array.isArray(product.product_variations)
+    ? product.product_variations
+    : [];
+  return [...variations].sort(
+    (a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)
+  );
 }
 
 function priceToCents(value) {
@@ -125,7 +154,9 @@ function buildStableBatchKey(batchEntries) {
   const signature = batchEntries
     .map(
       (entry) =>
-        `${entry.product.id}:${entry.variation.id}:${entry.skuKey}:${entry.priceCents}`
+        `${entry.product.id}:${entry.variations
+          .map((variation) => `${variation.id}:${variation.skuKey}:${variation.priceCents}`)
+          .join(",")}`
     )
     .sort()
     .join("|");
@@ -148,7 +179,7 @@ async function fetchUnsynced() {
       .from("products")
       .select(
         "id, name, sku, base_price, square_token, " +
-          "product_variations(id, sku, price, square_token)"
+          "product_variations(id, name, sku, price, square_token, sort_order, variation_options(option_name, option_value))"
       )
       .is("square_token", null)
       .eq("status", "active")
@@ -388,10 +419,11 @@ async function main() {
   console.log("==========================================================");
   console.log(`Square env:  ${process.env.SQUARE_ENVIRONMENT ?? "sandbox"}`);
   console.log(`Mode:        ${isDryRun ? "DRY RUN (no changes)" : "LIVE"}`);
+  if (vendorFilter) console.log(`Vendor:      ${vendorFilter}`);
   console.log();
 
   console.log("Step 1/4 - Fetching products not yet in Square...");
-  const products = await fetchUnsynced();
+  let products = await fetchUnsynced();
   console.log(`  Found ${products.length} product(s) to process`);
 
   if (products.length === 0) {
@@ -399,10 +431,37 @@ async function main() {
     return;
   }
 
+  let supplierCostsByProductId = await fetchSupplierCostsForProducts(
+    products.map((product) => product.id)
+  );
+
+  if (vendorFilter) {
+    const wantedVendor = normalizeVendor(vendorFilter);
+    products = products.filter((product) => {
+      const supplierName = supplierCostsByProductId.get(product.id)?.suppliers?.name;
+      return normalizeVendor(supplierName) === wantedVendor;
+    });
+    console.log(
+      `  Vendor filter matched ${products.length} unsynced product(s)`
+    );
+
+    if (products.length === 0) {
+      console.log("\nNo unsynced products matched that vendor. Nothing to do.");
+      return;
+    }
+
+    supplierCostsByProductId = new Map(
+      [...supplierCostsByProductId.entries()].filter(([productId]) =>
+        products.some((product) => product.id === productId)
+      )
+    );
+  }
+
   if (isDryRun) {
     console.log("\n--- DRY RUN SAMPLE (first 15) ---");
     products.slice(0, 15).forEach((product, index) => {
-      const variation = getPrimaryVariation(product);
+      const variations = getProductVariations(product);
+      const variation = variations[0];
       const sku = variation?.sku ?? product.sku ?? "(no SKU)";
       const price = variation?.price ?? product.base_price ?? 0;
       const printablePrice = Number.parseFloat(String(price));
@@ -410,7 +469,7 @@ async function main() {
         ? printablePrice.toFixed(2)
         : "0.00";
       console.log(
-        `  ${String(index + 1).padStart(2)}. [${sku}] ${product.name} - $${formattedPrice}`
+        `  ${String(index + 1).padStart(2)}. [${sku}] ${product.name} - $${formattedPrice} (${variations.length} variation${variations.length === 1 ? "" : "s"})`
       );
     });
 
@@ -426,9 +485,6 @@ async function main() {
   }
 
   console.log("\nStep 2/4 - Loading supplier costs and existing Square catalog SKUs...");
-  const supplierCostsByProductId = await fetchSupplierCostsForProducts(
-    products.map((product) => product.id)
-  );
   if (supplierCostsByProductId.size > 0) {
     console.log(
       `  Loaded supplier-cost data for ${supplierCostsByProductId.size} product(s)`
@@ -452,65 +508,131 @@ async function main() {
   const writeBackOnlyProducts = [];
   const writeBackOnlyVariations = [];
   const createEntries = [];
+  const localSkuCounts = new Map();
 
   for (const product of products) {
-    const variation = getPrimaryVariation(product);
+    for (const variation of getProductVariations(product)) {
+      const skuKey = normalizeSku(variation.sku ?? product.sku);
+      if (!skuKey) continue;
+      localSkuCounts.set(skuKey, (localSkuCounts.get(skuKey) ?? 0) + 1);
+    }
+  }
 
-    if (!variation) {
+  const duplicateLocalSkus = new Set(
+    [...localSkuCounts.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([skuKey]) => skuKey)
+  );
+
+  if (duplicateLocalSkus.size > 0) {
+    console.warn(
+      `  Warning: ${duplicateLocalSkus.size} SKU(s) appear more than once in local unsynced products and will be skipped for manual review.`
+    );
+  }
+
+  for (const product of products) {
+    const variations = getProductVariations(product);
+
+    if (variations.length === 0) {
       console.warn(`  Skipping ${product.id}: missing product variation row.`);
       productFailureIds.add(product.id);
       continue;
     }
 
-    const skuKey = normalizeSku(variation.sku ?? product.sku);
-    if (!skuKey) {
-      console.warn(
-        `  Skipping ${product.id}: missing SKU, cannot safely reconcile or create.`
-      );
+    const matchedVariations = [];
+    const missingVariations = [];
+    let existingItemId = null;
+    let skipReason = null;
+
+    for (const variation of variations) {
+      const skuKey = normalizeSku(variation.sku ?? product.sku);
+      if (!skuKey) {
+        skipReason = "missing SKU, cannot safely reconcile or create";
+        break;
+      }
+
+      if (duplicateLocalSkus.has(skuKey)) {
+        skipReason = `SKU ${skuKey} appears more than once in local unsynced products`;
+        break;
+      }
+
+      if (duplicateSquareSkus.has(skuKey)) {
+        skipReason = `SKU ${skuKey} matches multiple Square catalog entries`;
+        break;
+      }
+
+      const existingSquare = skuToSquare.get(skuKey);
+      if (existingSquare) {
+        if (existingItemId && existingItemId !== existingSquare.itemId) {
+          skipReason = "variations matched different existing Square items";
+          break;
+        }
+
+        existingItemId = existingSquare.itemId;
+        matchedVariations.push({
+          variation,
+          skuKey,
+          squareVariationId: existingSquare.variationId,
+        });
+        continue;
+      }
+
+      const rawPrice = variation.price ?? product.base_price;
+      const priceCents = priceToCents(rawPrice);
+
+      if (priceCents == null) {
+        skipReason = `invalid price "${rawPrice}"`;
+        break;
+      }
+
+      missingVariations.push({ variation, skuKey, priceCents });
+    }
+
+    if (skipReason) {
+      console.warn(`  Skipping ${product.id}: ${skipReason}.`);
       productFailureIds.add(product.id);
-      variationFailureIds.add(variation.id);
+      variations.forEach((variation) => variationFailureIds.add(variation.id));
       continue;
     }
 
-    if (duplicateSquareSkus.has(skuKey)) {
+    if (matchedVariations.length > 0 && missingVariations.length > 0) {
       console.warn(
-        `  Skipping ${product.id}: SKU ${skuKey} matches multiple Square catalog entries.`
+        `  Skipping ${product.id}: some variations already exist in Square and some do not; needs manual review.`
       );
       productFailureIds.add(product.id);
-      variationFailureIds.add(variation.id);
+      variations.forEach((variation) => variationFailureIds.add(variation.id));
       continue;
     }
 
-    const existingSquare = skuToSquare.get(skuKey);
-    if (existingSquare) {
+    if (matchedVariations.length > 0) {
       writeBackOnlyProducts.push({
         id: product.id,
-        square_token: existingSquare.itemId,
+        square_token: existingItemId,
       });
-      writeBackOnlyVariations.push({
-        id: variation.id,
-        square_token: existingSquare.variationId,
-      });
+
+      for (const match of matchedVariations) {
+        writeBackOnlyVariations.push({
+          id: match.variation.id,
+          square_token: match.squareVariationId,
+        });
+      }
       continue;
     }
 
-    const rawPrice = variation.price ?? product.base_price;
-    const priceCents = priceToCents(rawPrice);
-
-    if (priceCents == null) {
-      console.warn(
-        `  Skipping ${describeProduct(product, variation)}: invalid price "${rawPrice}".`
-      );
-      productFailureIds.add(product.id);
-      variationFailureIds.add(variation.id);
-      continue;
-    }
-
-    createEntries.push({ product, variation, skuKey, priceCents });
+    createEntries.push({ product, variations: missingVariations });
   }
 
   console.log(`  Existing Square matches to write back: ${writeBackOnlyProducts.length}`);
+  console.log(
+    `  Existing Square variation IDs to write back: ${writeBackOnlyVariations.length}`
+  );
   console.log(`  New Square items to create:            ${createEntries.length}`);
+  console.log(
+    `  New Square variations to create:       ${createEntries.reduce(
+      (total, entry) => total + entry.variations.length,
+      0
+    )}`
+  );
 
   let reconciledProducts = 0;
   let reconciledVariations = 0;
@@ -550,32 +672,35 @@ async function main() {
 
     const objects = batch.map((entry) => {
       const tempItemId = `#item-${entry.product.id}`;
-      const tempVariationId = `#var-${entry.variation.id}`;
 
       return {
         type: "ITEM",
         id: tempItemId,
         itemData: {
           name: entry.product.name,
-          variations: [
-            {
+          variations: entry.variations.map(({ variation, priceCents, skuKey }) => {
+            const variationName =
+              variation.name ||
+              (entry.variations.length === 1 ? "Regular" : skuKey.toUpperCase());
+
+            return {
               type: "ITEM_VARIATION",
-              id: tempVariationId,
+              id: `#var-${variation.id}`,
               customAttributeValues: buildSupplierCustomAttributes(
                 supplierCostsByProductId.get(entry.product.id)
               ),
               itemVariationData: {
                 itemId: tempItemId,
-                name: "Regular",
-                sku: entry.variation.sku ?? entry.product.sku ?? undefined,
+                name: variationName,
+                sku: variation.sku ?? entry.product.sku ?? undefined,
                 pricingType: "FIXED_PRICING",
                 priceMoney: {
-                  amount: BigInt(entry.priceCents),
+                  amount: BigInt(priceCents),
                   currency: "AUD",
                 },
               },
-            },
-          ],
+            };
+          }),
         },
       };
     });
@@ -597,7 +722,9 @@ async function main() {
 
         batch.forEach((entry) => {
           productFailureIds.add(entry.product.id);
-          variationFailureIds.add(entry.variation.id);
+          entry.variations.forEach(({ variation }) =>
+            variationFailureIds.add(variation.id)
+          );
         });
         continue;
       }
@@ -618,9 +745,7 @@ async function main() {
 
       for (const entry of batch) {
         const itemKey = `#item-${entry.product.id}`;
-        const variationKey = `#var-${entry.variation.id}`;
         const squareItemId = itemIds.get(itemKey);
-        const squareVariationId = variationIds.get(variationKey);
 
         if (squareItemId) {
           productUpdates.push({
@@ -634,16 +759,21 @@ async function main() {
           productFailureIds.add(entry.product.id);
         }
 
-        if (squareVariationId) {
-          variationUpdates.push({
-            id: entry.variation.id,
-            square_token: squareVariationId,
-          });
-        } else {
-          console.error(
-            `\n  Missing Square variation mapping for variation ${entry.variation.id}.`
-          );
-          variationFailureIds.add(entry.variation.id);
+        for (const { variation } of entry.variations) {
+          const variationKey = `#var-${variation.id}`;
+          const squareVariationId = variationIds.get(variationKey);
+
+          if (squareVariationId) {
+            variationUpdates.push({
+              id: variation.id,
+              square_token: squareVariationId,
+            });
+          } else {
+            console.error(
+              `\n  Missing Square variation mapping for variation ${variation.id}.`
+            );
+            variationFailureIds.add(variation.id);
+          }
         }
       }
 
@@ -665,7 +795,9 @@ async function main() {
 
       batch.forEach((entry) => {
         productFailureIds.add(entry.product.id);
-        variationFailureIds.add(entry.variation.id);
+        entry.variations.forEach(({ variation }) =>
+          variationFailureIds.add(variation.id)
+        );
       });
     }
   }
