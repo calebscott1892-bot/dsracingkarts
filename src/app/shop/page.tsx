@@ -160,6 +160,48 @@ export default async function ShopPage({ searchParams }: Props) {
     : [];
 
   const showSubcategoryLanding = selectedChildCategories.length > 0;
+  let subcategoryTiles = selectedChildCategories;
+
+  if (showSubcategoryLanding && selectedChildCategories.some((category) => !category.image_url)) {
+    const childIdsMissingImages = selectedChildCategories
+      .filter((category) => !category.image_url)
+      .map((category) => category.id);
+
+    const { data: fallbackImageRows } = await supabase
+      .from("product_categories")
+      .select(
+        `
+        category_id,
+        products!inner (
+          primary_image_url,
+          status,
+          visibility,
+          slug
+        )
+      `
+      )
+      .in("category_id", childIdsMissingImages)
+      .eq("products.status", "active")
+      .eq("products.visibility", "visible")
+      .neq("products.slug", GIFT_CARD_SLUG)
+      .not("products.primary_image_url", "is", null)
+      .limit(500);
+
+    const fallbackImageByCategory = new Map<string, string>();
+    for (const row of fallbackImageRows || []) {
+      const product = Array.isArray(row.products) ? row.products[0] : row.products;
+      const imageUrl = product?.primary_image_url;
+      if (!imageUrl || imageUrl.includes("image-coming-soon")) continue;
+      if (!fallbackImageByCategory.has(row.category_id)) {
+        fallbackImageByCategory.set(row.category_id, imageUrl);
+      }
+    }
+
+    subcategoryTiles = selectedChildCategories.map((category) => ({
+      ...category,
+      image_url: category.image_url || fallbackImageByCategory.get(category.id) || null,
+    }));
+  }
 
   let categoryProductIds: string[] | null = null;
   if (params.category) {
@@ -382,7 +424,7 @@ export default async function ShopPage({ searchParams }: Props) {
               Browse {selectedCategory?.name} Subcategories
             </span>
           </div>
-          <CategoryGrid categories={selectedChildCategories} />
+          <CategoryGrid categories={subcategoryTiles} />
           <p className="text-text-muted text-xs mt-4 text-center leading-relaxed">
             Choose a subcategory to see the matching products.
           </p>
