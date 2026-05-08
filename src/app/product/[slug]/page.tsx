@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .eq("slug", slug)
     .single();
 
-  if (!product) return { title: "Product Not Found" };
+  if (!product) notFound();
 
   const title = product.seo_title || product.name;
   const description =
