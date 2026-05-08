@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Search, X, ArrowRight, Command } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import { isRealProductImageUrl, isRemoteImageUrl } from "@/lib/product-images";
 
 interface SearchResult {
   id: string;
@@ -20,10 +21,6 @@ interface SearchResult {
 
 interface Props {
   initialQuery?: string;
-}
-
-function isRemoteImage(url: string) {
-  return url.startsWith("http://") || url.startsWith("https://");
 }
 
 export function SearchAutocomplete({ initialQuery = "" }: Props) {
@@ -247,17 +244,17 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
                       }`}
                     >
                       <div className="w-14 h-14 shrink-0 bg-surface-700 relative overflow-hidden">
-                        {r.image_url ? (
+                        {isRealProductImageUrl(r.image_url) ? (
                           <Image
                             src={r.image_url}
                             alt={r.name}
                             fill
-                            unoptimized={isRemoteImage(r.image_url)}
+                            unoptimized={isRemoteImageUrl(r.image_url)}
                             sizes="56px"
                             className="object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full carbon-bg" />
+                          <SearchImageFallback />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -327,6 +324,19 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
 
 function escapeRegex(str: string) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function SearchImageFallback() {
+  return (
+    <div className="w-full h-full carbon-bg bg-[#141414] flex flex-col items-center justify-center text-center px-1">
+      <span className="font-heading text-[7px] tracking-[0.2em] uppercase text-racing-red/80">
+        DSR
+      </span>
+      <span className="font-heading text-[6px] tracking-[0.12em] uppercase text-white/70 leading-tight mt-0.5">
+        Image soon
+      </span>
+    </div>
+  );
 }
 
 

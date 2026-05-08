@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
+import { isRealProductImageUrl, isRemoteImageUrl } from "@/lib/product-images";
 import type { Product } from "@/types/database";
 
 interface Props {
@@ -14,24 +15,12 @@ interface Props {
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI4IiBoZWlnaHQ9IjgiPjxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9IiMxYTFhMWEiLz48L3N2Zz4=";
 
-// Generic placeholder slugs we treat as "no image" — render the styled
-// product-name fallback instead so a sea of identical placeholders never
-// appears in the grid.
-function isRealProductImage(url: string | null | undefined): url is string {
-  if (!url) return false;
-  return !url.endsWith("/images/image-coming-soon.svg");
-}
-
-function isRemoteImage(url: string) {
-  return url.startsWith("http://") || url.startsWith("https://");
-}
-
 export function ProductCard({ product, priority = false }: Props) {
   const hasVariations = product.product_variations && product.product_variations.length > 1;
   const lowestPrice = product.base_price || product.product_variations?.[0]?.price || 0;
   const hasSale = product.product_variations?.some((v) => v.sale_price);
   const displaySku = product.sku || product.product_variations?.find((v) => v.sku)?.sku;
-  const realImage = isRealProductImage(product.primary_image_url);
+  const realImage = isRealProductImageUrl(product.primary_image_url);
 
   return (
     <Link href={`/product/${product.slug}`} scroll className="group animate-fade-in">
@@ -43,7 +32,7 @@ export function ProductCard({ product, priority = false }: Props) {
               src={product.primary_image_url as string}
               alt={product.name}
               fill
-              unoptimized={isRemoteImage(product.primary_image_url as string)}
+              unoptimized={isRemoteImageUrl(product.primary_image_url as string)}
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               placeholder="blur"

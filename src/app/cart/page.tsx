@@ -5,6 +5,7 @@ import { formatPrice } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, Trash2, ShoppingCart, ChevronRight } from "lucide-react";
+import { isRealProductImageUrl } from "@/lib/product-images";
 
 export default function CartPage() {
   const { cart, updateQuantity, removeItem, clearCart } = useCart();
@@ -63,7 +64,7 @@ export default function CartPage() {
             >
               {/* Image */}
               <div className="w-[72px] h-[72px] bg-surface-700 overflow-hidden flex-shrink-0 border border-surface-600">
-                {item.image_url ? (
+                {isRealProductImageUrl(item.image_url) ? (
                   <Image
                     src={item.image_url}
                     alt={item.product_name}
@@ -72,9 +73,7 @@ export default function CartPage() {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-text-muted">
-                    <ShoppingCart size={20} />
-                  </div>
+                  <CartImageFallback />
                 )}
               </div>
 
@@ -229,6 +228,19 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function CartImageFallback() {
+  return (
+    <div className="w-full h-full carbon-bg bg-[#141414] flex flex-col items-center justify-center text-center px-1">
+      <span className="font-heading text-[8px] tracking-[0.22em] uppercase text-racing-red/80">
+        DSR
+      </span>
+      <span className="font-heading text-[7px] tracking-[0.12em] uppercase text-white/70 leading-tight mt-0.5">
+        Image soon
+      </span>
     </div>
   );
 }

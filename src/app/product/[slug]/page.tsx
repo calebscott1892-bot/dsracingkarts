@@ -5,6 +5,7 @@ import { AddToCartButton } from "@/components/shop/AddToCartButton";
 import { ScrollToTopOnMount } from "@/components/layout/ScrollToTopOnMount";
 import { ProductImageGallery } from "@/components/shop/ProductImageGallery";
 import { formatPrice } from "@/lib/utils";
+import { isRealProductImageUrl } from "@/lib/product-images";
 import { ChevronRight } from "lucide-react";
 import sanitizeHtml from "sanitize-html";
 import type { Metadata } from "next";
@@ -15,13 +16,6 @@ export const revalidate = 0;
 
 interface Props {
   params: Promise<{ slug: string }>;
-}
-
-// Treat the static SVG placeholder url as "no real image" — same convention
-// the storefront card uses. Anything else (including remote Square images)
-// counts as a real photo.
-function isRealImageUrl(url: string | null | undefined): url is string {
-  return Boolean(url && !url.endsWith("/images/image-coming-soon.svg"));
 }
 
 function placeholderOgUrl(siteUrl: string, productName: string) {
@@ -48,7 +42,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
 
   const realImages = (product.product_images || [])
-    .filter((image: any) => isRealImageUrl(image.url))
+    .filter((image: any) => isRealProductImageUrl(image.url))
     .sort((a: any, b: any) => {
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
@@ -111,6 +105,14 @@ export default async function ProductPage({ params }: Props) {
     .filter((price: number | null) => typeof price === "number" && Number.isFinite(price));
   const hasVariations = variations.length > 0;
   const displaySku = product.sku || variations.find((v: any) => v.sku)?.sku;
+  const cartProduct = {
+    id: product.id,
+    slug: product.slug,
+    name: product.name,
+    primary_image_url: isRealProductImageUrl(product.primary_image_url)
+      ? product.primary_image_url
+      : null,
+  };
 
   variations.sort((a: any, b: any) => a.sort_order - b.sort_order);
 
@@ -194,7 +196,7 @@ export default async function ProductPage({ params }: Props) {
           </div>
 
           {/* Add to cart */}
-          <AddToCartButton product={product} variations={variations} />
+          <AddToCartButton product={cartProduct} variations={variations} />
 
           {/* Description */}
           {product.description && (
@@ -275,7 +277,7 @@ export default async function ProductPage({ params }: Props) {
                         .filter(
                           (url: any) =>
                             typeof url === "string" &&
-                            !url.endsWith("/images/image-coming-soon.svg")
+                            isRealProductImageUrl(url)
                         );
                       if (real.length > 0) return real;
                       return [`${siteUrl}/api/og/coming-soon?name=${encodeURIComponent(product.name)}`];

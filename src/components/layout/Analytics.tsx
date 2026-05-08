@@ -37,14 +37,14 @@ export function Analytics() {
   const [consent, setConsent] = useState<"granted" | "denied" | null>(null);
   const isAdminRoute = pathname === "/admin-login" || pathname.startsWith("/admin");
 
-  if (isAdminRoute || !gaId) return null;
-
   useEffect(() => {
     const stored = localStorage.getItem("dsr-cookie-consent");
     if (stored === "granted" || stored === "denied") {
       setConsent(stored);
     }
   }, []);
+
+  if (isAdminRoute || !gaId) return null;
 
   function handleAccept() {
     localStorage.setItem("dsr-cookie-consent", "granted");

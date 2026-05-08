@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { isRealProductImageUrl } from "@/lib/product-images";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +43,9 @@ export async function GET(request: NextRequest) {
     name: p.name,
     slug: p.slug,
     price: p.base_price,
-    image_url: p.primary_image_url,
+    image_url: isRealProductImageUrl(p.primary_image_url)
+      ? p.primary_image_url
+      : null,
     sku: p.sku,
     category: p.product_categories?.[0]?.categories?.name || null,
     category_slug: p.product_categories?.[0]?.categories?.slug || null,

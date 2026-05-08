@@ -4,10 +4,16 @@ import { useState } from "react";
 import { ShoppingCart, Check } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { formatPrice } from "@/lib/utils";
-import type { Product, ProductVariation } from "@/types/database";
+import { isRealProductImageUrl } from "@/lib/product-images";
+import type { ProductVariation } from "@/types/database";
 
 interface Props {
-  product: Product;
+  product: {
+    id: string;
+    slug: string;
+    name: string;
+    primary_image_url: string | null;
+  };
   variations: (ProductVariation & {
     variation_options?: { option_name: string; option_value: string }[];
   })[];
@@ -30,7 +36,9 @@ export function AddToCartButton({ product, variations }: Props) {
       variation_name: selected.name,
       sku: selected.sku,
       price: selected.sale_price || selected.price,
-      image_url: product.primary_image_url,
+      image_url: isRealProductImageUrl(product.primary_image_url)
+        ? product.primary_image_url
+        : null,
       max_quantity: 999,
     });
     setAdded(true);

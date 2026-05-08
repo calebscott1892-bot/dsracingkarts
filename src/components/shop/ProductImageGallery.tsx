@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { isRealProductImageUrl, isRemoteImageUrl } from "@/lib/product-images";
 
 interface ImageData {
   id: string;
@@ -15,13 +16,9 @@ interface Props {
   productName: string;
 }
 
-function isRemoteImage(url: string) {
-  return url.startsWith("http://") || url.startsWith("https://");
-}
-
 export function ProductImageGallery({ images, productName }: Props) {
   const sorted = [...images]
-    .filter((image) => image.url && !image.url.endsWith("/images/image-coming-soon.svg"))
+    .filter((image) => isRealProductImageUrl(image.url))
     .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
   const [activeIndex, setActiveIndex] = useState(0);
 
@@ -57,7 +54,7 @@ export function ProductImageGallery({ images, productName }: Props) {
           src={sorted[activeIndex].url}
           alt={sorted[activeIndex].alt_text || productName}
           fill
-          unoptimized={isRemoteImage(sorted[activeIndex].url)}
+          unoptimized={isRemoteImageUrl(sorted[activeIndex].url)}
           sizes="(max-width: 1024px) 100vw, 50vw"
           className="object-contain group-hover:scale-105 transition-transform duration-500"
           priority
@@ -89,7 +86,7 @@ export function ProductImageGallery({ images, productName }: Props) {
                 alt={img.alt_text || `${productName} thumbnail ${i + 1}`}
                 width={64}
                 height={64}
-                unoptimized={isRemoteImage(img.url)}
+                unoptimized={isRemoteImageUrl(img.url)}
                 className="object-cover w-full h-full"
               />
             </button>

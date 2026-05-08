@@ -9,6 +9,7 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
+import { isRealProductImageUrl } from "@/lib/product-images";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -79,10 +80,6 @@ function normalizeSquareOrdinal(value: unknown): number {
   const truncated = Math.trunc(numeric);
   if (truncated > 2147483647 || truncated < -2147483648) return 0;
   return truncated;
-}
-
-function hasRenderableProductImage(url: string | null | undefined): url is string {
-  return Boolean(url && !url.endsWith("/images/image-coming-soon.svg"));
 }
 
 async function loadCurrentSquareItemIds(): Promise<Set<string>> {
@@ -487,7 +484,7 @@ export async function syncCatalogItem(
     ? relatedObjects.find((obj: any) => obj.id === primaryImageId && obj.type === "IMAGE")?.imageData?.url ||
       null
     : null;
-  const existingPrimaryImage = hasRenderableProductImage(existing?.primary_image_url)
+  const existingPrimaryImage = isRealProductImageUrl(existing?.primary_image_url)
     ? existing.primary_image_url
     : null;
 
@@ -1094,4 +1091,3 @@ export async function diagnoseCatalogSyncFailures({
 
   return { scanned, failed: failures.length, failures };
 }
-

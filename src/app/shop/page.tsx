@@ -6,6 +6,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
+import { isRealProductImageUrl } from "@/lib/product-images";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 const SHOP_DESCRIPTION =
@@ -191,7 +192,7 @@ export default async function ShopPage({ searchParams }: Props) {
     for (const row of fallbackImageRows || []) {
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
       const imageUrl = product?.primary_image_url;
-      if (!imageUrl || imageUrl.includes("image-coming-soon")) continue;
+      if (!isRealProductImageUrl(imageUrl)) continue;
       if (!fallbackImageByCategory.has(row.category_id)) {
         fallbackImageByCategory.set(row.category_id, imageUrl);
       }
