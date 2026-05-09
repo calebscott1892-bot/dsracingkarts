@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Plus, Pencil, Flag } from "lucide-react";
+import { Plus, Pencil, Flag, ImageIcon, EyeOff } from "lucide-react";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +13,9 @@ export default async function AdminTeamPage() {
     .select("*")
     .order("sort_order")
     .order("team_name");
+  const teamRows = teams ?? [];
+  const visibleCount = teamRows.filter((team) => team.is_active).length;
+  const missingLogoCount = teamRows.filter((team) => !normalizeTeamLogoUrl(team.logo_url, team.team_name)).length;
 
   return (
     <div>
@@ -23,21 +26,37 @@ export default async function AdminTeamPage() {
         </Link>
       </div>
 
+      <div className="mb-6 grid gap-3 md:grid-cols-3">
+        <div className="card p-4">
+          <p className="text-xs uppercase tracking-wider text-text-muted">Total Profiles</p>
+          <p className="mt-1 font-heading text-2xl text-white">{teamRows.length}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs uppercase tracking-wider text-text-muted">Visible On Site</p>
+          <p className="mt-1 font-heading text-2xl text-green-400">{visibleCount}</p>
+        </div>
+        <div className="card p-4">
+          <p className="text-xs uppercase tracking-wider text-text-muted">Missing Images</p>
+          <p className="mt-1 font-heading text-2xl text-white">{missingLogoCount}</p>
+        </div>
+      </div>
+
       <div className="card overflow-hidden">
-        {teams && teams.length > 0 ? (
+        {teamRows.length > 0 ? (
           <table className="w-full text-sm">
             <thead className="bg-surface-700">
               <tr>
                 <th className="px-4 py-3 text-left text-text-muted font-medium w-16">#</th>
                 <th className="px-4 py-3 text-left text-text-muted font-medium">Team</th>
                 <th className="px-4 py-3 text-left text-text-muted font-medium">Kart No.</th>
+                <th className="px-4 py-3 text-left text-text-muted font-medium">Image</th>
                 <th className="px-4 py-3 text-left text-text-muted font-medium">Status</th>
                 <th className="px-4 py-3 text-left text-text-muted font-medium w-24">Order</th>
                 <th className="px-4 py-3 text-right text-text-muted font-medium">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-700">
-              {teams.map((team) => {
+              {teamRows.map((team) => {
                 const logoUrl = normalizeTeamLogoUrl(team.logo_url, team.team_name);
 
                 return (
@@ -45,9 +64,9 @@ export default async function AdminTeamPage() {
                   <td className="px-4 py-3">
                     <div
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                      style={{ background: team.accent_color + "20", color: team.accent_color }}
+                      style={{ background: `${team.accent_color || "#ef4444"}20`, color: team.accent_color || "#ef4444" }}
                     >
-                      {team.kart_number}
+                      {team.kart_number || "TBA"}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -62,7 +81,19 @@ export default async function AdminTeamPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-text-secondary">#{team.kart_number}</td>
+                  <td className="px-4 py-3 text-text-secondary">{team.kart_number ? `#${team.kart_number}` : "TBA"}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
+                        logoUrl
+                          ? "bg-blue-500/10 text-blue-300"
+                          : "bg-amber-500/10 text-amber-300"
+                      }`}
+                    >
+                      {logoUrl ? <ImageIcon size={12} /> : <EyeOff size={12} />}
+                      {logoUrl ? "Set" : "Missing"}
+                    </span>
+                  </td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${

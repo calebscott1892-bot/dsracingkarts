@@ -2,6 +2,17 @@ export const SCAFF_LOGO_URL = "/images/history/Scaff.png";
 export const CLAW_CONSTRUCTION_LOGO_URL = "/images/history/Claw-Construction-Logo.png";
 export const CLAW_RACING_PHOTO_URL = "/images/history/Claw Racing.jpg";
 export const SKIDMARK_LOGO_URL = "/images/history/Skidmark Logo.jpeg";
+export const DALE_ARROWSMITH_LOGO_URL = "/images/history/%2377.jpeg";
+export const POSTMATES_LOGO_URL = "/images/history/team 3.jpeg";
+
+function normalizePublicPath(path: string) {
+  const withoutPublicPrefix = path.replace(/^public\//, "");
+  const withLeadingSlash = withoutPublicPrefix.startsWith("/")
+    ? withoutPublicPrefix
+    : `/${withoutPublicPrefix}`;
+
+  return withLeadingSlash.replace(/#/g, "%23");
+}
 
 const SCAFF_LEGACY_LOGO_URLS = new Set([
   "/images/history/Scaff it up.jpeg",
@@ -20,6 +31,7 @@ export function normalizeTeamLogoUrl(
   _teamName?: string | null,
 ) {
   const trimmedLogoUrl = logoUrl?.trim();
+  if (!trimmedLogoUrl) return undefined;
 
   if (trimmedLogoUrl && SCAFF_LEGACY_LOGO_URLS.has(trimmedLogoUrl)) {
     return SCAFF_LOGO_URL;
@@ -29,5 +41,12 @@ export function normalizeTeamLogoUrl(
     return SKIDMARK_LOGO_URL;
   }
 
-  return trimmedLogoUrl || undefined;
+  if (
+    trimmedLogoUrl.startsWith("/") ||
+    trimmedLogoUrl.startsWith("public/")
+  ) {
+    return normalizePublicPath(trimmedLogoUrl);
+  }
+
+  return trimmedLogoUrl;
 }

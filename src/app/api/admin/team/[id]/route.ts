@@ -28,22 +28,30 @@ export async function PATCH(
   const { id } = await params;
   const service = createServiceClient();
 
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
+  if (!body) return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+
   const { kart_number, team_name, tagline, accent_color, accent_rgb, logo_url, website_url, sort_order, is_active } = body;
+  const trimmedKartNumber = String(kart_number ?? "").trim();
+  const trimmedTeamName = String(team_name ?? "").trim();
   const normalizedLogoUrl = normalizeTeamLogoUrl(logo_url, team_name);
+
+  if (!trimmedKartNumber || !trimmedTeamName) {
+    return NextResponse.json({ error: "kart_number and team_name are required" }, { status: 400 });
+  }
 
   const { data: team, error } = await service
     .from("team_profiles")
     .update({
-      kart_number,
-      team_name,
-      tagline,
-      accent_color,
-      accent_rgb,
-      logo_url: normalizedLogoUrl,
-      website_url,
-      sort_order,
-      is_active,
+      kart_number: trimmedKartNumber,
+      team_name: trimmedTeamName,
+      tagline: String(tagline ?? "").trim() || null,
+      accent_color: String(accent_color ?? "#ef4444").trim(),
+      accent_rgb: String(accent_rgb ?? "239,68,68").trim(),
+      logo_url: normalizedLogoUrl ?? null,
+      website_url: String(website_url ?? "").trim() || null,
+      sort_order: Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0,
+      is_active: Boolean(is_active),
     })
     .eq("id", id)
     .select()
@@ -52,6 +60,7 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   revalidatePath("/about", "page");
   revalidatePath("/admin/team", "page");
+  revalidatePath(`/admin/team/${id}`, "page");
   return NextResponse.json({ team });
 }
 

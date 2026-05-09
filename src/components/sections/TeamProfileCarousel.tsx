@@ -3,7 +3,14 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X, Flag, Trophy, ExternalLink, Timer, ChevronDown, ChevronUp } from "lucide-react";
-import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, SCAFF_LOGO_URL, SKIDMARK_LOGO_URL } from "@/lib/teamLogos";
+import {
+  CLAW_CONSTRUCTION_LOGO_URL,
+  CLAW_RACING_PHOTO_URL,
+  DALE_ARROWSMITH_LOGO_URL,
+  POSTMATES_LOGO_URL,
+  SCAFF_LOGO_URL,
+  SKIDMARK_LOGO_URL,
+} from "@/lib/teamLogos";
 
 /* ── Team Data ── */
 export interface TeamResult {
@@ -37,6 +44,7 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     name: "Dale Arrowsmith",
     accent: "#831100",
     accentRgb: "131,17,0",
+    logo: DALE_ARROWSMITH_LOGO_URL,
     tagline: "4SS Heavy",
   },
   {
@@ -104,11 +112,11 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     tagline: "Maximum torque, maximum send",
   },
   {
-    number: "",
+    number: "3",
     name: "PostMates Racing",
     accent: "#3b82f6",
     accentRgb: "59,130,246",
-    tagline: "Profile coming soon",
+    logo: POSTMATES_LOGO_URL,
   },
 ];
 

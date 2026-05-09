@@ -15,5 +15,6 @@ values
   ('285', 'Team 285',        'Profile coming soon',               '#64748b', '100,116,139', null,                                          null,                            6,  true),
   ('22',  'Kart GPT',        'Precision engineered racing',       '#06b6d4', '6,182,212',   '/images/history/KartGPT.jpeg',                null,                            7,  true),
   ('249', 'Torque it Up',    'Maximum torque, maximum send',      '#eab308', '234,179,8',   null,                                          null,                            8,  true),
-  ('',    'PostMates Racing','Profile coming soon',               '#3b82f6', '59,130,246',  null,                                          null,                            9,  true)
+  ('3',   'PostMates Racing', null,                                '#3b82f6', '59,130,246',  '/images/history/team 3.jpeg',                 null,                            9,  true),
+  ('77',  'Dale Arrowsmith', '4SS Heavy',                         '#831100', '131,17,0',    '/images/history/%2377.jpeg',                  null,                            10, true)
 on conflict do nothing;

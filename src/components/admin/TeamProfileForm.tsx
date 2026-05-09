@@ -2,19 +2,18 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { Save, Trash2, Upload, X, CheckCircle, AlertCircle } from "lucide-react";
+import { Save, Trash2, Upload, X, CheckCircle, AlertCircle, Eye, ExternalLink } from "lucide-react";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 interface TeamProfile {
   id?: string;
   kart_number: string;
   team_name: string;
-  tagline: string;
+  tagline: string | null;
   accent_color: string;
   accent_rgb: string;
-  logo_url: string;
-  website_url: string;
+  logo_url: string | null;
+  website_url: string | null;
   sort_order: number;
   is_active: boolean;
 }
@@ -33,6 +32,28 @@ const DEFAULT_COLORS = [
   { label: "Purple", hex: "#a855f7", rgb: "168,85,247" },
   { label: "White", hex: "#e2e8f0", rgb: "226,232,240" },
 ];
+
+function cleanText(value: string) {
+  return value.trim();
+}
+
+function cleanOptionalText(value: string) {
+  return cleanText(value) || null;
+}
+
+function buildPayload(form: TeamProfile) {
+  return {
+    kart_number: cleanText(form.kart_number),
+    team_name: cleanText(form.team_name),
+    tagline: cleanOptionalText(form.tagline ?? ""),
+    accent_color: cleanText(form.accent_color) || "#ef4444",
+    accent_rgb: cleanText(form.accent_rgb) || "239,68,68",
+    logo_url: normalizeTeamLogoUrl(form.logo_url, form.team_name) ?? null,
+    website_url: cleanOptionalText(form.website_url ?? ""),
+    sort_order: Number.isFinite(Number(form.sort_order)) ? Number(form.sort_order) : 0,
+    is_active: Boolean(form.is_active),
+  };
+}
 
 export function TeamProfileForm({ team, isNew = false }: Props) {
   const router = useRouter();
@@ -110,7 +131,7 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(buildPayload(form)),
     });
 
     if (res.ok) {
@@ -118,6 +139,7 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
       if (isNew) {
         router.push(`/admin/team/${data.team.id}`);
       } else {
+        setForm((prev) => ({ ...prev, ...data.team, logo_url: normalizeTeamLogoUrl(data.team.logo_url, data.team.team_name) || "" }));
         setSavedMsg("Saved successfully");
         setTimeout(() => setSavedMsg(""), 4000);
         router.refresh();
@@ -149,15 +171,25 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
 
   const inputClass =
     "w-full bg-surface-700 border border-surface-600 rounded px-4 py-2.5 text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-red/50 text-sm";
+  const textAreaClass =
+    "w-full bg-surface-700 border border-surface-600 rounded px-4 py-2.5 text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-red/50 text-sm min-h-[82px] resize-y";
   const labelClass = "block text-xs text-text-muted uppercase tracking-wider mb-1.5";
+  const normalizedLogoUrl = normalizeTeamLogoUrl(form.logo_url, form.team_name) || "";
+  const hasPublishableProfile = form.kart_number.trim() && form.team_name.trim();
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
+    <form onSubmit={handleSave} className="grid gap-6 xl:grid-cols-[minmax(0,672px)_360px]">
+      <div className="space-y-6">
       {/* Core info */}
       <div className="card p-6 space-y-4">
-        <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted">Team Info</h2>
+        <div>
+          <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted">Team Info</h2>
+          <p className="mt-1 text-xs text-text-muted">
+            These fields publish directly to the About page team carousel.
+          </p>
+        </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label className={labelClass}>Kart Number *</label>
             <input
@@ -192,12 +224,13 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
 
         <div>
           <label className={labelClass}>Tagline</label>
-          <input
-            className={inputClass}
-            value={form.tagline}
+          <textarea
+            className={textAreaClass}
+            value={form.tagline ?? ""}
             onChange={(e) => setField("tagline", e.target.value)}
             placeholder="e.g. Building speed from the ground up"
           />
+          <p className="mt-1 text-xs text-text-muted">Leave blank when there is no real tagline yet.</p>
         </div>
 
         <div>
@@ -205,7 +238,7 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
           <input
             type="url"
             className={inputClass}
-            value={form.website_url}
+            value={form.website_url ?? ""}
             onChange={(e) => setField("website_url", e.target.value)}
             placeholder="https://..."
           />
@@ -263,14 +296,13 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
       <div className="card p-6 space-y-4">
         <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted">Team Logo</h2>
 
-        {form.logo_url ? (
+        {normalizedLogoUrl ? (
           <div className="flex items-start gap-4">
-            <Image
-              src={form.logo_url}
-              alt="Logo"
-              width={80}
-              height={80}
-              className="rounded object-contain bg-surface-700 p-1"
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={normalizedLogoUrl}
+              alt={`${form.team_name || "Team"} logo preview`}
+              className="h-24 w-24 rounded bg-surface-700 object-contain p-1"
             />
             <div className="space-y-2">
               <button
@@ -311,13 +343,19 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
           <label className={labelClass}>Or paste a URL / public path</label>
           <input
             className={inputClass}
-            value={form.logo_url}
+            value={form.logo_url ?? ""}
             onChange={(e) => setField("logo_url", e.target.value)}
-            placeholder="/images/history/ScaffItUp.png or https://..."
+            placeholder="/images/history/team 3.jpeg or https://..."
           />
-          <p className="text-xs text-text-muted">
-            Use this if the image is already in the <code className="text-text-secondary">/public</code> folder. Changes save with the form.
-          </p>
+          {form.logo_url && normalizedLogoUrl !== form.logo_url.trim() ? (
+            <p className="text-xs text-text-muted">
+              Saves as <code className="text-text-secondary">{normalizedLogoUrl}</code>.
+            </p>
+          ) : (
+            <p className="text-xs text-text-muted">
+              Use a public path from <code className="text-text-secondary">/public</code> or a full image URL.
+            </p>
+          )}
         </div>
 
         <input
@@ -362,6 +400,76 @@ export function TeamProfileForm({ team, isNew = false }: Props) {
         )}
         </div>
       </div>
+      </div>
+
+      <aside className="space-y-6 xl:sticky xl:top-6 xl:self-start">
+        <div className="card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-surface-700 px-5 py-4">
+            <h2 className="font-heading text-sm uppercase tracking-wider text-text-muted">Public Preview</h2>
+            <Eye size={16} className="text-text-muted" />
+          </div>
+          <div className="p-5">
+            <div
+              className="overflow-hidden border bg-[#141414]"
+              style={{ borderColor: `rgba(${form.accent_rgb || "239,68,68"}, 0.3)` }}
+            >
+              <div className="h-1.5" style={{ background: form.accent_color || "#ef4444" }} />
+              <div className="p-5">
+                <div
+                  className="mb-4 inline-flex h-14 min-w-14 items-center justify-center border-2 px-3 font-heading text-xl font-bold"
+                  style={{ borderColor: form.accent_color, color: form.accent_color }}
+                >
+                  {form.kart_number.trim() ? `#${form.kart_number.trim()}` : "TBA"}
+                </div>
+
+                <div className="mb-4 flex h-36 items-center justify-center border border-white/10 bg-black/30">
+                  {normalizedLogoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={normalizedLogoUrl} alt="" className="max-h-full max-w-full object-contain p-3" />
+                  ) : (
+                    <span className="font-heading text-xs uppercase tracking-[0.2em] text-white/30">
+                      Logo Coming Soon
+                    </span>
+                  )}
+                </div>
+
+                <h3 className="font-heading text-2xl uppercase tracking-wider text-white">
+                  {form.team_name.trim() || "Team Name"}
+                </h3>
+                {form.tagline?.trim() && (
+                  <p className="mt-2 text-sm italic text-white/50">&ldquo;{form.tagline.trim()}&rdquo;</p>
+                )}
+              </div>
+            </div>
+
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded bg-surface-700 p-3">
+                <dt className="text-text-muted">Status</dt>
+                <dd className={form.is_active ? "mt-1 text-green-400" : "mt-1 text-text-secondary"}>
+                  {form.is_active ? "Visible" : "Hidden"}
+                </dd>
+              </div>
+              <div className="rounded bg-surface-700 p-3">
+                <dt className="text-text-muted">Required</dt>
+                <dd className={hasPublishableProfile ? "mt-1 text-green-400" : "mt-1 text-red-400"}>
+                  {hasPublishableProfile ? "Complete" : "Missing"}
+                </dd>
+              </div>
+            </dl>
+
+            {form.website_url?.trim() && (
+              <a
+                href={form.website_url.trim()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex items-center gap-2 text-xs text-text-secondary hover:text-white"
+              >
+                <ExternalLink size={13} /> Test website link
+              </a>
+            )}
+          </div>
+        </div>
+      </aside>
     </form>
   );
 }
