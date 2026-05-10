@@ -1,11 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { SquareSyncHealth } from "@/components/admin/SquareSyncHealth";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AdminDashboard() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const safeCount = async (table: string) => {
     try {

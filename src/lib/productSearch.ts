@@ -86,6 +86,12 @@ function normalizeSearchInput(input: string) {
 
 function variantsForToken(token: string) {
   const variants = new Set([token]);
+  const metricMatch = token.match(/^(\d+)mm$/);
+
+  if (metricMatch) {
+    variants.add(`${metricMatch[1]} mm`);
+    variants.add(`${metricMatch[1]}-mm`);
+  }
 
   if (token.endsWith("ies") && token.length > 4) {
     variants.add(`${token.slice(0, -3)}y`);
@@ -157,6 +163,7 @@ export function scoreProductSearchResult(
     name?: string | null;
     sku?: string | null;
     description_plain?: string | null;
+    product_variations?: Array<{ name?: string | null; sku?: string | null }> | null;
     product_categories?: Array<{ categories?: { name?: string | null } | null }> | null;
   },
   termGroups: ProductSearchTermGroups,
@@ -166,16 +173,21 @@ export function scoreProductSearchResult(
   const name = (product.name || "").toLowerCase();
   const sku = (product.sku || "").toLowerCase();
   const description = (product.description_plain || "").toLowerCase();
+  const variations = (product.product_variations || [])
+    .map((row) => `${row.name || ""} ${row.sku || ""}`)
+    .join(" ")
+    .toLowerCase();
   const categories = (product.product_categories || [])
     .map((row) => row.categories?.name || "")
     .join(" ")
     .toLowerCase();
-  const combined = `${name} ${sku} ${description} ${categories}`;
+  const combined = `${name} ${sku} ${variations} ${description} ${categories}`;
 
   let score = 0;
   for (const group of termGroups) {
     if (includesAny(name, group)) score += 8;
     if (includesAny(sku, group)) score += 6;
+    if (includesAny(variations, group)) score += 5;
     if (includesAny(categories, group)) score += 4;
     if (includesAny(description, group)) score += 2;
     if (includesAny(combined, group)) score += 1;

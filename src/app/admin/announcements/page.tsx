@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, Pencil, Megaphone } from "lucide-react";
 
@@ -13,7 +13,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export default async function AdminAnnouncementsPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data: announcements } = await supabase
     .from("announcements")
     .select("*")

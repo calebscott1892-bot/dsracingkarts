@@ -94,7 +94,6 @@ export const DEFAULT_TEAM_PROFILES: Team[] = [
     name: "Team 285",
     accent: "#64748b",
     accentRgb: "100,116,139",
-    tagline: "Profile coming soon",
   },
   {
     number: "22",

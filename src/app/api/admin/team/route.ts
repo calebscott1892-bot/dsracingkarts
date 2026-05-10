@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { normalizeTeamLogoUrl } from "@/lib/teamLogos";
 
 async function verifyAdmin() {
@@ -20,10 +20,11 @@ async function verifyAdmin() {
 
 // GET /api/admin/team — list all
 export async function GET() {
-  const supabase = await verifyAdmin();
-  if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const service = createServiceClient();
 
-  const { data: teams, error } = await supabase
+  const { data: teams, error } = await service
     .from("team_profiles")
     .select("*")
     .order("sort_order")
@@ -35,8 +36,9 @@ export async function GET() {
 
 // POST /api/admin/team — create
 export async function POST(request: NextRequest) {
-  const supabase = await verifyAdmin();
-  if (!supabase) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const admin = await verifyAdmin();
+  if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const service = createServiceClient();
 
   const body = await request.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
@@ -50,7 +52,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "kart_number and team_name are required" }, { status: 400 });
   }
 
-  const { data: team, error } = await supabase
+  const { data: team, error } = await service
     .from("team_profiles")
     .insert({
       kart_number: trimmedKartNumber,

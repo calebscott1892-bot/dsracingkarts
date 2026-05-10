@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { ProductEditForm } from "@/components/admin/ProductEditForm";
 import { ResyncProductButton } from "@/components/admin/ResyncProductButton";
@@ -12,7 +12,7 @@ interface Props {
 
 export default async function AdminProductEditPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: product } = await supabase
     .from("products")
@@ -31,7 +31,7 @@ export default async function AdminProductEditPage({ params }: Props) {
       product_categories ( category_id, categories ( id, name, slug ) )
     `)
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!product) notFound();
 

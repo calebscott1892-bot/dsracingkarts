@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { AnnouncementForm } from "@/components/admin/AnnouncementForm";
 import Link from "next/link";
@@ -13,13 +13,13 @@ interface Props {
 
 export default async function EditAnnouncementPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: announcement } = await supabase
     .from("announcements")
     .select("*")
     .eq("id", id)
-    .single();
+    .maybeSingle();
 
   if (!announcement) notFound();
 

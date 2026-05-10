@@ -1,7 +1,13 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Search, ExternalLink, Archive } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import {
+  applyProductSearchFilter,
+  getProductSearchTermGroups,
+  scoreProductSearchResult,
+  type ProductSearchMode,
+} from "@/lib/productSearch";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -11,35 +17,85 @@ interface Props {
 }
 
 const PAGE_SIZE = 25;
+const SEARCH_RANK_WINDOW = 800;
 
 export default async function AdminProductsPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-  const page = parseInt(params.page || "1", 10);
+  const supabase = createServiceClient();
+  const parsedPage = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const offset = (page - 1) * PAGE_SIZE;
-  const statusFilter = params.status || "active";
+  const statusFilter = ["all", "active", "draft", "archived"].includes(params.status || "")
+    ? params.status!
+    : "active";
+  const searchTermGroups = getProductSearchTermGroups(params.search);
+  const shouldRankSearchResults = searchTermGroups.length > 0;
 
-  let query = supabase
-    .from("products")
-    .select(
-      `
-      id, name, slug, sku, base_price, status, visibility, primary_image_url,
-      product_variations ( id, name, sku, price )
-    `,
-      { count: "exact" }
-    )
-    .order("name");
-
-  if (params.search) {
-    query = query.ilike("name", `%${params.search}%`);
-  }
-  if (statusFilter !== "all") {
-    query = query.eq("status", statusFilter);
+  function buildProductsUrl(pageNum: number, overrides: { status?: string } = {}) {
+    const nextStatus = overrides.status ?? statusFilter;
+    const urlParams = new URLSearchParams();
+    if (params.search?.trim()) urlParams.set("search", params.search.trim());
+    if (nextStatus && nextStatus !== "active") urlParams.set("status", nextStatus);
+    if (pageNum > 1) urlParams.set("page", String(pageNum));
+    const qs = urlParams.toString();
+    return `/admin/products${qs ? `?${qs}` : ""}`;
   }
 
-  query = query.range(offset, offset + PAGE_SIZE - 1);
+  function buildProductsQuery(
+    searchMode: ProductSearchMode = "all",
+    range: { from: number; to: number } = { from: offset, to: offset + PAGE_SIZE - 1 },
+  ) {
+    let query = supabase
+      .from("products")
+      .select(
+        `
+        id, name, slug, sku, description_plain, base_price, status, visibility, primary_image_url,
+        product_variations ( id, name, sku, price ),
+        product_categories ( categories ( name, slug ) )
+      `,
+        { count: "exact" }
+      )
+      .order("name");
 
-  const { data: products, count } = await query;
+    if (statusFilter !== "all") {
+      query = query.eq("status", statusFilter);
+    }
+    if (searchTermGroups.length > 0) {
+      query = applyProductSearchFilter(query, searchTermGroups, searchMode);
+    }
+
+    return query.range(range.from, range.to);
+  }
+
+  async function loadProducts(searchMode: ProductSearchMode) {
+    const range = shouldRankSearchResults
+      ? { from: 0, to: SEARCH_RANK_WINDOW - 1 }
+      : { from: offset, to: offset + PAGE_SIZE - 1 };
+    const { data, count } = await buildProductsQuery(searchMode, range);
+
+    if (!shouldRankSearchResults || !data) {
+      return { products: data, count: count || 0 };
+    }
+
+    const ranked = data
+      .map((product: any) => ({
+        ...product,
+        _searchScore: scoreProductSearchResult(product, searchTermGroups),
+      }))
+      .sort((a: any, b: any) =>
+        b._searchScore - a._searchScore || String(a.name).localeCompare(String(b.name))
+      );
+
+    return {
+      products: ranked.slice(offset, offset + PAGE_SIZE),
+      count: Math.min(count || 0, SEARCH_RANK_WINDOW),
+    };
+  }
+
+  let { products, count } = await loadProducts("all");
+  if ((!products || products.length === 0) && searchTermGroups.length > 1) {
+    ({ products, count } = await loadProducts("any"));
+  }
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
 
   return (
@@ -81,6 +137,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
       <div className="card p-4 mb-6 flex flex-wrap gap-4">
         <form className="flex-1 min-w-[200px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+          {statusFilter !== "active" && <input type="hidden" name="status" value={statusFilter} />}
           <input
             type="text"
             name="search"
@@ -94,7 +151,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
           {["all", "active", "draft", "archived"].map((s) => (
             <a
               key={s}
-              href={`/admin/products${s !== "all" ? `?status=${s}` : ""}`}
+              href={buildProductsUrl(1, { status: s })}
               className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
                 statusFilter === s
                   ? "bg-brand-red text-white"
@@ -185,7 +242,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/products?page=${p}${params.search ? `&search=${params.search}` : ""}${params.status ? `&status=${params.status}` : ""}`}
+              href={buildProductsUrl(p)}
               className={`px-3 py-1.5 rounded text-sm ${
                 p === page
                   ? "bg-brand-red text-white"

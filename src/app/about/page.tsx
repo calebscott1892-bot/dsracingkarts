@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   },
 };
 
+function publishableTagline(tagline?: string | null) {
+  const trimmed = tagline?.trim();
+  if (!trimmed || trimmed.toLowerCase() === "profile coming soon") return undefined;
+  return trimmed;
+}
+
 export default async function AboutPage() {
   noStore();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
@@ -55,7 +61,7 @@ export default async function AboutPage() {
           accentRgb: t.accent_rgb,
           logo: isClaw ? CLAW_RACING_PHOTO_URL : normalizedLogo,
           secondaryLogo: isClaw ? normalizedLogo || CLAW_CONSTRUCTION_LOGO_URL : undefined,
-          tagline: t.tagline || undefined,
+          tagline: publishableTagline(t.tagline),
           website: t.website_url || undefined,
           websiteLabel: isClaw ? "See Our Other Work" : undefined,
           results: resultsByTeam[t.id] ?? [],

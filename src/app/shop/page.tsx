@@ -7,7 +7,12 @@ import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { isRealProductImageUrl } from "@/lib/product-images";
-import { applyProductSearchFilter, getProductSearchTermGroups, type ProductSearchMode } from "@/lib/productSearch";
+import {
+  applyProductSearchFilter,
+  getProductSearchTermGroups,
+  scoreProductSearchResult,
+  type ProductSearchMode,
+} from "@/lib/productSearch";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 const SHOP_DESCRIPTION =
@@ -123,11 +128,13 @@ export async function generateMetadata({ searchParams }: Props): Promise<Metadat
 }
 
 const PAGE_SIZE = 24;
+const SEARCH_RANK_WINDOW = 600;
 
 export default async function ShopPage({ searchParams }: Props) {
   const params = await searchParams;
   const supabase = await createClient();
-  const page = parseInt(params.page || "1", 10);
+  const parsedPage = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const offset = (page - 1) * PAGE_SIZE;
 
   const { data: allCategories } = await supabase
@@ -223,15 +230,19 @@ export default async function ShopPage({ searchParams }: Props) {
   }
 
   const searchTermGroups = getProductSearchTermGroups(params.search);
+  const shouldRankSearchResults = searchTermGroups.length > 1 && !params.sort;
 
-  function buildProductsQuery(searchMode: ProductSearchMode = "all") {
+  function buildProductsQuery(
+    searchMode: ProductSearchMode = "all",
+    range: { from: number; to: number } = { from: offset, to: offset + PAGE_SIZE - 1 },
+  ) {
     let query = supabase
       .from("products")
       .select(
         `
-        id, name, slug, sku, base_price, primary_image_url,
-        product_variations ( price, sale_price, sku ),
-        product_categories ( category_id, categories ( slug ) )
+        id, name, slug, sku, description_plain, base_price, primary_image_url,
+        product_variations ( price, sale_price, sku, name ),
+        product_categories ( category_id, categories ( name, slug ) )
       `,
         { count: "exact" }
       )
@@ -251,27 +262,57 @@ export default async function ShopPage({ searchParams }: Props) {
       query = applyProductSearchFilter(query, searchTermGroups, searchMode);
     }
 
-    switch (params.sort) {
-      case "price_asc":
-        query = query.order("base_price", { ascending: true, nullsFirst: false });
-        break;
-      case "price_desc":
-        query = query.order("base_price", { ascending: false });
-        break;
-      case "name_asc":
-      default:
-        query = query.order("name", { ascending: true });
-        break;
+    if (shouldRankSearchResults) {
+      query = query.order("name", { ascending: true });
+    } else {
+      switch (params.sort) {
+        case "price_asc":
+          query = query.order("base_price", { ascending: true, nullsFirst: false });
+          break;
+        case "price_desc":
+          query = query.order("base_price", { ascending: false });
+          break;
+        case "name_asc":
+        default:
+          query = query.order("name", { ascending: true });
+          break;
+      }
     }
 
-    return query.range(offset, offset + PAGE_SIZE - 1);
+    return query.range(range.from, range.to);
   }
 
-  let { data: products, count } = await buildProductsQuery("all");
-  if ((!products || products.length === 0) && searchTermGroups.length > 1) {
-    ({ data: products, count } = await buildProductsQuery("any"));
+  async function loadProducts(searchMode: ProductSearchMode) {
+    const range = shouldRankSearchResults
+      ? { from: 0, to: SEARCH_RANK_WINDOW - 1 }
+      : { from: offset, to: offset + PAGE_SIZE - 1 };
+    const { data, count } = await buildProductsQuery(searchMode, range);
+
+    if (!shouldRankSearchResults || !data) {
+      return { products: data, count: count || 0 };
+    }
+
+    const ranked = data
+      .map((product: any) => ({
+        ...product,
+        _searchScore: scoreProductSearchResult(product, searchTermGroups),
+      }))
+      .sort((a: any, b: any) =>
+        b._searchScore - a._searchScore || String(a.name).localeCompare(String(b.name))
+      );
+
+    return {
+      products: ranked.slice(offset, offset + PAGE_SIZE),
+      count: Math.min(count || 0, SEARCH_RANK_WINDOW),
+    };
   }
-  const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
+
+  let { products, count } = await loadProducts("all");
+  if ((!products || products.length === 0) && searchTermGroups.length > 1) {
+    ({ products, count } = await loadProducts("any"));
+  }
+  const productCount = count || 0;
+  const totalPages = Math.ceil(productCount / PAGE_SIZE);
 
   // Top-level categories (no parent) for the mobile category-first landing.
   // Re-uses the same CategoryGrid the homepage uses, so any new category
@@ -386,7 +427,7 @@ export default async function ShopPage({ searchParams }: Props) {
           <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
             {showSubcategoryLanding
               ? `${selectedChildCategories.length} Subcategories`
-              : `${count || 0} Products`}
+              : `${productCount} Products`}
           </span>
         </div>
         <h1 className="section-heading capitalize">{categoryTitle}</h1>
@@ -461,7 +502,7 @@ export default async function ShopPage({ searchParams }: Props) {
           {products && products.length > 0 ? (
             <>
               <p className="text-text-muted text-xs mb-5 font-heading uppercase tracking-wider">
-                Showing {offset + 1}&ndash;{Math.min(offset + PAGE_SIZE, count || 0)} of {count}
+                Showing {offset + 1}&ndash;{Math.min(offset + PAGE_SIZE, productCount)} of {productCount}
               </p>
 
               <div className="product-grid">

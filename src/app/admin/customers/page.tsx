@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/utils";
 import { ImportSquareCustomersButton } from "./ImportSquareCustomersButton";
 
@@ -10,18 +10,36 @@ interface Props {
 }
 
 const PAGE_SIZE = 25;
+const CUSTOMER_SEARCH_FIELDS = ["first_name", "last_name", "email"] as const;
+
+function getCustomerSearchTokens(input?: string) {
+  return (input || "")
+    .split(/[\s,]+/)
+    .map((token) => token.replace(/[%()*\\]/g, "").trim())
+    .filter((token) => token.length >= 2)
+    .slice(0, 6);
+}
 
 export default async function AdminCustomersPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-  const page = parseInt(params.page || "1", 10);
+  const supabase = createServiceClient();
+  const parsedPage = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const offset = (page - 1) * PAGE_SIZE;
   const sort =
     params.sort === "name_asc" || params.sort === "name_desc" || params.sort === "oldest"
       ? params.sort
       : "newest";
-  const searchSuffix = params.search ? `&search=${encodeURIComponent(params.search)}` : "";
-  const sortSuffix = sort !== "newest" ? `&sort=${sort}` : "";
+  const searchTokens = getCustomerSearchTokens(params.search);
+
+  function buildCustomersUrl(pageNum: number) {
+    const urlParams = new URLSearchParams();
+    if (params.search?.trim()) urlParams.set("search", params.search.trim());
+    if (sort !== "newest") urlParams.set("sort", sort);
+    if (pageNum > 1) urlParams.set("page", String(pageNum));
+    const qs = urlParams.toString();
+    return `/admin/customers${qs ? `?${qs}` : ""}`;
+  }
 
   let query = supabase
     .from("customers")
@@ -47,9 +65,9 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
     query = query.order("created_at", { ascending: false });
   }
 
-  if (params.search) {
+  for (const token of searchTokens) {
     query = query.or(
-      `first_name.ilike.%${params.search}%,last_name.ilike.%${params.search}%,email.ilike.%${params.search}%`
+      CUSTOMER_SEARCH_FIELDS.map((field) => `${field}.ilike.%${token}%`).join(",")
     );
   }
 
@@ -149,7 +167,7 @@ export default async function AdminCustomersPage({ searchParams }: Props) {
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/customers?page=${p}${searchSuffix}${sortSuffix}`}
+              href={buildCustomersUrl(p)}
               className={`px-3 py-1.5 rounded text-sm ${
                 p === page
                   ? "bg-brand-red text-white"

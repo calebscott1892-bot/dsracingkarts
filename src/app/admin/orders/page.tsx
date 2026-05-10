@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatPrice, formatDate } from "@/lib/utils";
 import { OrderStatusSelect } from "./OrderStatusSelect";
@@ -14,8 +14,9 @@ const PAGE_SIZE = 25;
 
 export default async function AdminOrdersPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
-  const page = parseInt(params.page || "1", 10);
+  const supabase = createServiceClient();
+  const parsedPage = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const offset = (page - 1) * PAGE_SIZE;
 
   const { data: orders, count } = await supabase

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import { TeamProfileForm } from "@/components/admin/TeamProfileForm";
 import { TeamResultsPanel } from "@/components/admin/TeamResultsPanel";
@@ -14,10 +14,10 @@ interface Props {
 
 export default async function EditTeamPage({ params }: Props) {
   const { id } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const [{ data: team }, { data: results }] = await Promise.all([
-    supabase.from("team_profiles").select("*").eq("id", id).single(),
+    supabase.from("team_profiles").select("*").eq("id", id).maybeSingle(),
     supabase.from("team_results").select("*").eq("team_profile_id", id).order("event_date", { ascending: false }),
   ]);
 

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
 import { CheckCircle2, Download, Mail, Send, Users } from "lucide-react";
 import { NewsletterTable } from "./NewsletterTable";
 
@@ -60,18 +60,30 @@ async function getMailchimpSummary() {
 
 export default async function AdminNewsletterPage({ searchParams }: Props) {
   const params = await searchParams;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const mailchimp = await getMailchimpSummary();
-  const page = parseInt(params.page || "1", 10);
+  const parsedPage = Number.parseInt(params.page || "1", 10);
+  const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const offset = (page - 1) * PAGE_SIZE;
+  const status = params.status === "subscribed" || params.status === "unsubscribed"
+    ? params.status
+    : "";
+
+  function buildNewsletterUrl(pageNum: number, nextStatus = status) {
+    const urlParams = new URLSearchParams();
+    if (nextStatus) urlParams.set("status", nextStatus);
+    if (pageNum > 1) urlParams.set("page", String(pageNum));
+    const qs = urlParams.toString();
+    return `/admin/newsletter${qs ? `?${qs}` : ""}`;
+  }
 
   let query = supabase
     .from("newsletter_subscribers")
     .select("id, email, subscribed, source, created_at", { count: "exact" })
     .order("created_at", { ascending: false });
 
-  if (params.status === "subscribed") query = query.eq("subscribed", true);
-  if (params.status === "unsubscribed") query = query.eq("subscribed", false);
+  if (status === "subscribed") query = query.eq("subscribed", true);
+  if (status === "unsubscribed") query = query.eq("subscribed", false);
 
   query = query.range(offset, offset + PAGE_SIZE - 1);
 
@@ -201,9 +213,9 @@ export default async function AdminNewsletterPage({ searchParams }: Props) {
         ].map((tab) => (
           <a
             key={tab.value}
-            href={`/admin/newsletter${tab.value ? `?status=${tab.value}` : ""}`}
+            href={buildNewsletterUrl(1, tab.value)}
             className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
-              (params.status || "") === tab.value
+              status === tab.value
                 ? "bg-brand-red text-white"
                 : "bg-surface-700 text-text-secondary hover:bg-surface-600"
             }`}
@@ -222,7 +234,7 @@ export default async function AdminNewsletterPage({ searchParams }: Props) {
           {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
             <a
               key={p}
-              href={`/admin/newsletter?page=${p}${params.status ? `&status=${params.status}` : ""}`}
+              href={buildNewsletterUrl(p)}
               className={`px-3 py-1.5 rounded text-sm transition-colors ${
                 p === page
                   ? "bg-brand-red text-white"
