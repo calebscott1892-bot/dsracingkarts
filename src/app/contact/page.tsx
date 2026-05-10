@@ -2,7 +2,6 @@ import { Metadata } from "next";
 import Image from "next/image";
 import { MapPin, Mail, Clock, AlertTriangle, Phone } from "lucide-react";
 import ContactForm from "@/components/ContactForm";
-import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Contact Us",

@@ -60,16 +60,13 @@ function Stars({ count }: { count: number }) {
 }
 
 export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
-  if (reviews.length === 0) {
-    return null;
-  }
-
   const [current, setCurrent]   = useState(0);
   const [prevIdx, setPrevIdx]   = useState<number | null>(null);
   const [dir, setDir]           = useState<"next" | "prev">("next");
   const [animating, setAnimating] = useState(false);
   const [timerKey, setTimerKey] = useState(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasReviews = reviews.length > 0;
   const hasMultipleReviews = reviews.length > 1;
 
   const go = useCallback(
@@ -85,8 +82,14 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
     [animating, current, hasMultipleReviews],
   );
 
-  const goNext = useCallback(() => go((current + 1) % reviews.length, "next"), [go, current, reviews.length]);
-  const goPrev = useCallback(() => go((current - 1 + reviews.length) % reviews.length, "prev"), [go, current, reviews.length]);
+  const goNext = useCallback(() => {
+    if (!hasMultipleReviews) return;
+    go((current + 1) % reviews.length, "next");
+  }, [go, current, hasMultipleReviews, reviews.length]);
+  const goPrev = useCallback(() => {
+    if (!hasMultipleReviews) return;
+    go((current - 1 + reviews.length) % reviews.length, "prev");
+  }, [go, current, hasMultipleReviews, reviews.length]);
 
   /* Auto-advance */
   useEffect(() => {
@@ -101,6 +104,16 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
     const t = setTimeout(() => { setPrevIdx(null); setAnimating(false); }, 450);
     return () => clearTimeout(t);
   }, [animating]);
+
+  useEffect(() => {
+    if (reviews.length > 0 && current >= reviews.length) {
+      setCurrent(0);
+    }
+  }, [current, reviews.length]);
+
+  if (!hasReviews) {
+    return null;
+  }
 
   const review = reviews[current] ?? reviews[0];
   const enterFrom = dir === "next" ? "60px" : "-60px";
@@ -176,9 +189,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
             onClick={goPrev}
             aria-label="Previous review"
             disabled={!hasMultipleReviews}
-            className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5
-                       hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white
-                       transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <ChevronLeft size={18} strokeWidth={2} className="group-hover:-translate-x-0.5 transition-transform" />
             <span className="text-xs uppercase tracking-[0.15em] hidden sm:inline font-heading">Prev</span>
@@ -212,9 +223,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
             onClick={goNext}
             aria-label="Next review"
             disabled={!hasMultipleReviews}
-            className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5
-                       hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white
-                       transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2.5 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/60 hover:text-white transition-all group shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <span className="text-xs uppercase tracking-[0.15em] hidden sm:inline font-heading">Next</span>
             <ChevronRight size={18} strokeWidth={2} className="group-hover:translate-x-0.5 transition-transform" />
@@ -231,10 +240,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
               href={GOOGLE_REVIEW_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group/g flex items-center gap-2.5 border border-white/10 bg-white/[0.03]
-                         px-4 py-2 transition-all duration-300
-                         hover:border-white/25 hover:bg-white/[0.07]
-                         hover:shadow-[0_0_20px_rgba(255,255,255,0.06)]"
+              className="group/g flex items-center gap-2.5 border border-white/10 bg-white/[0.03] px-4 py-2 transition-all duration-300 hover:border-white/25 hover:bg-white/[0.07] hover:shadow-[0_0_20px_rgba(255,255,255,0.06)]"
               aria-label="Open Google reviews for DS Racing Karts"
             >
               <svg viewBox="0 0 24 24" className="w-4 h-4 shrink-0 transition-all duration-300 group-hover/g:drop-shadow-[0_0_4px_rgba(255,255,255,0.5)]" aria-hidden="true">
@@ -256,10 +262,7 @@ export function ReviewsCarousel({ reviews }: { reviews: ReviewItem[] }) {
               href={FACEBOOK_REVIEW_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="group/f flex items-center gap-2.5 border border-white/10 bg-white/[0.03]
-                         px-4 py-2 transition-all duration-300
-                         hover:border-white/25 hover:bg-white/[0.07]
-                         hover:shadow-[0_0_20px_rgba(255,255,255,0.06)]"
+              className="group/f flex items-center gap-2.5 border border-white/10 bg-white/[0.03] px-4 py-2 transition-all duration-300 hover:border-white/25 hover:bg-white/[0.07] hover:shadow-[0_0_20px_rgba(255,255,255,0.06)]"
               aria-label="Open Facebook reviews for DS Racing Karts"
             >
               <Facebook size={14} className="w-4 h-4 shrink-0 text-[#1877F2] transition-all duration-300 group-hover/f:drop-shadow-[0_0_4px_rgba(24,119,242,0.5)]" />

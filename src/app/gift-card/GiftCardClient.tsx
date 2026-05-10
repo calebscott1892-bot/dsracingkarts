@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Gift, ShoppingCart, Mail, Check } from "lucide-react";
+import { ShoppingCart, Mail, Check } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import Link from "next/link";
 

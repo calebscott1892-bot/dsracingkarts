@@ -129,8 +129,7 @@ export function DSRGrandPrix({ onExit }: Props) {
         {/* Exit button */}
         <button
           onClick={onExit}
-          className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center
-                     bg-black/60 text-text-muted hover:text-white transition-colors"
+          className="absolute top-3 right-3 z-50 w-8 h-8 flex items-center justify-center bg-black/60 text-text-muted hover:text-white transition-colors"
           aria-label="Exit game"
         >
           <X size={16} />

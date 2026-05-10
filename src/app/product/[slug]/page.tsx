@@ -149,8 +149,7 @@ export default async function ProductPage({ params }: Props) {
           {categories[0] && (
             <Link
               href={`/shop?category=${categories[0].slug}`}
-              className="inline-block font-heading text-xs tracking-[0.3em] text-brand-red uppercase
-                         mb-3 hover:text-brand-red-light transition-colors"
+              className="inline-block font-heading text-xs tracking-[0.3em] text-brand-red uppercase mb-3 hover:text-brand-red-light transition-colors"
             >
               {categories[0].name}
             </Link>
@@ -208,12 +207,7 @@ export default async function ProductPage({ params }: Props) {
                 </h2>
               </div>
               <div
-                className="text-text-secondary text-sm leading-relaxed space-y-3 break-words
-                           [&_strong]:text-white [&_b]:text-white
-                           [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1
-                           [&_a]:text-brand-red [&_a]:underline
-                           [&_img]:max-w-full [&_img]:h-auto
-                           [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
+                className="text-text-secondary text-sm leading-relaxed space-y-3 break-words [&_strong]:text-white [&_b]:text-white [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_a]:text-brand-red [&_a]:underline [&_img]:max-w-full [&_img]:h-auto [&_table]:block [&_table]:overflow-x-auto [&_table]:max-w-full"
                 dangerouslySetInnerHTML={{ __html: sanitizeHtml(product.description, {
                   allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img']),
                   allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt', 'width', 'height'] },

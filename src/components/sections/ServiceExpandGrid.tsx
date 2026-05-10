@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChevronDown, X, Wrench, Gauge, Settings, Zap, Shield, Users, Shirt } from "lucide-react";
+import { ChevronDown, Wrench, Gauge, Settings, Zap, Shield, Users, Shirt } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import Link from "next/link";
 
@@ -174,7 +174,7 @@ function ServiceExpandCard({ service }: { service: ServiceDetail }) {
 export default function ServiceExpandGrid({ services }: { services: ServiceDetail[] }) {
   return (
     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {services.map((service, i) => (
+      {services.map((service) => (
         <ServiceExpandCard key={service.title} service={service} />
       ))}
     </div>

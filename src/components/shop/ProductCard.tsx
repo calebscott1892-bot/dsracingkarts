@@ -53,14 +53,12 @@ export function ProductCard({ product, priority = false }: Props) {
           )}
 
           {/* Bottom red line on hover */}
-          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red
-                          scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+          <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
         </div>
 
         {/* Info */}
         <div className="p-3 md:p-4">
-          <h3 className="text-sm font-medium text-text-secondary line-clamp-2
-                         group-hover:text-white transition-colors duration-200">
+          <h3 className="text-sm font-medium text-text-secondary line-clamp-2 group-hover:text-white transition-colors duration-200">
             {product.name}
           </h3>
           {displaySku && (
@@ -93,8 +91,7 @@ function ProductNameFallback({ name }: { name: string }) {
   const hueShift = ((hash % 11) + 11) % 11; // 0–10° micro shift
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center
-                 bg-[#141414] carbon-bg"
+      className="absolute inset-0 flex flex-col items-center justify-center px-4 text-center bg-[#141414] carbon-bg"
       style={{
         backgroundImage:
           `linear-gradient(135deg, rgba(230,0,18,0.06), transparent 55%),

@@ -167,6 +167,7 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
           <input
             ref={inputRef}
             type="text"
+            role="combobox"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => setOpen(true)}
@@ -175,6 +176,8 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
             aria-label="Search products"
             aria-autocomplete="list"
             aria-expanded={showDropdown}
+            aria-controls={showDropdown ? "product-search-results" : undefined}
+            aria-haspopup="listbox"
             className="flex-1 bg-transparent px-3 py-4 text-white placeholder:text-text-muted focus:outline-none text-sm md:text-base"
           />
           {query && (
@@ -198,6 +201,7 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
       {/* Dropdown */}
       {showDropdown && (
         <div
+          id="product-search-results"
           className="absolute left-0 right-0 top-full mt-2 bg-surface-800 border border-surface-600 shadow-2xl z-50 animate-fade-in overflow-hidden"
           role="listbox"
         >

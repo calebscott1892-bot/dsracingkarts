@@ -22,8 +22,7 @@ export function CategoryGrid({ categories, extraTile }: Props) {
           <Link
             key={cat.id}
             href={`/shop?category=${cat.slug}`}
-            className="group relative aspect-[4/3] overflow-hidden bg-surface-800
-                       border border-surface-600/50 hover:border-brand-red/40 transition-all duration-300"
+            className="group relative aspect-[4/3] overflow-hidden bg-surface-800 border border-surface-600/50 hover:border-brand-red/40 transition-all duration-300"
           >
             {cat.image_url ? (
               <Image
@@ -48,9 +47,7 @@ export function CategoryGrid({ categories, extraTile }: Props) {
                   <div className="absolute inset-0 flex items-center justify-center pt-2 pb-10">
                     <CategoryIcon
                       slug={cat.slug}
-                      className="w-20 h-20 md:w-24 md:h-24 text-brand-red/90
-                                 group-hover:text-brand-red group-hover:scale-110
-                                 transition-all duration-500"
+                      className="w-20 h-20 md:w-24 md:h-24 text-brand-red/90 group-hover:text-brand-red group-hover:scale-110 transition-all duration-500"
                       style={{
                         filter:
                           "drop-shadow(0 0 8px rgba(230,0,18,0.45)) drop-shadow(0 0 2px rgba(230,0,18,0.8))",
@@ -65,13 +62,11 @@ export function CategoryGrid({ categories, extraTile }: Props) {
             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
 
             {/* Red accent line at bottom */}
-            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red
-                            scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
+            <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
 
             {/* Label */}
             <div className="absolute bottom-0 left-0 right-0 p-3 md:p-4">
-              <h3 className="font-heading text-sm md:text-base uppercase tracking-[0.15em] text-white
-                             group-hover:text-brand-red transition-colors duration-200">
+              <h3 className="font-heading text-sm md:text-base uppercase tracking-[0.15em] text-white group-hover:text-brand-red transition-colors duration-200">
                 {cat.name}
               </h3>
             </div>

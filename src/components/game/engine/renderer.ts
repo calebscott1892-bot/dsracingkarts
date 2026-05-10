@@ -1,5 +1,5 @@
 import type { CarState, GameState } from "./state";
-import type { TrackData, Point } from "./track";
+import type { TrackData } from "./track";
 import { COLORS, CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS } from "./constants";
 import {
   updateAmbient,

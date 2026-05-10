@@ -60,7 +60,7 @@ export default async function AdminCategoryAssignmentsPage() {
     parent_name: string | null;
     full_label: string;
   }[] = [];
-  let summary = {
+  const summary = {
     total: 0,
     pending: 0,
     approved: 0,

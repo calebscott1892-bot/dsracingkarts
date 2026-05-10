@@ -299,10 +299,7 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
         {/* Go button */}
         <button
           onClick={() => onSelect(selectedTrack, laps, showDifficulty ? difficulty : undefined)}
-          className="font-digital text-lg md:text-xl px-12 md:px-16 py-3 md:py-4 bg-racing-red text-white border-2 border-racing-red
-                     hover:bg-racing-red/80 transition-all tracking-[0.2em]
-                     shadow-[0_0_30px_rgba(230,0,18,0.4)]
-                     hover:shadow-[0_0_40px_rgba(230,0,18,0.6)]"
+          className="font-digital text-lg md:text-xl px-12 md:px-16 py-3 md:py-4 bg-racing-red text-white border-2 border-racing-red hover:bg-racing-red/80 transition-all tracking-[0.2em] shadow-[0_0_30px_rgba(230,0,18,0.4)] hover:shadow-[0_0_40px_rgba(230,0,18,0.6)]"
         >
           RACE!
         </button>

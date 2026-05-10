@@ -195,8 +195,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
             ))}
             <Link
               href="/contact"
-              className="block font-heading text-sm uppercase tracking-[0.1em] text-brand-red
-                         py-2.5 px-3 border-l-2 border-brand-red bg-brand-red/10 transition-all"
+              className="block font-heading text-sm uppercase tracking-[0.1em] text-brand-red py-2.5 px-3 border-l-2 border-brand-red bg-brand-red/10 transition-all"
               onClick={() => setMobileOpen(false)}
             >
               Contact Us

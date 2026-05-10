@@ -61,8 +61,7 @@ export function ScrollVideo() {
 
       {/* Ambient glow */}
       <div
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[250px] md:w-[600px] md:h-[400px]
-                   rounded-full blur-[120px] pointer-events-none transition-opacity duration-100"
+        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[250px] md:w-[600px] md:h-[400px] rounded-full blur-[120px] pointer-events-none transition-opacity duration-100"
         style={{
           background: `radial-gradient(ellipse, rgba(204,0,0,${glowIntensity}) 0%, transparent 70%)`,
         }}
@@ -99,8 +98,7 @@ export function ScrollVideo() {
             }}
           >
             {/* Outer frame — racing monitor effect */}
-            <div className="relative bg-surface-800 border border-surface-500/50 p-1.5 md:p-2
-                           shadow-[0_0_60px_rgba(0,0,0,0.8)]">
+            <div className="relative bg-surface-800 border border-surface-500/50 p-1.5 md:p-2 shadow-[0_0_60px_rgba(0,0,0,0.8)]">
 
               {/* Red accent corners */}
               <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-brand-red" />
@@ -146,8 +144,7 @@ export function ScrollVideo() {
 
             {/* Reflection */}
             <div
-              className="absolute -bottom-8 left-4 right-4 h-8 bg-gradient-to-b from-brand-red/5 to-transparent
-                          blur-sm pointer-events-none"
+              className="absolute -bottom-8 left-4 right-4 h-8 bg-gradient-to-b from-brand-red/5 to-transparent blur-sm pointer-events-none"
             />
           </div>
         </div>

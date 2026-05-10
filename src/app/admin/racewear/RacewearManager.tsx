@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import Image from "next/image";
 import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff, Pencil, ArrowUp, ArrowDown } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -390,6 +391,7 @@ export function RacewearManager({ initialEntries }: Props) {
               <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Photo *</label>
               {photoPreview ? (
                 <div className="relative inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Browser file previews use local blob URLs. */}
                   <img src={photoPreview} alt="Preview" className="max-h-48 rounded border border-surface-600 object-cover" />
                   <button
                     type="button"
@@ -437,10 +439,12 @@ export function RacewearManager({ initialEntries }: Props) {
                 {groupEntries.map((entry, idx) => (
                   <div key={entry.id} className={`card overflow-hidden ${!entry.is_active ? "opacity-40" : ""}`}>
                     <div className="relative aspect-[3/4] bg-surface-900">
-                      <img
+                      <Image
                         src={entry.image_url}
                         alt={entry.alt_text || entry.group_label}
-                        className="w-full h-full object-cover"
+                        fill
+                        sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        className="object-cover"
                       />
                     </div>
                     <div className="p-2 space-y-1.5">

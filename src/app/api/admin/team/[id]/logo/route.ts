@@ -123,7 +123,7 @@ export async function POST(
   try {
     const formData = await request.formData();
     file = formData.get("file") as File | null;
-  } catch (err) {
+  } catch {
     return NextResponse.json(
       { error: "Couldn't read uploaded file (bad form encoding)." },
       { status: 400 }

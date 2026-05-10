@@ -358,9 +358,7 @@ export function HistorySection() {
 
                     {/* Photo — full width, clean, no stacking */}
                     <div
-                      className="group relative aspect-[16/10] overflow-hidden mb-4 cursor-pointer
-                                 border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)]
-                                 hover:border-white/20 hover:shadow-[0_12px_40px_rgba(230,0,18,0.15)] transition-all duration-500"
+                      className="group relative aspect-[16/10] overflow-hidden mb-4 cursor-pointer border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:border-white/20 hover:shadow-[0_12px_40px_rgba(230,0,18,0.15)] transition-all duration-500"
                       onClick={() => openLightbox(item.image.src, item.image.alt)}
                     >
                       <Image
@@ -371,9 +369,7 @@ export function HistorySection() {
                         sizes="(max-width: 768px) 90vw, 45vw"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full p-2
-                                     opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2
-                                     group-hover:translate-y-0">
+                      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-full p-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
                         <ZoomIn size={14} className="text-white/80" />
                       </div>
                     </div>
@@ -404,13 +400,11 @@ export function HistorySection() {
       {/* Fullscreen Lightbox */}
       {lightbox && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm
-                     animate-[fadeIn_300ms_ease-out]"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm animate-[fadeIn_300ms_ease-out]"
           onClick={closeLightbox}
         >
           <button
-            className="absolute top-6 right-6 z-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm
-                       rounded-full p-3 transition-colors duration-200"
+            className="absolute top-6 right-6 z-10 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-full p-3 transition-colors duration-200"
             onClick={closeLightbox}
           >
             <X size={24} className="text-white" />
@@ -428,8 +422,7 @@ export function HistorySection() {
               priority
             />
           </div>
-          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60 font-heading
-                       text-xs tracking-[0.2em] uppercase">
+          <p className="absolute bottom-8 left-1/2 -translate-x-1/2 text-white/60 font-heading text-xs tracking-[0.2em] uppercase">
             {lightbox.alt}
           </p>
         </div>

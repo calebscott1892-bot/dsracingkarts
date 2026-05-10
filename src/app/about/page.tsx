@@ -2,7 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { unstable_noStore as noStore } from "next/cache";
-import { Quote, Flag, Timer } from "lucide-react";
+import { Quote, Timer } from "lucide-react";
 import { DEFAULT_TEAM_PROFILES, TeamCarouselUI, type Team, type TeamResult } from "@/components/sections/TeamProfileCarousel";
 import { createServiceClient } from "@/lib/supabase/server";
 import { CLAW_CONSTRUCTION_LOGO_URL, CLAW_RACING_PHOTO_URL, normalizeTeamLogoUrl } from "@/lib/teamLogos";

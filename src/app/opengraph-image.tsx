@@ -1,7 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
-export const alt = "DS Racing Karts — Go Kart Parts & Service | Sydney";
+export const alt = "DS Racing Karts - Go Kart Parts & Service | Sydney";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

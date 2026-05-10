@@ -485,7 +485,13 @@ export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team
   const onTouchEnd = (e: React.TouchEvent) => {
     if (touchX.current === null) return;
     const diff = touchX.current - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) diff > 0 ? goNext() : goPrev();
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        goNext();
+      } else {
+        goPrev();
+      }
+    }
     touchX.current = null;
   };
 
@@ -497,10 +503,7 @@ export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team
       <div className="text-center mt-10">
         <button
           onClick={() => { setCurrent(0); setIsOpen(true); }}
-          className="group relative inline-flex items-center gap-3 bg-[#e60012] text-white
-                     uppercase tracking-[0.15em] px-8 py-4 transition-all duration-300
-                     hover:bg-[#ff1a2e] hover:shadow-[0_0_30px_rgba(230,0,18,0.4)]
-                     active:scale-[0.98] overflow-hidden"
+          className="group relative inline-flex items-center gap-3 bg-[#e60012] text-white uppercase tracking-[0.15em] px-8 py-4 transition-all duration-300 hover:bg-[#ff1a2e] hover:shadow-[0_0_30px_rgba(230,0,18,0.4)] active:scale-[0.98] overflow-hidden"
           style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}
         >
           <span
@@ -606,9 +609,7 @@ export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team
               <div className="flex items-center justify-between w-full gap-3">
                 <button
                   onClick={goPrev}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5
-                             hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
-                             transition-all group"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white transition-all group"
                   aria-label="Previous team"
                 >
                   <ChevronLeft size={20} strokeWidth={2} className="group-hover:-translate-x-0.5 transition-transform" />
@@ -617,9 +618,7 @@ export function TeamCarouselUI({ teams = DEFAULT_TEAM_PROFILES }: { teams?: Team
 
                 <button
                   onClick={goNext}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5
-                             hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white
-                             transition-all group"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 border border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20 text-white/70 hover:text-white transition-all group"
                   aria-label="Next team"
                 >
                   <span className="text-xs uppercase tracking-[0.15em]" style={{ fontFamily: "var(--font-heading), system-ui, sans-serif" }}>Next</span>

@@ -6,18 +6,16 @@ import type { NextRequest } from "next/server";
 // param renders the product name centered so each shared link still looks
 // distinct in Facebook / Instagram / Meta Catalog previews.
 //
-// We have to return a real raster image (PNG) here — Facebook's link
+// We have to return a real raster image (PNG) here because Facebook's link
 // scrapers ignore SVGs, which is why the existing /images/image-coming-soon.svg
 // can't be used directly as an OG image.
-
-export const runtime = "edge";
 
 const SIZE = { width: 1200, height: 630 };
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const rawName = (searchParams.get("name") || "").trim();
-  const name = rawName.length > 90 ? `${rawName.slice(0, 90)}…` : rawName;
+  const name = rawName.length > 90 ? `${rawName.slice(0, 90)}...` : rawName;
 
   return new ImageResponse(
     (

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
-import { randomUUID } from "crypto";
 import { Resend } from "resend";
 
 /**
