@@ -101,100 +101,88 @@ export default async function AdminTeamPage() {
             })}
           </div>
 
-          <table className="hidden w-full text-sm md:table">
-            <thead className="bg-surface-700">
-              <tr>
-                <th className="px-4 py-3 text-left text-text-muted font-medium w-16">#</th>
-                <th className="px-4 py-3 text-left text-text-muted font-medium">Team</th>
-                <th className="px-4 py-3 text-left text-text-muted font-medium">Kart No.</th>
-                <th className="px-4 py-3 text-left text-text-muted font-medium">Image</th>
-                <th className="px-4 py-3 text-left text-text-muted font-medium">Status</th>
-                <th className="px-4 py-3 text-left text-text-muted font-medium w-24">Order</th>
-                <th className="px-4 py-3 text-right text-text-muted font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-700">
+          <div className="hidden overflow-x-auto text-sm md:block">
+            <div className="grid min-w-[920px] grid-cols-[72px_minmax(220px,1fr)_120px_120px_120px_96px_120px] bg-surface-700 text-text-muted">
+              <div className="px-4 py-3 font-medium">#</div>
+              <div className="px-4 py-3 font-medium">Team</div>
+              <div className="px-4 py-3 font-medium">Kart No.</div>
+              <div className="px-4 py-3 font-medium">Image</div>
+              <div className="px-4 py-3 font-medium">Status</div>
+              <div className="px-4 py-3 font-medium">Order</div>
+              <div className="px-4 py-3 text-right font-medium">Actions</div>
+            </div>
+
+            <div className="divide-y divide-surface-700">
               {teamRows.map((team) => {
                 const logoUrl = normalizeTeamLogoUrl(team.logo_url, team.team_name);
                 const editHref = `/admin/team/${team.id}`;
 
                 return (
-                  <tr key={team.id} className="hover:bg-surface-700/50 transition-colors">
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3" aria-label={`Edit ${team.team_name}`}>
-                        <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                          style={{ background: `${team.accent_color || "#ef4444"}20`, color: team.accent_color || "#ef4444" }}
-                        >
-                          {team.kart_number || "TBA"}
+                  <Link
+                    key={team.id}
+                    href={editHref}
+                    className="grid min-w-[920px] grid-cols-[72px_minmax(220px,1fr)_120px_120px_120px_96px_120px] items-center transition-colors hover:bg-surface-700/50 focus-visible:bg-surface-700/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-red/50"
+                    aria-label={`Edit ${team.team_name}`}
+                  >
+                    <div className="px-4 py-3">
+                      <div
+                        className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold"
+                        style={{ background: `${team.accent_color || "#ef4444"}20`, color: team.accent_color || "#ef4444" }}
+                      >
+                        {team.kart_number || "TBA"}
+                      </div>
+                    </div>
+                    <div className="min-w-0 px-4 py-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        {logoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={logoUrl} alt={team.team_name} className="h-8 w-8 shrink-0 rounded object-cover" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-white transition-colors hover:text-brand-red">
+                            {team.team_name}
+                          </p>
+                          {team.tagline && <p className="truncate text-xs text-text-muted">{team.tagline}</p>}
                         </div>
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {logoUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={logoUrl} alt={team.team_name} className="w-8 h-8 rounded object-cover" />
-                          )}
-                          <div>
-                            <p className="text-white font-medium transition-colors hover:text-brand-red">
-                              {team.team_name}
-                            </p>
-                            {team.tagline && <p className="text-text-muted text-xs">{team.tagline}</p>}
-                          </div>
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3 text-text-secondary">
-                        {team.kart_number ? `#${team.kart_number}` : "TBA"}
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium ${
-                            logoUrl
-                              ? "bg-blue-500/10 text-blue-300"
-                              : "bg-amber-500/10 text-amber-300"
-                          }`}
-                        >
-                          {logoUrl ? <ImageIcon size={12} /> : <EyeOff size={12} />}
-                          {logoUrl ? "Set" : "Missing"}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${
-                            team.is_active
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-surface-600 text-text-muted"
-                          }`}
-                        >
-                          {team.is_active ? "Visible" : "Hidden"}
-                        </span>
-                      </Link>
-                    </td>
-                    <td className="p-0">
-                      <Link href={editHref} className="block px-4 py-3 text-text-secondary">
-                        {team.sort_order}
-                      </Link>
-                    </td>
-                    <td className="p-0 text-right">
-                      <Link href={editHref} className="block px-4 py-3">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-surface-700 hover:bg-surface-600 text-text-secondary hover:text-white transition-colors">
-                          <Pencil size={12} /> Edit
-                        </span>
-                      </Link>
-                    </td>
-                  </tr>
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 text-text-secondary">
+                      {team.kart_number ? `#${team.kart_number}` : "TBA"}
+                    </div>
+                    <div className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded px-2 py-0.5 text-xs font-medium ${
+                          logoUrl
+                            ? "bg-blue-500/10 text-blue-300"
+                            : "bg-amber-500/10 text-amber-300"
+                        }`}
+                      >
+                        {logoUrl ? <ImageIcon size={12} /> : <EyeOff size={12} />}
+                        {logoUrl ? "Set" : "Missing"}
+                      </span>
+                    </div>
+                    <div className="px-4 py-3">
+                      <span
+                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
+                          team.is_active
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-surface-600 text-text-muted"
+                        }`}
+                      >
+                        {team.is_active ? "Visible" : "Hidden"}
+                      </span>
+                    </div>
+                    <div className="px-4 py-3 text-text-secondary">{team.sort_order}</div>
+                    <div className="px-4 py-3 text-right">
+                      <span className="inline-flex items-center gap-1.5 rounded bg-surface-700 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:bg-surface-600 hover:text-white">
+                        <Pencil size={12} /> Edit
+                      </span>
+                    </div>
+                  </Link>
                 );
               })}
-            </tbody>
-          </table>
+            </div>
+          </div>
           </>
         ) : (
           <div className="p-12 text-center">

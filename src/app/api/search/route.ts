@@ -4,7 +4,9 @@ import { isRealProductImageUrl } from "@/lib/product-images";
 import {
   applyProductSearchFilter,
   getProductSearchTermGroups,
+  PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT,
   scoreProductSearchResult,
+  type ProductSearchRelatedMatchIds,
   type ProductSearchMode,
 } from "@/lib/productSearch";
 
@@ -22,6 +24,21 @@ export async function GET(request: NextRequest) {
   }
 
   const supabase = await createClient();
+  const relatedMatchIds: ProductSearchRelatedMatchIds = await Promise.all(
+    termGroups.map(async (group) => {
+      const filters = group.flatMap((term) => [
+        `name.ilike.%${term}%`,
+        `sku.ilike.%${term}%`,
+      ]);
+      const { data } = await supabase
+        .from("product_variations")
+        .select("product_id")
+        .or(filters.join(","))
+        .limit(PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT);
+
+      return Array.from(new Set((data || []).map((row) => row.product_id).filter(Boolean)));
+    })
+  );
 
   async function runSearch(mode: ProductSearchMode) {
     const query = supabase
@@ -36,7 +53,7 @@ export async function GET(request: NextRequest) {
       .eq("status", "active")
       .eq("visibility", "visible");
 
-    return applyProductSearchFilter(query, termGroups, mode).limit(100);
+    return applyProductSearchFilter(query, termGroups, mode, relatedMatchIds).limit(100);
   }
 
   let { data, count } = await runSearch("all");

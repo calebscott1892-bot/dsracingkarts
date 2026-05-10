@@ -10,7 +10,9 @@ import { isRealProductImageUrl } from "@/lib/product-images";
 import {
   applyProductSearchFilter,
   getProductSearchTermGroups,
+  PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT,
   scoreProductSearchResult,
+  type ProductSearchRelatedMatchIds,
   type ProductSearchMode,
 } from "@/lib/productSearch";
 
@@ -231,6 +233,23 @@ export default async function ShopPage({ searchParams }: Props) {
 
   const searchTermGroups = getProductSearchTermGroups(params.search);
   const shouldRankSearchResults = searchTermGroups.length > 1 && !params.sort;
+  const relatedMatchIds: ProductSearchRelatedMatchIds = searchTermGroups.length > 0
+    ? await Promise.all(
+        searchTermGroups.map(async (group) => {
+          const filters = group.flatMap((term) => [
+            `name.ilike.%${term}%`,
+            `sku.ilike.%${term}%`,
+          ]);
+          const { data } = await supabase
+            .from("product_variations")
+            .select("product_id")
+            .or(filters.join(","))
+            .limit(PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT);
+
+          return Array.from(new Set((data || []).map((row) => row.product_id).filter(Boolean)));
+        })
+      )
+    : [];
 
   function buildProductsQuery(
     searchMode: ProductSearchMode = "all",
@@ -259,7 +278,7 @@ export default async function ShopPage({ searchParams }: Props) {
     }
 
     if (searchTermGroups.length > 0) {
-      query = applyProductSearchFilter(query, searchTermGroups, searchMode);
+      query = applyProductSearchFilter(query, searchTermGroups, searchMode, relatedMatchIds);
     }
 
     if (shouldRankSearchResults) {

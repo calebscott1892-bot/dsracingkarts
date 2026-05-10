@@ -100,7 +100,9 @@ export function SearchAutocomplete({ initialQuery = "" }: Props) {
   function viewAllResults() {
     const params = new URLSearchParams(searchParams.toString());
     params.set("search", query);
+    params.delete("category");
     params.delete("page");
+    params.delete("view");
     router.push(`/shop?${params.toString()}`);
     setOpen(false);
     inputRef.current?.blur();

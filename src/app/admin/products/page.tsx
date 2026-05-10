@@ -5,7 +5,9 @@ import { formatPrice } from "@/lib/utils";
 import {
   applyProductSearchFilter,
   getProductSearchTermGroups,
+  PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT,
   scoreProductSearchResult,
+  type ProductSearchRelatedMatchIds,
   type ProductSearchMode,
 } from "@/lib/productSearch";
 
@@ -30,6 +32,23 @@ export default async function AdminProductsPage({ searchParams }: Props) {
     : "active";
   const searchTermGroups = getProductSearchTermGroups(params.search);
   const shouldRankSearchResults = searchTermGroups.length > 0;
+  const relatedMatchIds: ProductSearchRelatedMatchIds = searchTermGroups.length > 0
+    ? await Promise.all(
+        searchTermGroups.map(async (group) => {
+          const filters = group.flatMap((term) => [
+            `name.ilike.%${term}%`,
+            `sku.ilike.%${term}%`,
+          ]);
+          const { data } = await supabase
+            .from("product_variations")
+            .select("product_id")
+            .or(filters.join(","))
+            .limit(PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT);
+
+          return Array.from(new Set((data || []).map((row) => row.product_id).filter(Boolean)));
+        })
+      )
+    : [];
 
   function buildProductsUrl(pageNum: number, overrides: { status?: string } = {}) {
     const nextStatus = overrides.status ?? statusFilter;
@@ -61,7 +80,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
       query = query.eq("status", statusFilter);
     }
     if (searchTermGroups.length > 0) {
-      query = applyProductSearchFilter(query, searchTermGroups, searchMode);
+      query = applyProductSearchFilter(query, searchTermGroups, searchMode, relatedMatchIds);
     }
 
     return query.range(range.from, range.to);

@@ -72,9 +72,11 @@ const CONTEXT_STOP_WORDS = new Set([
 
 const PRODUCT_SEARCH_FIELDS = ["name", "sku", "description_plain"] as const;
 const MAX_SEARCH_GROUPS = 8;
+export const PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT = 100;
 
 export type ProductSearchMode = "all" | "any";
 export type ProductSearchTermGroups = string[][];
+export type ProductSearchRelatedMatchIds = string[][];
 
 function normalizeSearchInput(input: string) {
   return input
@@ -128,29 +130,40 @@ export function getProductSearchTermGroups(input?: string | null): ProductSearch
   return groups;
 }
 
-function buildFieldFilters(terms: string[]) {
-  return terms.flatMap((term) =>
+function buildFieldFilters(terms: string[], relatedProductIds: string[] = []) {
+  const filters = terms.flatMap((term) =>
     PRODUCT_SEARCH_FIELDS.map((field) => `${field}.ilike.%${term}%`)
   );
+
+  const uniqueRelatedIds = Array.from(new Set(relatedProductIds))
+    .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+    .slice(0, PRODUCT_SEARCH_RELATED_MATCH_ID_LIMIT);
+  if (uniqueRelatedIds.length > 0) {
+    filters.push(`id.in.(${uniqueRelatedIds.join(",")})`);
+  }
+
+  return filters;
 }
 
 export function applyProductSearchFilter<T>(
   query: T,
   termGroups: ProductSearchTermGroups,
   mode: ProductSearchMode = "all",
+  relatedMatchIds: ProductSearchRelatedMatchIds = [],
 ): T {
   if (termGroups.length === 0) return query;
 
   let filtered: any = query;
 
   if (mode === "all") {
-    for (const group of termGroups) {
-      filtered = filtered.or(buildFieldFilters(group).join(","));
+    for (let index = 0; index < termGroups.length; index += 1) {
+      const group = termGroups[index];
+      filtered = filtered.or(buildFieldFilters(group, relatedMatchIds[index]).join(","));
     }
     return filtered as T;
   }
 
-  filtered = filtered.or(buildFieldFilters(termGroups.flat()).join(","));
+  filtered = filtered.or(buildFieldFilters(termGroups.flat(), relatedMatchIds.flat()).join(","));
   return filtered as T;
 }
 
