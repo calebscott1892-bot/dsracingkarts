@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isRealProductImageUrl } from "@/lib/product-images";
+import {
+  applyProductSearchFilter,
+  getProductSearchTermGroups,
+  scoreProductSearchResult,
+  type ProductSearchMode,
+} from "@/lib/productSearch";
 
 export const dynamic = "force-dynamic";
-
-/** Escape characters that have special meaning in PostgREST / SQL LIKE patterns */
-function sanitizeSearch(input: string): string {
-  return input.replace(/[%_\\,().*]/g, "");
-}
 
 export async function GET(request: NextRequest) {
   const raw = (request.nextUrl.searchParams.get("q") || "").trim();
@@ -15,30 +16,45 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [], total: 0 });
   }
 
-  const q = sanitizeSearch(raw);
-  if (q.length < 2) {
+  const termGroups = getProductSearchTermGroups(raw);
+  if (termGroups.length === 0) {
     return NextResponse.json({ results: [], total: 0 });
   }
 
   const supabase = await createClient();
 
-  // Full-text-ish search — Supabase `ilike` with wildcards. Matches name and SKU.
-  // ProductCategories joined so we can show the first category next to the product.
-  const { data, count } = await supabase
-    .from("products")
-    .select(
-      `
-      id, name, slug, base_price, primary_image_url, sku,
-      product_categories ( categories ( name, slug ) )
-    `,
-      { count: "exact" }
-    )
-    .eq("status", "active")
-    .eq("visibility", "visible")
-    .or(`name.ilike.%${q}%,sku.ilike.%${q}%`)
-    .limit(6);
+  async function runSearch(mode: ProductSearchMode) {
+    const query = supabase
+      .from("products")
+      .select(
+        `
+        id, name, slug, base_price, primary_image_url, sku, description_plain,
+        product_categories ( categories ( name, slug ) )
+      `,
+        { count: "exact" }
+      )
+      .eq("status", "active")
+      .eq("visibility", "visible");
 
-  const results = (data || []).map((p: any) => ({
+    return applyProductSearchFilter(query, termGroups, mode).limit(100);
+  }
+
+  let { data, count } = await runSearch("all");
+  if ((!data || data.length === 0) && termGroups.length > 1) {
+    ({ data, count } = await runSearch("any"));
+  }
+
+  const ranked = (data || [])
+    .map((p: any) => ({
+      ...p,
+      _searchScore: scoreProductSearchResult(p, termGroups),
+    }))
+    .sort((a: any, b: any) =>
+      b._searchScore - a._searchScore || String(a.name).localeCompare(String(b.name))
+    )
+    .slice(0, 6);
+
+  const results = ranked.map((p: any) => ({
     id: p.id,
     name: p.name,
     slug: p.slug,

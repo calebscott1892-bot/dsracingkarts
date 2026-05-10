@@ -7,6 +7,7 @@ import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { isRealProductImageUrl } from "@/lib/product-images";
+import { applyProductSearchFilter, getProductSearchTermGroups, type ProductSearchMode } from "@/lib/productSearch";
 
 const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 const SHOP_DESCRIPTION =
@@ -221,49 +222,55 @@ export default async function ShopPage({ searchParams }: Props) {
     }
   }
 
-  let query = supabase
-    .from("products")
-    .select(
-      `
-      id, name, slug, sku, base_price, primary_image_url,
-      product_variations ( price, sale_price, sku ),
-      product_categories ( category_id, categories ( slug ) )
-    `,
-      { count: "exact" }
-    )
-    .eq("status", "active")
-    .eq("visibility", "visible")
-    .neq("slug", GIFT_CARD_SLUG);
+  const searchTermGroups = getProductSearchTermGroups(params.search);
 
-  if (categoryProductIds !== null) {
-    if (categoryProductIds.length === 0) {
-      query = query.in("id", ["00000000-0000-0000-0000-000000000000"]);
-    } else {
-      query = query.in("id", categoryProductIds);
+  function buildProductsQuery(searchMode: ProductSearchMode = "all") {
+    let query = supabase
+      .from("products")
+      .select(
+        `
+        id, name, slug, sku, base_price, primary_image_url,
+        product_variations ( price, sale_price, sku ),
+        product_categories ( category_id, categories ( slug ) )
+      `,
+        { count: "exact" }
+      )
+      .eq("status", "active")
+      .eq("visibility", "visible")
+      .neq("slug", GIFT_CARD_SLUG);
+
+    if (categoryProductIds !== null) {
+      if (categoryProductIds.length === 0) {
+        query = query.in("id", ["00000000-0000-0000-0000-000000000000"]);
+      } else {
+        query = query.in("id", categoryProductIds);
+      }
     }
+
+    if (searchTermGroups.length > 0) {
+      query = applyProductSearchFilter(query, searchTermGroups, searchMode);
+    }
+
+    switch (params.sort) {
+      case "price_asc":
+        query = query.order("base_price", { ascending: true, nullsFirst: false });
+        break;
+      case "price_desc":
+        query = query.order("base_price", { ascending: false });
+        break;
+      case "name_asc":
+      default:
+        query = query.order("name", { ascending: true });
+        break;
+    }
+
+    return query.range(offset, offset + PAGE_SIZE - 1);
   }
 
-  if (params.search) {
-    const sanitized = params.search.replace(/[%_\\,().*]/g, "");
-    if (sanitized) query = query.ilike("name", `%${sanitized}%`);
+  let { data: products, count } = await buildProductsQuery("all");
+  if ((!products || products.length === 0) && searchTermGroups.length > 1) {
+    ({ data: products, count } = await buildProductsQuery("any"));
   }
-
-  switch (params.sort) {
-    case "price_asc":
-      query = query.order("base_price", { ascending: true, nullsFirst: false });
-      break;
-    case "price_desc":
-      query = query.order("base_price", { ascending: false });
-      break;
-    case "name_asc":
-    default:
-      query = query.order("name", { ascending: true });
-      break;
-  }
-
-  query = query.range(offset, offset + PAGE_SIZE - 1);
-
-  const { data: products, count } = await query;
   const totalPages = Math.ceil((count || 0) / PAGE_SIZE);
 
   // Top-level categories (no parent) for the mobile category-first landing.
