@@ -172,10 +172,10 @@ export function ProductEditForm({ product, allCategories }: Props) {
         <div className="card p-6 space-y-4 border-l-4 border-l-cyan-500 bg-cyan-500/5">
           <div>
             <h2 className="font-heading text-lg uppercase tracking-wider">
-              Supplier Costs
+              Supplier Reference
             </h2>
             <p className="mt-1 text-xs text-text-muted">
-              Supplier/vendor reference imported from supplier spreadsheets. This does not overwrite Square pricing.
+              Supplier/vendor reference imported from supplier spreadsheets. This helps identify item source and does not overwrite Square pricing.
             </p>
           </div>
 

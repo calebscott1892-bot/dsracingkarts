@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 interface Props {
-  searchParams: Promise<{ search?: string; page?: string; status?: string }>;
+  searchParams: Promise<{ search?: string; page?: string; status?: string; supplier?: string }>;
 }
 
 const PAGE_SIZE = 25;
@@ -30,6 +30,16 @@ export default async function AdminProductsPage({ searchParams }: Props) {
   const statusFilter = ["all", "active", "draft", "archived"].includes(params.status || "")
     ? params.status!
     : "active";
+  const { data: supplierOptions } = await supabase
+    .from("suppliers")
+    .select("name")
+    .order("name");
+  const supplierNames = (supplierOptions || [])
+    .map((supplier) => supplier.name)
+    .filter(Boolean);
+  const supplierFilter = supplierNames.includes(params.supplier || "")
+    ? params.supplier!
+    : "all";
   const searchTermGroups = getProductSearchTermGroups(params.search);
   const shouldRankSearchResults = searchTermGroups.length > 0;
   const relatedMatchIds: ProductSearchRelatedMatchIds = searchTermGroups.length > 0
@@ -50,11 +60,16 @@ export default async function AdminProductsPage({ searchParams }: Props) {
       )
     : [];
 
-  function buildProductsUrl(pageNum: number, overrides: { status?: string } = {}) {
+  function buildProductsUrl(
+    pageNum: number,
+    overrides: { status?: string; supplier?: string } = {},
+  ) {
     const nextStatus = overrides.status ?? statusFilter;
+    const nextSupplier = overrides.supplier ?? supplierFilter;
     const urlParams = new URLSearchParams();
     if (params.search?.trim()) urlParams.set("search", params.search.trim());
     if (nextStatus && nextStatus !== "active") urlParams.set("status", nextStatus);
+    if (nextSupplier && nextSupplier !== "all") urlParams.set("supplier", nextSupplier);
     if (pageNum > 1) urlParams.set("page", String(pageNum));
     const qs = urlParams.toString();
     return `/admin/products${qs ? `?${qs}` : ""}`;
@@ -64,13 +79,17 @@ export default async function AdminProductsPage({ searchParams }: Props) {
     searchMode: ProductSearchMode = "all",
     range: { from: number; to: number } = { from: offset, to: offset + PAGE_SIZE - 1 },
   ) {
+    const supplierSelect = supplierFilter !== "all"
+      ? "product_supplier_costs!inner ( id, suppliers!inner ( name ) )"
+      : "product_supplier_costs ( id, suppliers ( name ) )";
     let query = supabase
       .from("products")
       .select(
         `
         id, name, slug, sku, description_plain, base_price, status, visibility, primary_image_url,
         product_variations ( id, name, sku, price ),
-        product_categories ( categories ( name, slug ) )
+        product_categories ( categories ( name, slug ) ),
+        ${supplierSelect}
       `,
         { count: "exact" }
       )
@@ -81,6 +100,9 @@ export default async function AdminProductsPage({ searchParams }: Props) {
     }
     if (searchTermGroups.length > 0) {
       query = applyProductSearchFilter(query, searchTermGroups, searchMode, relatedMatchIds);
+    }
+    if (supplierFilter !== "all") {
+      query = query.eq("product_supplier_costs.suppliers.name", supplierFilter);
     }
 
     return query.range(range.from, range.to);
@@ -157,6 +179,7 @@ export default async function AdminProductsPage({ searchParams }: Props) {
         <form className="flex-1 min-w-[200px] relative">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
           {statusFilter !== "active" && <input type="hidden" name="status" value={statusFilter} />}
+          {supplierFilter !== "all" && <input type="hidden" name="supplier" value={supplierFilter} />}
           <input
             type="text"
             name="search"
@@ -181,6 +204,24 @@ export default async function AdminProductsPage({ searchParams }: Props) {
             </a>
           ))}
         </div>
+
+        {supplierNames.length > 0 && (
+          <div className="flex gap-2">
+            {["all", ...supplierNames].map((supplier) => (
+              <a
+                key={supplier}
+                href={buildProductsUrl(1, { supplier })}
+                className={`px-3 py-2 rounded text-xs uppercase tracking-wider transition-colors ${
+                  supplierFilter === supplier
+                    ? "bg-cyan-500/20 text-cyan-200 border border-cyan-500/40"
+                    : "bg-surface-700 text-text-secondary hover:bg-surface-600"
+                }`}
+              >
+                {supplier === "all" ? "All suppliers" : supplier}
+              </a>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Products table */}
@@ -198,6 +239,13 @@ export default async function AdminProductsPage({ searchParams }: Props) {
           <tbody>
             {products?.map((product: any) => {
               const displaySku = product.sku || product.product_variations?.find((v: any) => v.sku)?.sku;
+              const suppliers = Array.from(
+                new Set(
+                  (product.product_supplier_costs || [])
+                    .map((cost: any) => cost.suppliers?.name)
+                    .filter(Boolean)
+                )
+              );
 
               return (
                 <tr
@@ -215,6 +263,18 @@ export default async function AdminProductsPage({ searchParams }: Props) {
                       <span className="text-text-muted text-xs ml-2">
                         ({product.product_variations.length} variants)
                       </span>
+                    )}
+                    {suppliers.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {suppliers.map((supplier: any) => (
+                          <span
+                            key={supplier}
+                            className="rounded border border-cyan-500/30 bg-cyan-500/10 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-cyan-200"
+                          >
+                            {supplier}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-text-muted font-mono text-xs">
