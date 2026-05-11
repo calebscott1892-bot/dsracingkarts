@@ -80,6 +80,139 @@ async function syncCheckoutNewsletterSignup(
   }
 }
 
+function normalizePhoneForSquare(phone: string) {
+  const trimmed = phone.trim();
+  if (!trimmed) return undefined;
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length < 9 || digits.length > 16) return undefined;
+
+  if (trimmed.startsWith("+")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+61${digits.slice(1)}`;
+  if (digits.startsWith("61")) return `+${digits}`;
+  return digits;
+}
+
+function isSquareNotFoundError(error: unknown) {
+  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
+  const errors = (error as { errors?: Array<{ code?: string }> } | null)?.errors || [];
+  return statusCode === 404 || errors.some((entry) => entry.code === "NOT_FOUND");
+}
+
+async function findSquareCustomerByEmail(
+  square: ReturnType<typeof getSquareClient>,
+  email: string
+) {
+  const search = await square.customersApi.searchCustomers({
+    limit: BigInt(1),
+    query: {
+      filter: {
+        emailAddress: {
+          exact: email,
+        },
+      },
+    },
+  });
+
+  return search.result.customers?.[0]?.id || null;
+}
+
+async function ensureSquareCustomer({
+  square,
+  supabase,
+  localCustomerId,
+  existingSquareCustomerId,
+  firstName,
+  lastName,
+  email,
+  phone,
+  addressLine1,
+  city,
+  state,
+  postcode,
+}: {
+  square: ReturnType<typeof getSquareClient>;
+  supabase: ReturnType<typeof createServiceClient>;
+  localCustomerId: string;
+  existingSquareCustomerId?: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  postcode: string;
+}) {
+  const squarePhone = normalizePhoneForSquare(phone);
+  if (!squarePhone) {
+    throw new Error("Invalid customer phone number for Square");
+  }
+
+  const address = {
+    addressLine1,
+    locality: city,
+    administrativeDistrictLevel1: state,
+    postalCode: postcode,
+    country: "AU",
+  };
+  const payload = {
+    givenName: firstName || undefined,
+    familyName: lastName || undefined,
+    emailAddress: email,
+    phoneNumber: squarePhone,
+    address,
+    referenceId: localCustomerId,
+    note: "Created/updated from DS Racing Karts website checkout.",
+  };
+
+  let squareCustomerId = existingSquareCustomerId || null;
+
+  if (!squareCustomerId) {
+    squareCustomerId = await findSquareCustomerByEmail(square, email);
+  }
+
+  if (squareCustomerId) {
+    try {
+      await square.customersApi.updateCustomer(squareCustomerId, payload);
+    } catch (error) {
+      if (!isSquareNotFoundError(error)) {
+        throw error;
+      }
+
+      console.error("Stored Square customer ID was not found; retrying by email:", error);
+      squareCustomerId = await findSquareCustomerByEmail(square, email);
+
+      if (squareCustomerId) {
+        await square.customersApi.updateCustomer(squareCustomerId, payload);
+      } else {
+        const created = await square.customersApi.createCustomer({
+          ...payload,
+          idempotencyKey: `checkout-customer-${localCustomerId}`,
+        });
+        squareCustomerId = created.result.customer?.id || null;
+      }
+    }
+  } else {
+    const created = await square.customersApi.createCustomer({
+      ...payload,
+      idempotencyKey: `checkout-customer-${localCustomerId}`,
+    });
+    squareCustomerId = created.result.customer?.id || null;
+  }
+
+  if (!squareCustomerId) {
+    throw new Error("Square did not return a customer ID");
+  }
+
+  await supabase
+    .from("customers")
+    .update({ square_customer_id: squareCustomerId })
+    .eq("id", localCustomerId);
+
+  return squareCustomerId;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -119,7 +252,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !customerPhone || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !customerPhone || !normalizePhoneForSquare(customerPhone) || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
       return NextResponse.json(
         { error: "Invalid customer or shipping details" },
         { status: 400 }
@@ -202,6 +335,7 @@ export async function POST(request: NextRequest) {
     const tax = Math.round(verifiedSubtotal * 0.1 * 100) / 100;
     const shipping = 0; // Shipping quoted separately per order
     const total = verifiedSubtotal + tax;
+    const amountCents = Math.round(total * 100);
 
     // ---- 2. Create order in Supabase (pending) ----
     // Find or create customer
@@ -209,7 +343,7 @@ export async function POST(request: NextRequest) {
     const lastName = lastNameParts.join(" ") || null;
     let { data: dbCustomer } = await supabase
       .from("customers")
-      .select("id")
+      .select("id, square_customer_id")
       .eq("email", customerEmail)
       .maybeSingle();
 
@@ -226,7 +360,7 @@ export async function POST(request: NextRequest) {
           state: shippingState || null,
           postcode: shippingPostcode || null,
         })
-        .select("id")
+        .select("id, square_customer_id")
         .single();
       if (customerError || !newCustomer) {
         console.error("Customer creation failed:", customerError);
@@ -253,6 +387,30 @@ export async function POST(request: NextRequest) {
       if (customerUpdateError) {
         console.error("Customer update failed:", customerUpdateError);
       }
+    }
+
+    let squareCustomerId: string | null = null;
+    try {
+      squareCustomerId = await ensureSquareCustomer({
+        square,
+        supabase,
+        localCustomerId: dbCustomer.id,
+        existingSquareCustomerId: dbCustomer.square_customer_id,
+        firstName: firstName || null,
+        lastName,
+        email: customerEmail,
+        phone: customerPhone,
+        addressLine1: shippingLine1,
+        city: shippingCity,
+        state: shippingState,
+        postcode: shippingPostcode,
+      });
+    } catch (squareCustomerError) {
+      console.error("Square customer sync failed:", squareCustomerError);
+      return NextResponse.json(
+        { error: "Customer setup failed. Please check your details and try again." },
+        { status: 500 }
+      );
     }
 
     const { data: order, error: orderError } = await supabase
@@ -316,6 +474,7 @@ export async function POST(request: NextRequest) {
     }));
 
     let squareOrderId: string | null = null;
+    let squareOrderVersion: number | null = null;
     try {
       const squareOrderResponse = await square.ordersApi.createOrder({
         idempotencyKey: `${idempotencyKey}-order`,
@@ -323,6 +482,7 @@ export async function POST(request: NextRequest) {
           locationId: SQUARE_LOCATION_ID,
           referenceId: order.order_number,
           source: { name: "DS Racing Karts Website" },
+          customerId: squareCustomerId,
           lineItems: squareLineItems,
           taxes: [
             {
@@ -341,8 +501,13 @@ export async function POST(request: NextRequest) {
       });
 
       squareOrderId = squareOrderResponse.result.order?.id ?? null;
+      squareOrderVersion = squareOrderResponse.result.order?.version ?? null;
       if (!squareOrderId) {
         throw new Error("Square did not return an order ID");
+      }
+      const squareOrderTotalCents = Number(squareOrderResponse.result.order?.totalMoney?.amount ?? -1);
+      if (squareOrderTotalCents !== amountCents) {
+        throw new Error(`Square order total mismatch. Website=${amountCents}, Square=${squareOrderTotalCents}`);
       }
       if (squareOrderId) {
         await supabase
@@ -365,9 +530,6 @@ export async function POST(request: NextRequest) {
     }
 
     // ---- 3. Process Square payment ----
-    // Square amounts are in cents (smallest currency unit)
-    const amountCents = Math.round(total * 100);
-
     let paymentResult;
     try {
       const squareResponse = await square.paymentsApi.createPayment({
@@ -380,6 +542,7 @@ export async function POST(request: NextRequest) {
         locationId: SQUARE_LOCATION_ID,
         orderId: squareOrderId || undefined,
         referenceId: order.order_number,
+        customerId: squareCustomerId || undefined,
         buyerEmailAddress: customerEmail,
         shippingAddress: {
           addressLine1: shippingLine1,
@@ -399,6 +562,20 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", order.id);
+      if (squareOrderId && squareOrderVersion) {
+        await square.ordersApi
+          .updateOrder(squareOrderId, {
+            idempotencyKey: `${idempotencyKey}-cancel-order`,
+            order: {
+              locationId: SQUARE_LOCATION_ID,
+              version: squareOrderVersion,
+              state: "CANCELED",
+            },
+          })
+          .catch((cancelError) => {
+            console.error("Square order cancellation failed:", cancelError);
+          });
+      }
       console.error("Square payment failed:", paymentError);
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
@@ -414,6 +591,20 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", order.id);
+      if (squareOrderId && squareOrderVersion) {
+        await square.ordersApi
+          .updateOrder(squareOrderId, {
+            idempotencyKey: `${idempotencyKey}-cancel-incomplete-order`,
+            order: {
+              locationId: SQUARE_LOCATION_ID,
+              version: squareOrderVersion,
+              state: "CANCELED",
+            },
+          })
+          .catch((cancelError) => {
+            console.error("Square order cancellation failed:", cancelError);
+          });
+      }
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(

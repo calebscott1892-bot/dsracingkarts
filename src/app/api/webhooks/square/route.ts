@@ -130,8 +130,8 @@ export async function POST(request: NextRequest) {
 
       let orderStatus: string | undefined;
       if (squareStatus === "COMPLETED") orderStatus = "paid";
-      else if (squareStatus === "FAILED") orderStatus = "pending";
-      else if (squareStatus === "CANCELLED") orderStatus = "cancelled";
+      else if (squareStatus === "FAILED") orderStatus = "cancelled";
+      else if (squareStatus === "CANCELED") orderStatus = "cancelled";
 
       if (orderStatus) {
         await supabase
