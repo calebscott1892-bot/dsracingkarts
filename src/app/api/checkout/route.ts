@@ -26,6 +26,16 @@ const RATE_WINDOW = 5 * 60 * 1000; // 5 minutes
 const RATE_MAX = 10;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_CART_LINE_QTY = 20;
+const ADMIN_ORDER_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || "dsracing@bigpond.com";
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -285,9 +295,21 @@ export async function POST(request: NextRequest) {
       console.error("Order payment update failed:", paidUpdateError);
     }
 
-    // ---- 5. Send confirmation email ----
+    // ---- 5. Send customer confirmation and internal order notification ----
     try {
       const resend = new Resend(process.env.RESEND_API_KEY);
+      const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.dsracingkarts.com.au").replace(/\/$/, "");
+      const adminOrderUrl = `${siteUrl}/admin/orders/${order.id}`;
+      const safeCustomerName = escapeHtml(customerName);
+      const safeCustomerEmail = escapeHtml(customerEmail);
+      const safeCustomerPhone = escapeHtml(customerPhone || "Not provided");
+      const safeShippingAddress = [
+        shippingLine1,
+        [shippingCity, shippingState, shippingPostcode].filter(Boolean).join(", "),
+      ]
+        .filter(Boolean)
+        .map(escapeHtml)
+        .join("<br />");
       const itemRows = orderItems
         .map(
           (item: any) =>
@@ -342,9 +364,59 @@ export async function POST(request: NextRequest) {
             <div style="height:4px;background:#e60012;margin-top:24px"></div>
           </div>
         `,
+      }).catch((error) => {
+        console.error("Customer confirmation email failed:", error);
+      });
+      await resend.emails.send({
+        from: "DS Racing Karts <orders@dsracingkarts.com.au>",
+        to: ADMIN_ORDER_EMAIL,
+        replyTo: customerEmail,
+        subject: `New website order - #${order.order_number}`,
+        html: `
+          <div style="background:#0a0a0a;padding:32px;font-family:Arial,sans-serif;max-width:680px;margin:0 auto">
+            <div style="height:4px;background:#e60012;margin-bottom:24px"></div>
+            <h1 style="color:#fff;font-size:24px;margin:0 0 4px;text-transform:uppercase;letter-spacing:0.1em">New Website Order</h1>
+            <p style="color:#e60012;font-size:18px;margin:0 0 24px;font-weight:bold">#${escapeHtml(order.order_number)}</p>
+            <div style="background:#111;padding:16px;margin-bottom:24px;color:#b0b0b0;font-size:14px;line-height:1.5">
+              <p style="margin:0 0 8px"><strong style="color:#fff">Customer:</strong> ${safeCustomerName}</p>
+              <p style="margin:0 0 8px"><strong style="color:#fff">Email:</strong> ${safeCustomerEmail}</p>
+              <p style="margin:0 0 8px"><strong style="color:#fff">Phone:</strong> ${safeCustomerPhone}</p>
+              <p style="margin:0"><strong style="color:#fff">Shipping:</strong><br />${safeShippingAddress}</p>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+              <thead>
+                <tr style="border-bottom:2px solid #e60012">
+                  <th style="padding:8px 12px;text-align:left;color:#b0b0b0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em">Item</th>
+                  <th style="padding:8px 12px;text-align:center;color:#b0b0b0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em">Qty</th>
+                  <th style="padding:8px 12px;text-align:right;color:#b0b0b0;font-size:11px;text-transform:uppercase;letter-spacing:0.1em">Price</th>
+                </tr>
+              </thead>
+              <tbody>${itemRows}</tbody>
+            </table>
+            <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+              <tr>
+                <td style="padding:6px 12px;color:#b0b0b0;font-size:14px">Subtotal</td>
+                <td style="padding:6px 12px;color:#fff;font-size:14px;text-align:right">$${verifiedSubtotal.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="padding:6px 12px;color:#b0b0b0;font-size:14px">GST (10%)</td>
+                <td style="padding:6px 12px;color:#fff;font-size:14px;text-align:right">$${tax.toFixed(2)}</td>
+              </tr>
+              <tr style="border-top:2px solid #e60012">
+                <td style="padding:10px 12px;color:#fff;font-size:18px;font-weight:bold">Total</td>
+                <td style="padding:10px 12px;color:#e60012;font-size:18px;font-weight:bold;text-align:right">$${total.toFixed(2)}</td>
+              </tr>
+            </table>
+            <p style="margin:0 0 24px">
+              <a href="${adminOrderUrl}" style="display:inline-block;background:#e60012;color:#fff;text-decoration:none;font-weight:bold;padding:12px 18px;text-transform:uppercase;letter-spacing:0.08em">Open order in admin</a>
+            </p>
+            <p style="color:#6b6b6b;font-size:12px;margin:0">This notification was sent automatically from the website checkout.</p>
+            <div style="height:4px;background:#e60012;margin-top:24px"></div>
+          </div>
+        `,
       });
     } catch (emailError) {
-      console.error("Confirmation email failed:", emailError);
+      console.error("Order email failed:", emailError);
     }
 
     // ---- 7. Return confirmation ----

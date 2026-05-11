@@ -92,6 +92,11 @@ export const metadata: Metadata = {
     description: "Sydney's karting solutions specialist — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
   },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au"),
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
 };
 
 export default function RootLayout({

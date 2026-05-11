@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  a[x-apple-data-detectors] {
+    color: inherit !important;
+    text-decoration: none !important;
+    pointer-events: none;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
   }

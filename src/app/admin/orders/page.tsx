@@ -57,15 +57,23 @@ export default async function AdminOrdersPage({ searchParams }: Props) {
                   key={order.id}
                   className="border-t border-surface-600/50 hover:bg-surface-700/30"
                 >
-                  <td className="px-4 py-3 font-mono text-brand-red font-medium">
-                    <Link href={`/admin/orders/${order.id}`} className="hover:underline">
+                  <td className="px-4 py-3">
+                    <Link href={`/admin/orders/${order.id}`} className="font-mono text-brand-red font-medium hover:underline">
                       {order.order_number}
+                    </Link>
+                    <Link
+                      href={`/admin/orders/${order.id}`}
+                      className="mt-2 inline-flex min-h-10 items-center justify-center border border-brand-red/50 px-3 py-2 font-heading text-[11px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-brand-red sm:hidden"
+                    >
+                      View order
                     </Link>
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-white">{name}</div>
                     {cust?.email && (
-                      <div className="text-text-muted text-xs">{cust.email}</div>
+                      <div className="text-text-muted text-xs break-all" aria-label={`Customer email ${cust.email}`}>
+                        {cust.email}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-white">
