@@ -223,6 +223,12 @@ export default async function OrderDetailPage({ params }: Props) {
                   <p className="font-mono text-xs text-text-secondary break-all">{order.square_payment_id}</p>
                 </div>
               )}
+              {order.square_order_id && (
+                <div className="pt-2 border-t border-surface-600">
+                  <p className="text-text-muted text-xs mb-0.5">Square Order ID</p>
+                  <p className="font-mono text-xs text-text-secondary break-all">{order.square_order_id}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

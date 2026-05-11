@@ -10,6 +10,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
 import { isRealProductImageUrl } from "@/lib/product-images";
+import { createHash } from "crypto";
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -632,6 +633,38 @@ export async function archiveCatalogItem(squareToken: string) {
 //
 // Square's item model has a deprecated `categoryId` (single) and the modern
 // `categories` array. We update both so older API surfaces stay consistent.
+function normalizeSquareCategoryAssignments(
+  existingCategories: unknown,
+  categorySquareId: string,
+  mode: "add" | "remove",
+  itemSquareToken: string
+) {
+  const uniqueCategories: { id: string; ordinal?: number | bigint | string | null }[] = [];
+
+  for (const category of Array.isArray(existingCategories) ? existingCategories : []) {
+    const id = typeof category?.id === "string" ? category.id : null;
+    if (!id || uniqueCategories.some((current) => current.id === id)) continue;
+    uniqueCategories.push({ id, ordinal: category.ordinal });
+  }
+
+  if (mode === "add" && !uniqueCategories.some((category) => category.id === categorySquareId)) {
+    const hash = createHash("sha1")
+      .update(`${itemSquareToken}:${categorySquareId}`)
+      .digest("hex")
+      .slice(0, 12);
+    uniqueCategories.push({
+      id: categorySquareId,
+      ordinal: BigInt("1000000000000000") + BigInt(`0x${hash}`),
+    });
+  }
+
+  if (mode === "remove") {
+    return uniqueCategories.filter((category) => category.id !== categorySquareId);
+  }
+
+  return uniqueCategories;
+}
+
 export async function pushItemCategoryToSquare(
   itemSquareToken: string,
   categorySquareId: string,
@@ -656,36 +689,22 @@ export async function pushItemCategoryToSquare(
   }
 
   const itemData = { ...item.itemData };
-  const existingArray: { id: string; ordinal?: number | bigint }[] = Array.isArray(
-    itemData.categories
-  )
-    ? [...itemData.categories]
-    : [];
-  const existingHas = existingArray.some((c) => c?.id === categorySquareId);
+  const normalizedCategories = normalizeSquareCategoryAssignments(
+    itemData.categories,
+    categorySquareId,
+    mode,
+    itemSquareToken
+  );
 
-  if (mode === "add") {
-    if (!existingHas) {
-      existingArray.push({ id: categorySquareId, ordinal: existingArray.length });
-    }
-    // Legacy single-category field still respected by older Square integrations.
-    if (!itemData.categoryId) {
-      itemData.categoryId = categorySquareId;
-    }
-    if (!itemData.reportingCategory?.id) {
-      itemData.reportingCategory = { id: categorySquareId };
-    }
-  } else {
-    // remove
-    const filtered = existingArray.filter((c) => c?.id !== categorySquareId);
-    existingArray.splice(0, existingArray.length, ...filtered);
-    if (itemData.categoryId === categorySquareId) {
-      itemData.categoryId = filtered[0]?.id || undefined;
-    }
-    if (itemData.reportingCategory?.id === categorySquareId) {
-      itemData.reportingCategory = filtered[0]?.id ? { id: filtered[0].id } : undefined;
-    }
+  itemData.categories = normalizedCategories;
+  if (!itemData.categoryId || itemData.categoryId === categorySquareId) {
+    itemData.categoryId = normalizedCategories[0]?.id || undefined;
   }
-  itemData.categories = existingArray;
+  if (!itemData.reportingCategory?.id || itemData.reportingCategory.id === categorySquareId) {
+    itemData.reportingCategory = normalizedCategories[0]
+      ? { id: normalizedCategories[0].id, ordinal: normalizedCategories[0].ordinal }
+      : undefined;
+  }
 
   const updatedObject = {
     ...item,

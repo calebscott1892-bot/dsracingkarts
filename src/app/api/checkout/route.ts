@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
 import { Resend } from "resend";
+import { createHash } from "crypto";
 
 /**
  * POST /api/checkout
@@ -37,6 +38,48 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, "&#039;");
 }
 
+async function syncCheckoutNewsletterSignup(
+  supabase: ReturnType<typeof createServiceClient>,
+  email: string
+) {
+  const { error: subscriberError } = await supabase
+    .from("newsletter_subscribers")
+    .upsert(
+      { email, subscribed: true, source: "checkout" },
+      { onConflict: "email" }
+    );
+
+  if (subscriberError) {
+    console.error("Checkout newsletter subscriber save failed:", subscriberError);
+  }
+
+  if (process.env.MAILCHIMP_API_KEY && process.env.MAILCHIMP_LIST_ID) {
+    try {
+      const dc = process.env.MAILCHIMP_API_KEY.split("-").pop();
+      const subscriberHash = createHash("md5").update(email.toLowerCase()).digest("hex");
+      const response = await fetch(
+        `https://${dc}.api.mailchimp.com/3.0/lists/${process.env.MAILCHIMP_LIST_ID}/members/${subscriberHash}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `apikey ${process.env.MAILCHIMP_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email_address: email,
+            status_if_new: "pending",
+          }),
+        }
+      );
+      if (!response.ok) {
+        console.error("Checkout Mailchimp sync failed:", await response.text());
+      }
+    } catch (mcError) {
+      console.error("Checkout Mailchimp sync error:", mcError);
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -55,6 +98,7 @@ export async function POST(request: NextRequest) {
     const customerEmail = String(customer?.email || "").trim().toLowerCase().slice(0, 320);
     const customerName = String(customer?.name || "").trim().slice(0, 160);
     const customerPhone = String(customer?.phone || "").trim().slice(0, 40);
+    const customerSubscribe = Boolean(customer?.subscribe);
     const shippingLine1 = String(customer?.address?.line1 || "").trim().slice(0, 200);
     const shippingCity = String(customer?.address?.city || "").trim().slice(0, 120);
     const shippingState = String(customer?.address?.state || "").trim().slice(0, 32);
@@ -75,7 +119,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !customerPhone || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
       return NextResponse.json(
         { error: "Invalid customer or shipping details" },
         { status: 400 }
@@ -161,6 +205,8 @@ export async function POST(request: NextRequest) {
 
     // ---- 2. Create order in Supabase (pending) ----
     // Find or create customer
+    const [firstName, ...lastNameParts] = customerName.split(/\s+/).filter(Boolean);
+    const lastName = lastNameParts.join(" ") || null;
     let { data: dbCustomer } = await supabase
       .from("customers")
       .select("id")
@@ -172,8 +218,8 @@ export async function POST(request: NextRequest) {
         .from("customers")
         .insert({
           email: customerEmail,
-          first_name: customerName.split(" ")[0] || null,
-          last_name: customerName.split(" ").slice(1).join(" ") || null,
+          first_name: firstName || null,
+          last_name: lastName,
           phone: customerPhone || null,
           address_line1: shippingLine1 || null,
           city: shippingCity || null,
@@ -190,6 +236,23 @@ export async function POST(request: NextRequest) {
         );
       }
       dbCustomer = newCustomer;
+    } else {
+      const { error: customerUpdateError } = await supabase
+        .from("customers")
+        .update({
+          first_name: firstName || null,
+          last_name: lastName,
+          phone: customerPhone,
+          address_line1: shippingLine1,
+          city: shippingCity,
+          state: shippingState,
+          postcode: shippingPostcode,
+        })
+        .eq("id", dbCustomer.id);
+
+      if (customerUpdateError) {
+        console.error("Customer update failed:", customerUpdateError);
+      }
     }
 
     const { data: order, error: orderError } = await supabase
@@ -234,6 +297,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Create an itemised Square Order before payment so Square/Xero have a
+    // real order reference instead of only a standalone card payment.
+    const squareLineItems = orderItems.map((item: any) => ({
+      name: item.product_name,
+      variationName: item.variation_name !== "Regular" ? item.variation_name : undefined,
+      quantity: String(item.quantity),
+      note: item.sku ? `SKU: ${item.sku}` : undefined,
+      basePriceMoney: {
+        amount: BigInt(Math.round(item.unit_price * 100)),
+        currency: "AUD",
+      },
+      metadata: {
+        product_id: item.product_id,
+        variation_id: item.variation_id,
+        sku: item.sku || "",
+      },
+    }));
+
+    let squareOrderId: string | null = null;
+    try {
+      const squareOrderResponse = await square.ordersApi.createOrder({
+        idempotencyKey: `${idempotencyKey}-order`,
+        order: {
+          locationId: SQUARE_LOCATION_ID,
+          referenceId: order.order_number,
+          source: { name: "DS Racing Karts Website" },
+          lineItems: squareLineItems,
+          taxes: [
+            {
+              uid: "gst",
+              name: "GST",
+              type: "ADDITIVE",
+              percentage: "10",
+              scope: "ORDER",
+            },
+          ],
+          metadata: {
+            website_order_id: order.id,
+            website_order_number: order.order_number,
+          },
+        },
+      });
+
+      squareOrderId = squareOrderResponse.result.order?.id ?? null;
+      if (!squareOrderId) {
+        throw new Error("Square did not return an order ID");
+      }
+      if (squareOrderId) {
+        await supabase
+          .from("orders")
+          .update({ square_order_id: squareOrderId })
+          .eq("id", order.id);
+      }
+    } catch (squareOrderError) {
+      await supabase
+        .from("orders")
+        .update({ status: "cancelled" })
+        .eq("id", order.id);
+      console.error("Square order creation failed:", squareOrderError);
+      revalidatePath("/admin/orders");
+      revalidatePath(`/admin/orders/${order.id}`);
+      return NextResponse.json(
+        { error: "Order setup failed. Please try again." },
+        { status: 500 }
+      );
+    }
+
     // ---- 3. Process Square payment ----
     // Square amounts are in cents (smallest currency unit)
     const amountCents = Math.round(total * 100);
@@ -248,7 +378,18 @@ export async function POST(request: NextRequest) {
           currency: "AUD",
         },
         locationId: SQUARE_LOCATION_ID,
+        orderId: squareOrderId || undefined,
+        referenceId: order.order_number,
         buyerEmailAddress: customerEmail,
+        shippingAddress: {
+          addressLine1: shippingLine1,
+          locality: shippingCity,
+          administrativeDistrictLevel1: shippingState,
+          postalCode: shippingPostcode,
+          country: "AU",
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+        },
         note: `DS Racing Karts — Order #${order.order_number}`,
       });
       paymentResult = squareResponse.result;
@@ -287,12 +428,18 @@ export async function POST(request: NextRequest) {
       .update({
         status: "paid",
         square_payment_id: paymentResult.payment.id,
+        square_order_id: squareOrderId,
         paid_at: new Date().toISOString(),
       })
       .eq("id", order.id);
 
     if (paidUpdateError) {
       console.error("Order payment update failed:", paidUpdateError);
+    }
+
+    if (customerSubscribe) {
+      await syncCheckoutNewsletterSignup(supabase, customerEmail);
+      revalidatePath("/admin/newsletter");
     }
 
     // ---- 5. Send customer confirmation and internal order notification ----

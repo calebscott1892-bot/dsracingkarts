@@ -235,16 +235,6 @@ export function CategoryAssignmentsManager({
   function runBulkAction(action: "approve" | "reject") {
     if (selectedIds.length === 0) return;
 
-    const verb = action === "approve" ? "approve" : "reject";
-    const noun = selectedIds.length === 1 ? "suggestion" : "suggestions";
-    if (
-      !confirm(
-        `${verb === "approve" ? "Approve" : "Reject"} ${selectedIds.length} ${noun}? You can change individual rows back afterwards, but this is a single click for all of them.`
-      )
-    ) {
-      return;
-    }
-
     startBulkAction(async () => {
       const response = await fetch("/api/admin/category-assignments/bulk", {
         method: "PATCH",
@@ -283,7 +273,7 @@ export function CategoryAssignmentsManager({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        alert(payload?.error || "Action failed.");
+        alert(payload?.productName ? `${payload.productName}: ${payload.error}` : payload?.error || "Action failed.");
         return;
       }
 
@@ -317,13 +307,6 @@ export function CategoryAssignmentsManager({
   async function runApproveAndApply(id: string) {
     const suggestion = localSuggestions.find((row) => row.id === id);
     if (!suggestion?.suggested_category_id) return;
-    if (
-      !confirm(
-        `Approve and apply this category to "${suggestion.product_name}" now? This will update the website and push the category to Square.`
-      )
-    ) {
-      return;
-    }
 
     setActingId(id);
     try {
@@ -345,7 +328,7 @@ export function CategoryAssignmentsManager({
       });
       if (!applyResponse.ok) {
         const payload = await applyResponse.json().catch(() => null);
-        alert(payload?.error || "Apply failed.");
+        alert(payload?.error || `Apply failed for ${suggestion.product_name}.`);
         updateSuggestion(id, (row) => ({ ...row, status: "approved" }));
         return;
       }

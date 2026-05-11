@@ -254,6 +254,19 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
   );
 
   const uncategorizedProducts = await loadUncategorizedProducts(service);
+  const existingSuggestionRows = await fetchPaginated<{ product_id: string }>(async (from, to) =>
+    await service
+      .from("category_assignment_suggestions")
+      .select("product_id")
+      .in("status", ["pending", "approved", "rejected", "applied", "skipped"])
+      .range(from, to)
+  );
+  const productsWithExistingSuggestions = new Set(
+    existingSuggestionRows.map((row) => row.product_id)
+  );
+  const productsNeedingSuggestions = uncategorizedProducts.filter(
+    (product) => !productsWithExistingSuggestions.has(product.id)
+  );
 
   const categoryProfiles = new Map(
     categories.map((category) => [
@@ -298,7 +311,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
   let lowConfidenceCount = 0;
   let noMatchCount = 0;
 
-  for (const product of uncategorizedProducts) {
+  for (const product of productsNeedingSuggestions) {
     const joinedText = [product.name, product.sku, product.description_plain]
       .filter(Boolean)
       .join(" ");
@@ -405,7 +418,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
     .insert({
       mode: "suggestion",
       source: "admin",
-      notes: `Generated ${suggestionRows.length} review rows from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}.`,
+      notes: `Generated ${suggestionRows.length} new review rows from ${uncategorizedProducts.length} uncategorized products. ${uncategorizedProducts.length - productsNeedingSuggestions.length} products already had review rows. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}.`,
       created_by: userId,
     })
     .select("id")
@@ -432,7 +445,7 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
   await service
     .from("category_assignment_runs")
     .update({
-      notes: `${run.id ? "" : ""}Generated ${suggestionRows.length} review rows from ${uncategorizedProducts.length} uncategorized products. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}. Completed.`,
+      notes: `${run.id ? "" : ""}Generated ${suggestionRows.length} new review rows from ${uncategorizedProducts.length} uncategorized products. ${uncategorizedProducts.length - productsNeedingSuggestions.length} products already had review rows. High confidence: ${highConfidenceCount}. Medium confidence: ${mediumConfidenceCount}. Low confidence: ${lowConfidenceCount}. No strong match: ${noMatchCount}. Completed.`,
     })
     .eq("id", run.id);
 

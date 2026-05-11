@@ -23,6 +23,7 @@ export default function CheckoutPage() {
     email: "",
     name: "",
     phone: "",
+    subscribe: false,
     address: { line1: "", city: "", state: "NSW", postcode: "" },
   });
 
@@ -152,7 +153,8 @@ export default function CheckoutPage() {
             <input
               id="checkout-phone"
               type="tel"
-              placeholder="Phone number"
+              required
+              placeholder="Mobile number"
               autoComplete="tel"
               value={customer.phone}
               onChange={(e) => setCustomer({ ...customer, phone: e.target.value })}
@@ -232,6 +234,18 @@ export default function CheckoutPage() {
               />
             </div>
           </div>
+
+          <label className="flex items-start gap-3 border border-surface-600 bg-surface-800 px-4 py-3 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              checked={customer.subscribe}
+              onChange={(e) => setCustomer({ ...customer, subscribe: e.target.checked })}
+              className="mt-1 h-4 w-4 accent-brand-red"
+            />
+            <span>
+              Subscribe me to DSR updates, specials, and racewear/newsletter emails.
+            </span>
+          </label>
 
           {/* Square card input */}
           <h2 className="font-heading text-xl uppercase tracking-wider">Payment</h2>

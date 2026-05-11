@@ -18,6 +18,7 @@ async function lookupSquareIds(
       ? service.from("categories").select("square_id").eq("id", categoryId).maybeSingle()
       : Promise.resolve({ data: null as any }),
   ]);
+
   return {
     productSquareToken: product?.square_token ?? null,
     productSlug: product?.slug ?? null,
@@ -40,6 +41,14 @@ async function verifyAdmin() {
 
   if (!admin || !["admin", "super_admin"].includes(admin.role)) return null;
   return { userId: user.id };
+}
+
+function revalidateCategorySurfaces(productSlug: string | null) {
+  revalidatePath("/admin/category-assignments");
+  revalidatePath("/admin/categories");
+  revalidatePath("/admin/products");
+  revalidatePath("/shop");
+  if (productSlug) revalidatePath(`/product/${productSlug}`);
 }
 
 export async function PATCH(
@@ -69,7 +78,6 @@ export async function PATCH(
 
   const service = createServiceClient();
 
-  // ── reassign: change the suggested category and mark approved ────────
   if (action === "reassign") {
     const newCategoryId = body?.category_id;
     if (!newCategoryId || typeof newCategoryId !== "string") {
@@ -159,7 +167,7 @@ export async function PATCH(
 
   const { data: suggestion, error: suggestionError } = await service
     .from("category_assignment_suggestions")
-    .select("status, suggested_category_id, product_id")
+    .select("status, suggested_category_id, product_id, product_name")
     .eq("id", id)
     .single();
 
@@ -175,23 +183,11 @@ export async function PATCH(
       );
     }
 
-    // Resolve Square IDs *before* the RPC so we can still push the revert if
-    // the local row is gone.
     const { productSquareToken, productSlug, categorySquareId } = await lookupSquareIds(
       service,
       suggestion.product_id,
       suggestion.suggested_category_id
     );
-
-    const { data, error } = await service.rpc("revert_category_assignment_suggestion", {
-      p_suggestion_id: id,
-      p_changed_by: admin.userId,
-      p_note: "Reverted from admin category assignment review.",
-    });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
 
     let squarePushed = false;
     let squareWarning: string | null = null;
@@ -203,19 +199,33 @@ export async function PATCH(
         `revert-${id}-${Date.now()}`
       );
       squarePushed = result.ok;
-      if (!result.ok) squareWarning = result.reason;
+      if (!result.ok) {
+        return NextResponse.json(
+          {
+            error: `Square was not updated for "${suggestion.product_name}": ${result.reason}. Nothing was reverted locally.`,
+            productName: suggestion.product_name,
+            squareWarning: result.reason,
+          },
+          { status: 409 }
+        );
+      }
     } else if (!productSquareToken) {
-      squareWarning = "Product has no square_token — Square not updated.";
+      squareWarning = "Product has no square_token - Square not updated.";
     } else if (!categorySquareId) {
-      squareWarning = "Category has no square_id — Square not updated.";
+      squareWarning = "Category has no square_id - Square not updated.";
     }
 
-    revalidatePath("/admin/category-assignments");
-    revalidatePath("/admin/categories");
-    revalidatePath("/admin/products");
-    revalidatePath("/shop");
-    if (productSlug) revalidatePath(`/product/${productSlug}`);
+    const { data, error } = await service.rpc("revert_category_assignment_suggestion", {
+      p_suggestion_id: id,
+      p_changed_by: admin.userId,
+      p_note: "Reverted from admin category assignment review.",
+    });
 
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    revalidateCategorySurfaces(productSlug);
     return NextResponse.json({ result: data, squarePushed, squareWarning });
   }
 
@@ -233,22 +243,34 @@ export async function PATCH(
     );
   }
 
-  // Resolve Square IDs before applying so we can fail fast if Square IDs are
-  // missing — better to skip the push than to half-apply.
   const { productSquareToken, productSlug, categorySquareId } = await lookupSquareIds(
     service,
     suggestion.product_id,
     suggestion.suggested_category_id
   );
 
-  const { data, error } = await service.rpc("apply_category_assignment_suggestion", {
-    p_suggestion_id: id,
-    p_changed_by: admin.userId,
-    p_note: "Applied from admin category assignment review.",
-  });
+  const { count: existingCategoryCount, error: countError } = await service
+    .from("product_categories")
+    .select("category_id", { count: "exact", head: true })
+    .eq("product_id", suggestion.product_id);
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (countError) {
+    return NextResponse.json({ error: countError.message }, { status: 400 });
+  }
+
+  if ((existingCategoryCount || 0) > 0) {
+    const { data, error } = await service.rpc("apply_category_assignment_suggestion", {
+      p_suggestion_id: id,
+      p_changed_by: admin.userId,
+      p_note: "Skipped from admin category assignment review because product is already categorised.",
+    });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    revalidatePath("/admin/category-assignments");
+    return NextResponse.json({ result: data, squarePushed: false, squareWarning: null });
   }
 
   let squarePushed = false;
@@ -261,18 +283,32 @@ export async function PATCH(
       `apply-${id}-${Date.now()}`
     );
     squarePushed = result.ok;
-    if (!result.ok) squareWarning = result.reason;
+    if (!result.ok) {
+      return NextResponse.json(
+        {
+          error: `Square was not updated for "${suggestion.product_name}": ${result.reason}. Nothing was applied locally.`,
+          productName: suggestion.product_name,
+          squareWarning: result.reason,
+        },
+        { status: 409 }
+      );
+    }
   } else if (!productSquareToken) {
-    squareWarning = "Product has no square_token — Square not updated.";
+    squareWarning = "Product has no square_token - Square not updated.";
   } else if (!categorySquareId) {
-    squareWarning = "Category has no square_id — Square not updated.";
+    squareWarning = "Category has no square_id - Square not updated.";
   }
 
-  revalidatePath("/admin/category-assignments");
-  revalidatePath("/admin/categories");
-  revalidatePath("/admin/products");
-  revalidatePath("/shop");
-  if (productSlug) revalidatePath(`/product/${productSlug}`);
+  const { data, error } = await service.rpc("apply_category_assignment_suggestion", {
+    p_suggestion_id: id,
+    p_changed_by: admin.userId,
+    p_note: "Applied from admin category assignment review.",
+  });
 
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  revalidateCategorySurfaces(productSlug);
   return NextResponse.json({ result: data, squarePushed, squareWarning });
 }

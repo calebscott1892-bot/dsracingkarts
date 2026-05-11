@@ -28,6 +28,7 @@ import dotenv from "dotenv";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { createHash } from "crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
@@ -71,6 +72,28 @@ const SQUARE_DELAY_MS = 100;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeSquareCategoryAssignments(existingCategories, categorySquareId, itemSquareToken) {
+  const categories = [];
+  for (const category of Array.isArray(existingCategories) ? existingCategories : []) {
+    const id = typeof category?.id === "string" ? category.id : null;
+    if (!id || categories.some((current) => current.id === id)) continue;
+    categories.push({ id, ordinal: category.ordinal });
+  }
+
+  if (!categories.some((category) => category.id === categorySquareId)) {
+    const hash = createHash("sha1")
+      .update(`${itemSquareToken}:${categorySquareId}`)
+      .digest("hex")
+      .slice(0, 12);
+    categories.push({
+      id: categorySquareId,
+      ordinal: BigInt("1000000000000000") + BigInt(`0x${hash}`),
+    });
+  }
+
+  return categories;
 }
 
 async function fetchAppliedRows() {
@@ -120,27 +143,34 @@ async function pushOneItemCategoryToSquare(itemSquareToken, categorySquareId) {
   }
 
   const itemData = { ...item.itemData };
-  const existingArray = Array.isArray(itemData.categories)
-    ? [...itemData.categories]
-    : [];
-  const alreadyHasCategory = existingArray.some((c) => c?.id === categorySquareId);
+  const alreadyHasCategory = Array.isArray(itemData.categories)
+    ? itemData.categories.some((c) => c?.id === categorySquareId)
+    : false;
 
   if (alreadyHasCategory) {
     return { ok: true, skipped: true };
   }
 
-  existingArray.push({ id: categorySquareId, ordinal: existingArray.length });
-  itemData.categories = existingArray;
-  if (!itemData.categoryId) itemData.categoryId = categorySquareId;
-  if (!itemData.reportingCategory?.id) {
-    itemData.reportingCategory = { id: categorySquareId };
+  const normalizedCategories = normalizeSquareCategoryAssignments(
+    itemData.categories,
+    categorySquareId,
+    itemSquareToken
+  );
+  itemData.categories = normalizedCategories;
+  if (!itemData.categoryId || itemData.categoryId === categorySquareId) {
+    itemData.categoryId = normalizedCategories[0]?.id || undefined;
+  }
+  if (!itemData.reportingCategory?.id || itemData.reportingCategory.id === categorySquareId) {
+    itemData.reportingCategory = normalizedCategories[0]
+      ? { id: normalizedCategories[0].id, ordinal: normalizedCategories[0].ordinal }
+      : undefined;
   }
 
   const updatedObject = { ...item, itemData };
 
   try {
     await square.catalogApi.upsertCatalogObject({
-      idempotencyKey: `backfill-${item.id}-${categorySquareId}`,
+      idempotencyKey: `backfill-v2-${item.id}-${categorySquareId}`,
       object: updatedObject,
     });
   } catch (err) {
