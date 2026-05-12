@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
 
       const supabase = createServiceClient();
       const squareStatus: string = payment.status;
+      const squareOrderId: string | null = payment.order_id || payment.orderId || null;
 
       let orderStatus: string | undefined;
       if (squareStatus === "COMPLETED") orderStatus = "paid";
@@ -134,10 +135,36 @@ export async function POST(request: NextRequest) {
       else if (squareStatus === "CANCELED") orderStatus = "cancelled";
 
       if (orderStatus) {
+        const update = {
+          status: orderStatus,
+          square_payment_id: payment.id,
+          ...(orderStatus === "paid" ? { paid_at: new Date().toISOString() } : {}),
+        };
+
+        await supabase.from("orders").update(update).eq("square_payment_id", payment.id);
+        if (squareOrderId) {
+          await supabase.from("orders").update(update).eq("square_order_id", squareOrderId);
+        }
+      }
+    }
+
+    if (eventType.startsWith("invoice.")) {
+      const invoice = event.data?.object?.invoice;
+      const squareOrderId: string | null = invoice?.order_id || invoice?.orderId || null;
+      if (!squareOrderId) return NextResponse.json({ received: true });
+
+      const invoiceStatus: string | undefined = invoice?.status;
+      const supabase = createServiceClient();
+      if (invoiceStatus === "PAID") {
         await supabase
           .from("orders")
-          .update({ status: orderStatus })
-          .eq("square_payment_id", payment.id);
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("square_order_id", squareOrderId);
+      } else if (invoiceStatus === "CANCELED" || invoiceStatus === "FAILED") {
+        await supabase
+          .from("orders")
+          .update({ status: "cancelled" })
+          .eq("square_order_id", squareOrderId);
       }
     }
 

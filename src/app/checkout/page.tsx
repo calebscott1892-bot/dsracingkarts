@@ -1,21 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useCart } from "@/hooks/useCart";
 import { formatPrice } from "@/lib/utils";
-import { useRouter } from "next/navigation";
-
-declare global {
-  interface Window {
-    Square: any;
-  }
-}
 
 export default function CheckoutPage() {
   const { cart, clearCart } = useCart();
-  const router = useRouter();
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [card, setCard] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const idempotencyKeyRef = useRef(crypto.randomUUID());
@@ -27,58 +17,19 @@ export default function CheckoutPage() {
     address: { line1: "", city: "", state: "NSW", postcode: "" },
   });
 
-  // Load Square Web Payments SDK
-  useEffect(() => {
-    if (cart.items.length === 0) return;
-
-    const script = document.createElement("script");
-    const isProduction = process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT === "production";
-    script.src = isProduction
-      ? "https://web.squarecdn.com/v1/square.js"
-      : "https://sandbox.web.squarecdn.com/v1/square.js";
-    script.onload = initializeSquare;
-    document.head.appendChild(script);
-
-    return () => {
-      document.head.removeChild(script);
-    };
-  }, [cart.items.length]);
-
-  async function initializeSquare() {
-    if (!window.Square || !cardRef.current) return;
-
-    const payments = window.Square.payments(
-      process.env.NEXT_PUBLIC_SQUARE_APP_ID!,
-      process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID!
-    );
-
-    const cardInstance = await payments.card();
-    await cardInstance.attach(cardRef.current!);
-    setCard(cardInstance);
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!card || cart.items.length === 0) return;
+    if (cart.items.length === 0) return;
 
     setLoading(true);
     setError("");
 
     try {
-      // Tokenize the card
-      const result = await card.tokenize();
-      if (result.status !== "OK") {
-        setError("Card validation failed. Please check your details.");
-        setLoading(false);
-        return;
-      }
-
-      // Send to our checkout API
+      // Create a Square invoice, then send the customer to Square to pay it.
       const response = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sourceId: result.token,
           idempotencyKey: idempotencyKeyRef.current,
           cart: {
             items: cart.items,
@@ -98,7 +49,11 @@ export default function CheckoutPage() {
 
       // Success — clear cart and redirect to confirmation
       clearCart();
-      router.push(`/checkout/confirmation?order=${data.order_number}`);
+      if (data.invoice_url) {
+        window.location.assign(data.invoice_url);
+        return;
+      }
+      window.location.assign(`/checkout/confirmation?order=${data.order_number}`);
     } catch (err: any) {
       setError(err.message || "Something went wrong");
       setLoading(false);
@@ -247,12 +202,10 @@ export default function CheckoutPage() {
             </span>
           </label>
 
-          {/* Square card input */}
-          <h2 className="font-heading text-xl uppercase tracking-wider">Payment</h2>
-          <div
-            ref={cardRef}
-            className="bg-surface-700 border border-surface-600 rounded p-4 min-h-[120px] sm:min-h-[100px]"
-          />
+          <div className="border border-brand-red/30 bg-brand-red/10 px-4 py-3 text-sm text-text-secondary leading-relaxed">
+            A Square tax invoice will be created for this order. You&apos;ll be sent to
+            Square&apos;s secure invoice page to pay by card.
+          </div>
 
           {error && (
             <p className="text-red-400 text-sm">{error}</p>
@@ -260,10 +213,10 @@ export default function CheckoutPage() {
 
           <button
             type="submit"
-            disabled={loading || !card}
+            disabled={loading}
             className="btn-primary w-full text-lg"
           >
-            {loading ? "Processing…" : `Pay ${formatPrice(total)}`}
+            {loading ? "Creating invoice..." : `Create invoice & pay ${formatPrice(total)}`}
           </button>
         </div>
 

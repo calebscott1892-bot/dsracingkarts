@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
       };
       if (chunk.done) {
         revalidateCatalogSurfaces();
-        void recordHeartbeat(totals);
+        await recordHeartbeat(totals);
       }
       return NextResponse.json({
         ok: true,
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     const result = await reconcileCatalogForAdminResync();
     revalidateCatalogSurfaces();
-    void recordHeartbeat(result);
+    await recordHeartbeat(result);
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - startedAt,

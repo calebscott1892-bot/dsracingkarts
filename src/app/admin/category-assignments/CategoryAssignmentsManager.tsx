@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download, RotateCcw, Target, Search } from "lucide-react";
+import { Sparkles, ShieldCheck, Check, X, Play, RefreshCw, Undo2, Download, RotateCcw, Target, Search, AlertTriangle } from "lucide-react";
 
 type Suggestion = {
   id: string;
@@ -25,6 +25,11 @@ type CategoryOption = {
   parent_name: string | null;
   full_label: string;
 };
+
+type Notice = {
+  kind: "success" | "warning" | "error";
+  message: string;
+} | null;
 
 type Props = {
   latestRun: {
@@ -78,7 +83,7 @@ export function CategoryAssignmentsManager({
   const [isBulkActing, startBulkAction] = useTransition();
   const [localSuggestions, setLocalSuggestions] = useState(suggestions);
   const [localSummary, setLocalSummary] = useState(summary);
-  const [generationMessage, setGenerationMessage] = useState<string | null>(null);
+  const [notice, setNotice] = useState<Notice>(null);
   // Default to "todo" so already-applied work disappears once the client
   // hits Apply — keeps the queue focused on what still needs attention.
   const [statusFilter, setStatusFilter] = useState<"todo" | "all" | "pending" | "approved" | "rejected" | "applied">("todo");
@@ -156,7 +161,7 @@ export function CategoryAssignmentsManager({
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        alert(payload?.error || "Reassign failed.");
+        setNotice({ kind: "error", message: payload?.error || "Reassign failed." });
         return;
       }
       const category = allCategories.find((option) => option.id === categoryId);
@@ -168,6 +173,7 @@ export function CategoryAssignmentsManager({
         rationale: "Manually reassigned via admin category picker.",
         status: "approved",
       }));
+      setNotice({ kind: "success", message: "Category picked. This row is now approved and ready to apply." });
       closePicker();
     } finally {
       setPickerSubmitting(false);
@@ -195,24 +201,28 @@ export function CategoryAssignmentsManager({
 
   function generateSuggestions() {
     startGenerating(async () => {
+      setNotice(null);
       const response = await fetch("/api/admin/category-assignments", {
         method: "POST",
       });
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        alert(payload?.error || "Failed to generate category suggestions.");
+        setNotice({
+          kind: "error",
+          message: payload?.error || "Failed to generate category suggestions.",
+        });
         return;
       }
 
       const payload = await response.json().catch(() => null);
-      const syncSummary = payload?.syncSummary;
-      const archived = Number(payload?.archiveSummary?.archived || 0);
-      if (syncSummary) {
-        setGenerationMessage(
-          `Synced Square first: ${syncSummary.synced}/${syncSummary.scanned} catalog objects, ${syncSummary.failed} failed. Archived ${archived} stale site products.`
-        );
-      }
+      const summary = payload?.summary;
+      setNotice({
+        kind: "success",
+        message: summary
+          ? `Generated ${summary.suggestedCount} new review rows from ${summary.uncategorizedCount} uncategorised products.`
+          : "Suggestion generation finished.",
+      });
       router.refresh();
       setTimeout(() => router.refresh(), 1000);
     });
@@ -246,7 +256,7 @@ export function CategoryAssignmentsManager({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        alert(payload?.error || "Bulk action failed.");
+        setNotice({ kind: "error", message: payload?.error || "Bulk action failed." });
         return;
       }
 
@@ -257,6 +267,10 @@ export function CategoryAssignmentsManager({
         }));
       }
       setSelectedIds([]);
+      setNotice({
+        kind: "success",
+        message: `${selectedIds.length} suggestion${selectedIds.length === 1 ? "" : "s"} ${action === "approve" ? "approved" : "rejected"}.`,
+      });
     });
   }
 
@@ -273,7 +287,12 @@ export function CategoryAssignmentsManager({
 
       if (!response.ok) {
         const payload = await response.json().catch(() => null);
-        alert(payload?.productName ? `${payload.productName}: ${payload.error}` : payload?.error || "Action failed.");
+        setNotice({
+          kind: "error",
+          message: payload?.productName
+            ? `${payload.productName}: ${payload.error}`
+            : payload?.error || "Action failed.",
+        });
         return;
       }
 
@@ -284,7 +303,10 @@ export function CategoryAssignmentsManager({
       const payload = await response.json().catch(() => null);
       if (action === "apply" || action === "revert") {
         if (payload?.squareWarning) {
-          alert(`Saved locally, but Square was not updated: ${payload.squareWarning}`);
+          setNotice({
+            kind: "warning",
+            message: `Saved locally, but Square was not updated: ${payload.squareWarning}`,
+          });
         }
       }
 
@@ -317,7 +339,7 @@ export function CategoryAssignmentsManager({
       });
       if (!approveResponse.ok) {
         const payload = await approveResponse.json().catch(() => null);
-        alert(payload?.error || "Approve failed.");
+        setNotice({ kind: "error", message: payload?.error || "Approve failed." });
         return;
       }
 
@@ -328,14 +350,20 @@ export function CategoryAssignmentsManager({
       });
       if (!applyResponse.ok) {
         const payload = await applyResponse.json().catch(() => null);
-        alert(payload?.error || `Apply failed for ${suggestion.product_name}.`);
+        setNotice({
+          kind: "error",
+          message: payload?.error || `Apply failed for ${suggestion.product_name}.`,
+        });
         updateSuggestion(id, (row) => ({ ...row, status: "approved" }));
         return;
       }
 
       const payload = await applyResponse.json().catch(() => null);
       if (payload?.squareWarning) {
-        alert(`Saved locally, but Square was not updated: ${payload.squareWarning}`);
+        setNotice({
+          kind: "warning",
+          message: `Saved locally, but Square was not updated: ${payload.squareWarning}`,
+        });
       }
       const resultStatus = payload?.result?.status;
       updateSuggestion(id, (row) => ({
@@ -371,14 +399,27 @@ export function CategoryAssignmentsManager({
             className="btn-primary flex items-center gap-2 text-sm"
           >
             {isGenerating ? <RefreshCw size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {isGenerating ? "Syncing + Generating..." : "Sync Square + Generate Suggestions"}
+            {isGenerating ? "Generating..." : "Generate Suggestions"}
           </button>
         </div>
       </div>
 
-      {generationMessage && (
-        <div className="border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm text-white/80">
-          {generationMessage}
+      {notice && (
+        <div
+          className={`px-4 py-3 text-sm text-white/80 flex items-start gap-2 ${
+            notice.kind === "error"
+              ? "border border-red-500/40 bg-red-500/10"
+              : notice.kind === "warning"
+                ? "border border-amber-500/40 bg-amber-500/10"
+                : "border border-green-500/30 bg-green-500/10"
+          }`}
+        >
+          {notice.kind === "error" || notice.kind === "warning" ? (
+            <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+          ) : (
+            <Check size={16} className="shrink-0 mt-0.5" />
+          )}
+          <span>{notice.message}</span>
         </div>
       )}
 

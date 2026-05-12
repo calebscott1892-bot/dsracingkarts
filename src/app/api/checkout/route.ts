@@ -9,7 +9,7 @@ import { createHash } from "crypto";
  * POST /api/checkout
  *
  * Accepts:
- *   - sourceId: Square payment token from Web Payments SDK
+ *   - optional sourceId: Square payment token from Web Payments SDK
  *   - idempotencyKey: client-generated key to prevent duplicate charges
  *   - cart: { items: CartItem[], subtotal: number }
  *   - customer: { email, name, phone, address }
@@ -17,9 +17,9 @@ import { createHash } from "crypto";
  * Flow:
  *   1. Validate cart items against DB (prices)
  *   2. Create order in Supabase with status "pending"
- *   3. Create Square payment
- *   4. Update order to "paid" (or clean up on failure)
- *   5. Return order confirmation
+ *   3. Create a Square invoice, or process a Square payment if sourceId is provided
+ *   4. Update order to "paid" after payment/webhook, or clean up on failure
+ *   5. Return Square invoice URL or order confirmation
  */
 
 const rateLimit = new Map<string, number[]>();
@@ -213,6 +213,44 @@ async function ensureSquareCustomer({
   return squareCustomerId;
 }
 
+function formatSquareInvoiceDate(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Australia/Sydney",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+async function cancelSquareOrderIfPossible({
+  square,
+  squareOrderId,
+  squareOrderVersion,
+  idempotencyKey,
+}: {
+  square: ReturnType<typeof getSquareClient>;
+  squareOrderId: string | null;
+  squareOrderVersion: number | null;
+  idempotencyKey: string;
+}) {
+  if (!squareOrderId || !squareOrderVersion) return;
+
+  await square.ordersApi
+    .updateOrder(squareOrderId, {
+      idempotencyKey,
+      order: {
+        locationId: SQUARE_LOCATION_ID,
+        version: squareOrderVersion,
+        state: "CANCELED",
+      },
+    })
+    .catch((cancelError) => {
+      console.error("Square order cancellation failed:", cancelError);
+    });
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Rate limiting
@@ -238,7 +276,7 @@ export async function POST(request: NextRequest) {
     const shippingPostcode = String(customer?.address?.postcode || "").trim().slice(0, 20);
 
     const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!sourceId || cartItems.length === 0 || !customerEmail) {
+    if (cartItems.length === 0 || !customerEmail) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -529,6 +567,98 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // If the request has no Square Web Payments token, use Square Invoices as
+    // the payment surface. This lets Square create the tax invoice first, then
+    // Square/Xero can handle the accounting flow from the paid invoice.
+    if (!sourceId) {
+      try {
+        const invoiceDate = formatSquareInvoiceDate();
+        const invoiceResponse = await square.invoicesApi.createInvoice({
+          idempotencyKey: `${idempotencyKey}-invoice`,
+          invoice: {
+            locationId: SQUARE_LOCATION_ID,
+            orderId: squareOrderId,
+            primaryRecipient: {
+              customerId: squareCustomerId,
+            },
+            paymentRequests: [
+              {
+                requestType: "BALANCE",
+                dueDate: invoiceDate,
+                automaticPaymentSource: "NONE",
+              },
+            ],
+            deliveryMethod: "EMAIL",
+            invoiceNumber: order.order_number,
+            title: `DS Racing Karts ${order.order_number}`,
+            description: "Website order - pay securely via Square invoice.",
+            saleOrServiceDate: invoiceDate,
+            acceptedPaymentMethods: {
+              card: true,
+              squareGiftCard: true,
+            },
+          },
+        });
+
+        const draftInvoice = invoiceResponse.result.invoice;
+        if (!draftInvoice?.id || draftInvoice.version == null) {
+          throw new Error("Square did not return a draft invoice ID");
+        }
+
+        const publishResponse = await square.invoicesApi.publishInvoice(draftInvoice.id, {
+          version: draftInvoice.version,
+          idempotencyKey: `${idempotencyKey}-publish-invoice`,
+        });
+        const publishedInvoice = publishResponse.result.invoice;
+        const invoiceUrl = publishedInvoice?.publicUrl || draftInvoice.publicUrl;
+        if (!invoiceUrl) {
+          throw new Error("Square did not return an invoice payment URL");
+        }
+
+        if (customerSubscribe) {
+          await syncCheckoutNewsletterSignup(supabase, customerEmail);
+          revalidatePath("/admin/newsletter");
+        }
+
+        await supabase
+          .from("orders")
+          .update({
+            admin_notes: `Square invoice created: ${invoiceUrl}`,
+          })
+          .eq("id", order.id);
+
+        revalidatePath("/admin/orders");
+        revalidatePath(`/admin/orders/${order.id}`);
+        return NextResponse.json({
+          success: true,
+          payment_pending: true,
+          order_number: order.order_number,
+          order_id: order.id,
+          invoice_id: publishedInvoice?.id || draftInvoice.id,
+          invoice_url: invoiceUrl,
+          total,
+        });
+      } catch (invoiceError) {
+        await supabase
+          .from("orders")
+          .update({ status: "cancelled" })
+          .eq("id", order.id);
+        await cancelSquareOrderIfPossible({
+          square,
+          squareOrderId,
+          squareOrderVersion,
+          idempotencyKey: `${idempotencyKey}-cancel-invoice-order`,
+        });
+        console.error("Square invoice creation failed:", invoiceError);
+        revalidatePath("/admin/orders");
+        revalidatePath(`/admin/orders/${order.id}`);
+        return NextResponse.json(
+          { error: "Invoice setup failed. Please try again." },
+          { status: 500 }
+        );
+      }
+    }
+
     // ---- 3. Process Square payment ----
     let paymentResult;
     try {
@@ -562,20 +692,12 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", order.id);
-      if (squareOrderId && squareOrderVersion) {
-        await square.ordersApi
-          .updateOrder(squareOrderId, {
-            idempotencyKey: `${idempotencyKey}-cancel-order`,
-            order: {
-              locationId: SQUARE_LOCATION_ID,
-              version: squareOrderVersion,
-              state: "CANCELED",
-            },
-          })
-          .catch((cancelError) => {
-            console.error("Square order cancellation failed:", cancelError);
-          });
-      }
+      await cancelSquareOrderIfPossible({
+        square,
+        squareOrderId,
+        squareOrderVersion,
+        idempotencyKey: `${idempotencyKey}-cancel-order`,
+      });
       console.error("Square payment failed:", paymentError);
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
@@ -591,20 +713,12 @@ export async function POST(request: NextRequest) {
         .from("orders")
         .update({ status: "cancelled" })
         .eq("id", order.id);
-      if (squareOrderId && squareOrderVersion) {
-        await square.ordersApi
-          .updateOrder(squareOrderId, {
-            idempotencyKey: `${idempotencyKey}-cancel-incomplete-order`,
-            order: {
-              locationId: SQUARE_LOCATION_ID,
-              version: squareOrderVersion,
-              state: "CANCELED",
-            },
-          })
-          .catch((cancelError) => {
-            console.error("Square order cancellation failed:", cancelError);
-          });
-      }
+      await cancelSquareOrderIfPossible({
+        square,
+        squareOrderId,
+        squareOrderVersion,
+        idempotencyKey: `${idempotencyKey}-cancel-incomplete-order`,
+      });
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(
