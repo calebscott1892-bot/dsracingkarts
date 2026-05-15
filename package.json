@@ -14,7 +14,8 @@
     "find-duplicates": "node scripts/find-duplicate-products.js",
     "find-duplicate-categories": "node scripts/find-duplicate-categories.js",
     "merge-duplicate-categories": "node scripts/merge-duplicate-categories.js",
-    "reconcile-categories": "node scripts/reconcile-categories-square.js"
+    "reconcile-categories": "node scripts/reconcile-categories-square.js",
+    "export-square-default-vendors": "node scripts/export-square-default-vendor-import.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
