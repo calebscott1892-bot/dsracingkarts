@@ -28,7 +28,10 @@ const PAGE_SIZE = 1000;
 const SUPPLIER_COST_PAGE_SIZE = 100;
 const WRITE_CONCURRENCY = 25;
 const SUPPLIER_VENDOR_ATTR_KEY = "dsr_supplier_vendor";
+const SUPPLIER_ITEM_VENDOR_ATTR_KEY = "dsr_supplier_vendor_item";
 const SUPPLIER_COST_ATTR_KEY = "dsr_supplier_cost";
+const SUPPLIER_VENDOR_ATTR_NAME = "Supplier Vendor";
+const SUPPLIER_ITEM_VENDOR_ATTR_NAME = "Item Supplier Vendor";
 
 function argValue(name, fallback = "") {
   const withEquals = process.argv.find((arg) => arg.startsWith(`${name}=`));
@@ -124,19 +127,39 @@ function moneyToAttributeNumber(value) {
   return parsed.toFixed(2);
 }
 
-function buildSupplierCustomAttributes(supplierCost) {
+function buildSupplierVendorCustomAttribute(supplierCost) {
   if (!supplierCost) return undefined;
 
   const supplierName = supplierCost.suppliers?.name || "DPE";
-  const cost = moneyToAttributeNumber(supplierCost.wholesale_price);
-  const attrs = {
+  return {
     [SUPPLIER_VENDOR_ATTR_KEY]: {
       key: SUPPLIER_VENDOR_ATTR_KEY,
       type: "STRING",
-      name: "Supplier Vendor",
+      name: SUPPLIER_VENDOR_ATTR_NAME,
       stringValue: supplierName,
     },
   };
+}
+
+function buildSupplierItemVendorCustomAttribute(supplierCost) {
+  if (!supplierCost) return undefined;
+
+  const supplierName = supplierCost.suppliers?.name || "DPE";
+  return {
+    [SUPPLIER_ITEM_VENDOR_ATTR_KEY]: {
+      key: SUPPLIER_ITEM_VENDOR_ATTR_KEY,
+      type: "STRING",
+      name: SUPPLIER_ITEM_VENDOR_ATTR_NAME,
+      stringValue: supplierName,
+    },
+  };
+}
+
+function buildSupplierCustomAttributes(supplierCost) {
+  const attrs = buildSupplierVendorCustomAttribute(supplierCost);
+  if (!attrs) return undefined;
+
+  const cost = moneyToAttributeNumber(supplierCost.wholesale_price);
 
   if (cost !== null) {
     attrs[SUPPLIER_COST_ATTR_KEY] = {
@@ -246,13 +269,14 @@ async function fetchSupplierCostsForProducts(productIds) {
 }
 
 async function ensureSupplierCustomAttributeDefinitions() {
-  const objects = [
+  const desiredDefinitions = [
     {
+      key: SUPPLIER_VENDOR_ATTR_KEY,
       type: "CUSTOM_ATTRIBUTE_DEFINITION",
       id: `#${SUPPLIER_VENDOR_ATTR_KEY}`,
       customAttributeDefinitionData: {
         type: "STRING",
-        name: "Supplier Vendor",
+        name: SUPPLIER_VENDOR_ATTR_NAME,
         description: "Primary supplier/vendor imported from DS Racing Karts migration data.",
         key: SUPPLIER_VENDOR_ATTR_KEY,
         allowedObjectTypes: ["ITEM_VARIATION"],
@@ -261,6 +285,7 @@ async function ensureSupplierCustomAttributeDefinitions() {
       },
     },
     {
+      key: SUPPLIER_COST_ATTR_KEY,
       type: "CUSTOM_ATTRIBUTE_DEFINITION",
       id: `#${SUPPLIER_COST_ATTR_KEY}`,
       customAttributeDefinitionData: {
@@ -274,11 +299,51 @@ async function ensureSupplierCustomAttributeDefinitions() {
         numberConfig: { precision: 2 },
       },
     },
+    {
+      key: SUPPLIER_ITEM_VENDOR_ATTR_KEY,
+      type: "CUSTOM_ATTRIBUTE_DEFINITION",
+      id: `#${SUPPLIER_ITEM_VENDOR_ATTR_KEY}`,
+      customAttributeDefinitionData: {
+        type: "STRING",
+        name: SUPPLIER_ITEM_VENDOR_ATTR_NAME,
+        description: "Primary supplier/vendor imported from DS Racing Karts migration data.",
+        key: SUPPLIER_ITEM_VENDOR_ATTR_KEY,
+        allowedObjectTypes: ["ITEM"],
+        sellerVisibility: "SELLER_VISIBILITY_READ_WRITE_VALUES",
+        appVisibility: "APP_VISIBILITY_READ_WRITE_VALUES",
+      },
+    },
   ];
 
   try {
+    const existingKeys = new Set();
+    let cursor;
+    do {
+      const { result } = await square.catalogApi.searchCatalogObjects({
+        cursor,
+        objectTypes: ["CUSTOM_ATTRIBUTE_DEFINITION"],
+        limit: 100,
+      });
+      for (const object of result.objects || []) {
+        const key = object.customAttributeDefinitionData?.key;
+        if (key) existingKeys.add(key);
+      }
+      cursor = result.cursor;
+    } while (cursor);
+
+    const objects = desiredDefinitions
+      .filter((definition) => !existingKeys.has(definition.key))
+      .map(({ key: _key, ...definition }) => definition);
+
+    if (objects.length === 0) {
+      return true;
+    }
+
     const { errors } = await square.catalogApi.batchUpsertCatalogObjects({
-      idempotencyKey: "dsr-supplier-cost-attribute-definitions-v1",
+      idempotencyKey: `dsr-supplier-cost-attribute-definitions-${objects
+        .map((object) => object.customAttributeDefinitionData.key)
+        .sort()
+        .join("-")}`,
       batches: [{ objects }],
     });
     if (errors && errors.length > 0) {
@@ -676,6 +741,9 @@ async function main() {
       return {
         type: "ITEM",
         id: tempItemId,
+        customAttributeValues: buildSupplierItemVendorCustomAttribute(
+          supplierCostsByProductId.get(entry.product.id)
+        ),
         itemData: {
           name: entry.product.name,
           variations: entry.variations.map(({ variation, priceCents, skuKey }) => {

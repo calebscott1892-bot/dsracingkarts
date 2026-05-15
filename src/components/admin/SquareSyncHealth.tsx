@@ -280,7 +280,7 @@ export function SquareSyncHealth() {
             }
           />
           <Row
-            label="Last full resync"
+            label="Last resync activity"
             ok={!!status.db.lastResyncAt}
             neutral={!status.db.lastResyncAt}
             value={

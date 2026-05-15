@@ -1,4 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/server";
+import {
+  buildCurrentCategoryAssignmentQueue,
+  emptyCategoryAssignmentSummary,
+  summarizeCategoryAssignmentQueue,
+} from "@/lib/category-assignment-queue";
 import { CategoryAssignmentsManager } from "./CategoryAssignmentsManager";
 
 export const dynamic = "force-dynamic";
@@ -25,13 +30,6 @@ async function fetchPaginated<T>(
   return rows;
 }
 
-function confidenceBand(confidence: number) {
-  if (confidence >= 0.55) return "high";
-  if (confidence >= 0.35) return "medium";
-  if (confidence > 0) return "low";
-  return "no_match";
-}
-
 function confidenceLabel(confidence: number) {
   if (confidence >= 0.55) return "high";
   if (confidence >= 0.35) return "medium";
@@ -42,7 +40,7 @@ function confidenceLabel(confidence: number) {
 export default async function AdminCategoryAssignmentsPage() {
   const service = createServiceClient();
 
-  const [{ data: latestRun }, { count: uncategorizedCount }] = await Promise.all([
+  const [{ data: latestRun }, uncategorizedProducts, openRows, categories] = await Promise.all([
     service
       .from("category_assignment_runs")
       .select("id, mode, source, notes, created_at")
@@ -50,92 +48,58 @@ export default async function AdminCategoryAssignmentsPage() {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    service.from("uncategorized_products").select("id", { count: "exact", head: true }),
+    fetchPaginated<{ id: string }>(async (from, to) =>
+      await service.from("uncategorized_products").select("id").range(from, to)
+    ),
+    fetchPaginated<any>(async (from, to) =>
+      await service
+        .from("category_assignment_suggestions")
+        .select(
+          "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
+        )
+        .in("status", ["pending", "approved", "rejected"])
+        .range(from, to)
+    ),
+    fetchPaginated<{ id: string; name: string; parent_id: string | null }>(async (from, to) =>
+      await service.from("categories").select("id, name, parent_id").range(from, to)
+    ),
   ]);
 
-  let suggestions: any[] = [];
-  let allCategoriesForPicker: {
-    id: string;
-    name: string;
-    parent_name: string | null;
-    full_label: string;
-  }[] = [];
-  const summary = {
-    total: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    applied: 0,
-    skipped: 0,
-    reverted: 0,
-    high: 0,
-    medium: 0,
-    low: 0,
-    no_match: 0,
-  };
+  const currentUncategorizedIds = uncategorizedProducts.map((product) => product.id);
+  const reviewRows = buildCurrentCategoryAssignmentQueue(openRows || [], currentUncategorizedIds);
+  const summary = reviewRows.length
+    ? summarizeCategoryAssignmentQueue(reviewRows)
+    : emptyCategoryAssignmentSummary();
+  const categoryMap = new Map((categories || []).map((category) => [category.id, category]));
 
-  if (latestRun) {
-    const [allRows, visibleRows, categories] = await Promise.all([
-      fetchPaginated<{ id: string; status: string; confidence: number }>(async (from, to) =>
-        await service
-          .from("category_assignment_suggestions")
-          .select("id, status, confidence")
-          .eq("run_id", latestRun.id)
-          .range(from, to)
-      ),
-      fetchPaginated<any>(async (from, to) =>
-        await service
-          .from("category_assignment_suggestions")
-          .select(
-            "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
-          )
-          .eq("run_id", latestRun.id)
-          .order("confidence", { ascending: false })
-          .range(from, to)
-      ),
-      fetchPaginated<{ id: string; name: string; parent_id: string | null }>(async (from, to) =>
-        await service.from("categories").select("id, name, parent_id").range(from, to)
-      ),
-    ]);
+  const suggestions = reviewRows.map((row) => {
+    const category = row.suggested_category_id
+      ? categoryMap.get(row.suggested_category_id)
+      : null;
+    const parent = category?.parent_id ? categoryMap.get(category.parent_id) : null;
+    return {
+      ...row,
+      suggested_category_name: category?.name || "No strong match yet",
+      suggested_parent_name: parent?.name || null,
+      confidence_band: confidenceLabel(Number(row.confidence || 0)),
+    };
+  });
 
-    const categoryMap = new Map((categories || []).map((category) => [category.id, category]));
-
-    for (const row of allRows || []) {
-      summary.total += 1;
-      if (row.status in summary) {
-        summary[row.status as keyof typeof summary] += 1;
-      }
-      const band = confidenceBand(Number(row.confidence || 0));
-      summary[band as "high" | "medium" | "low" | "no_match"] += 1;
-    }
-
-    suggestions = (visibleRows || []).map((row) => {
-      const category = categoryMap.get(row.suggested_category_id);
-      const parent = category?.parent_id ? categoryMap.get(category.parent_id) : null;
-      return {
-        ...row,
-        suggested_category_name: category?.name || "No strong match yet",
-        suggested_parent_name: parent?.name || null,
-        confidence_band: confidenceLabel(Number(row.confidence || 0)),
-      };
-    });
-
-    allCategoriesForPicker = (categories || []).map((category) => {
-      const parent = category.parent_id ? categoryMap.get(category.parent_id) : null;
-      return {
-        id: category.id,
-        name: category.name,
-        parent_name: parent?.name || null,
-        full_label: parent ? `${parent.name} / ${category.name}` : category.name,
-      };
-    });
-    allCategoriesForPicker.sort((a, b) => a.full_label.localeCompare(b.full_label));
-  }
+  const allCategoriesForPicker = (categories || []).map((category) => {
+    const parent = category.parent_id ? categoryMap.get(category.parent_id) : null;
+    return {
+      id: category.id,
+      name: category.name,
+      parent_name: parent?.name || null,
+      full_label: parent ? `${parent.name} / ${category.name}` : category.name,
+    };
+  });
+  allCategoriesForPicker.sort((a, b) => a.full_label.localeCompare(b.full_label));
 
   return (
     <CategoryAssignmentsManager
       latestRun={latestRun}
-      uncategorizedCount={uncategorizedCount || 0}
+      uncategorizedCount={uncategorizedProducts.length}
       summary={summary}
       suggestions={suggestions}
       allCategories={allCategoriesForPicker}

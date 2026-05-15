@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import {
+  buildCurrentCategoryAssignmentQueue,
+  confidenceBand,
+} from "@/lib/category-assignment-queue";
 
 async function fetchPaginated<T>(
   runQuery: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>
@@ -39,13 +43,6 @@ async function verifyAdmin() {
   return true;
 }
 
-function confidenceBand(confidence: number) {
-  if (confidence >= 0.55) return "high";
-  if (confidence >= 0.35) return "medium";
-  if (confidence > 0) return "low";
-  return "no_match";
-}
-
 function csvEscape(value: unknown) {
   const text = value == null ? "" : String(value);
   if (/[",\n]/.test(text)) {
@@ -60,27 +57,17 @@ export async function GET() {
 
   const service = createServiceClient();
 
-  const { data: latestRun } = await service
-    .from("category_assignment_runs")
-    .select("id, created_at")
-    .eq("mode", "suggestion")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (!latestRun) {
-    return NextResponse.json({ error: "No category assignment run found" }, { status: 404 });
-  }
-
-  const [suggestions, categories] = await Promise.all([
+  const [uncategorizedProducts, openRows, categories] = await Promise.all([
+    fetchPaginated<{ id: string }>(async (from, to) =>
+      await service.from("uncategorized_products").select("id").range(from, to)
+    ),
     fetchPaginated<any>(async (from, to) =>
       await service
         .from("category_assignment_suggestions")
         .select(
           "id, product_id, product_square_token, product_name, suggested_category_id, confidence, rationale, status, created_at"
         )
-        .eq("run_id", latestRun.id)
-        .order("confidence", { ascending: false })
+        .in("status", ["pending", "approved", "rejected"])
         .range(from, to)
     ),
     fetchPaginated<{ id: string; name: string; parent_id: string | null }>(async (from, to) =>
@@ -88,6 +75,10 @@ export async function GET() {
     ),
   ]);
 
+  const suggestions = buildCurrentCategoryAssignmentQueue(
+    openRows || [],
+    uncategorizedProducts.map((product) => product.id)
+  );
   const categoryMap = new Map((categories || []).map((category) => [category.id, category]));
 
   const header = [

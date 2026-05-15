@@ -36,14 +36,17 @@ function isAuthorisedCron(request: NextRequest): boolean {
   return auth === `Bearer ${secret}`;
 }
 
-async function recordHeartbeat(result: { scanned: number; synced: number; failed: number }) {
+async function recordHeartbeat(
+  result: { scanned: number; synced: number; failed: number },
+  state: "in_progress" | "completed" = "completed"
+) {
   try {
     const supabase = createServiceClient();
     await supabase.from("sync_status").upsert(
       {
         key: "square_full_resync",
         last_event_at: new Date().toISOString(),
-        last_event_type: `scanned=${result.scanned} synced=${result.synced} failed=${result.failed}`,
+        last_event_type: `${state} scanned=${result.scanned} synced=${result.synced} failed=${result.failed}`,
       },
       { onConflict: "key" }
     );
@@ -106,9 +109,9 @@ export async function POST(request: NextRequest) {
           ...chunk.failures,
         ].slice(0, 20),
       };
+      await recordHeartbeat(totals, chunk.done ? "completed" : "in_progress");
       if (chunk.done) {
         revalidateCatalogSurfaces();
-        await recordHeartbeat(totals);
       }
       return NextResponse.json({
         ok: true,
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     const result = await reconcileCatalogForAdminResync();
     revalidateCatalogSurfaces();
-    await recordHeartbeat(result);
+    await recordHeartbeat(result, "completed");
     return NextResponse.json({
       ok: true,
       durationMs: Date.now() - startedAt,
