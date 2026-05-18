@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { blocksCategorySuggestionRegeneration } from "@/lib/category-assignment-queue";
 
 // Generation walks every uncategorised product (~4k+ items), scores them
 // against every category profile, and bulk-inserts the suggestion rows.
@@ -253,15 +254,17 @@ async function generateSuggestions(service: ReturnType<typeof createServiceClien
   );
 
   const uncategorizedProducts = await loadUncategorizedProducts(service);
-  const existingSuggestionRows = await fetchPaginated<{ product_id: string }>(async (from, to) =>
+  const existingSuggestionRows = await fetchPaginated<{ product_id: string; status: string }>(async (from, to) =>
     await service
       .from("category_assignment_suggestions")
-      .select("product_id")
-      .in("status", ["pending", "approved", "rejected", "applied", "skipped"])
+      .select("product_id, status")
+      .in("status", ["pending", "approved", "rejected", "applied", "skipped", "reverted"])
       .range(from, to)
   );
   const productsWithExistingSuggestions = new Set(
-    existingSuggestionRows.map((row) => row.product_id)
+    existingSuggestionRows
+      .filter((row) => blocksCategorySuggestionRegeneration(row.status))
+      .map((row) => row.product_id)
   );
   const productsNeedingSuggestions = uncategorizedProducts.filter(
     (product) => !productsWithExistingSuggestions.has(product.id)

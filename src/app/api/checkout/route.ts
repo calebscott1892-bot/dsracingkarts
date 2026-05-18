@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
-import { Resend } from "resend";
+import { sendEmail } from "@/lib/email";
+import {
+  findCustomerPhoneConflict,
+  getPhoneSearchCandidates,
+  normalizePhoneForSquare,
+} from "@/lib/phone";
+import { isSquareNotFoundError } from "@/lib/square-errors";
 import { createHash } from "crypto";
 
 /**
@@ -28,6 +34,7 @@ const RATE_MAX = 10;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_CART_LINE_QTY = 20;
 const ADMIN_ORDER_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || "dsracing@bigpond.com";
+const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || "DS Racing Karts <noreply@dsracingkarts.com.au>";
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -36,6 +43,35 @@ function escapeHtml(value: unknown): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function firstRelated<T>(value: T | T[] | null | undefined): T | null {
+  return Array.isArray(value) ? value[0] ?? null : value ?? null;
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error || "Unknown error");
+}
+
+async function appendOrderAdminNote(
+  supabase: ReturnType<typeof createServiceClient>,
+  orderId: string,
+  note: string
+) {
+  try {
+    const { data } = await supabase
+      .from("orders")
+      .select("admin_notes")
+      .eq("id", orderId)
+      .maybeSingle();
+    const existing = data?.admin_notes ? `${data.admin_notes}\n\n` : "";
+    await supabase
+      .from("orders")
+      .update({ admin_notes: `${existing}${note}` })
+      .eq("id", orderId);
+  } catch (error) {
+    console.error("Failed to append order admin note:", error);
+  }
 }
 
 async function syncCheckoutNewsletterSignup(
@@ -80,25 +116,6 @@ async function syncCheckoutNewsletterSignup(
   }
 }
 
-function normalizePhoneForSquare(phone: string) {
-  const trimmed = phone.trim();
-  if (!trimmed) return undefined;
-
-  const digits = trimmed.replace(/\D/g, "");
-  if (digits.length < 9 || digits.length > 16) return undefined;
-
-  if (trimmed.startsWith("+")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+61${digits.slice(1)}`;
-  if (digits.startsWith("61")) return `+${digits}`;
-  return digits;
-}
-
-function isSquareNotFoundError(error: unknown) {
-  const statusCode = (error as { statusCode?: number } | null)?.statusCode;
-  const errors = (error as { errors?: Array<{ code?: string }> } | null)?.errors || [];
-  return statusCode === 404 || errors.some((entry) => entry.code === "NOT_FOUND");
-}
-
 async function findSquareCustomerByEmail(
   square: ReturnType<typeof getSquareClient>,
   email: string
@@ -115,6 +132,41 @@ async function findSquareCustomerByEmail(
   });
 
   return search.result.customers?.[0]?.id || null;
+}
+
+async function findSquareCustomerPhoneConflict(
+  square: ReturnType<typeof getSquareClient>,
+  email: string,
+  phone: string
+) {
+  const candidates = getPhoneSearchCandidates(phone);
+
+  for (const candidate of candidates) {
+    const search = await square.customersApi.searchCustomers({
+      limit: BigInt(10),
+      query: {
+        filter: {
+          phoneNumber: {
+            exact: candidate,
+          },
+        },
+      },
+    });
+
+    const conflict = findCustomerPhoneConflict(
+      (search.result.customers || []).map((customer) => ({
+        id: customer.id || "",
+        email: customer.emailAddress || null,
+        phone: customer.phoneNumber || null,
+      })),
+      email,
+      phone
+    );
+
+    if (conflict) return conflict;
+  }
+
+  return null;
 }
 
 async function ensureSquareCustomer({
@@ -315,8 +367,8 @@ export async function POST(request: NextRequest) {
     const { data: dbVariations } = await supabase
       .from("product_variations")
       .select(`
-        id, price, sale_price, name, sku, product_id,
-        products ( name )
+        id, price, sale_price, name, sku, product_id, square_token,
+        products ( id, name, status, visibility, is_sellable, square_token )
       `)
       .in("id", variationIds);
 
@@ -330,6 +382,10 @@ export async function POST(request: NextRequest) {
     // Calculate verified total
     let verifiedSubtotal = 0;
     const orderItems: any[] = [];
+    const squareProductsToVerify = new Map<
+      string,
+      { productId: string; productName: string; squareToken: string }
+    >();
 
     for (const cartItem of cartItems) {
       const quantity = Number(cartItem?.quantity);
@@ -350,8 +406,46 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Note: stock check intentionally skipped — all products can be ordered regardless of
-      // on-hand quantity, as items can be sourced within a day.
+      const product = firstRelated(
+        dbVar.products as unknown as
+          | {
+              id: string;
+              name: string;
+              status: string;
+              visibility: string;
+              is_sellable: boolean;
+              square_token: string | null;
+            }
+          | {
+              id: string;
+              name: string;
+              status: string;
+              visibility: string;
+              is_sellable: boolean;
+              square_token: string | null;
+            }[]
+          | null
+      );
+
+      if (
+        !product ||
+        product.status !== "active" ||
+        product.visibility !== "visible" ||
+        product.is_sellable === false
+      ) {
+        return NextResponse.json(
+          { error: `${product?.name || cartItem.product_name || "This item"} is no longer available` },
+          { status: 400 }
+        );
+      }
+
+      if (product.square_token) {
+        squareProductsToVerify.set(product.square_token, {
+          productId: product.id,
+          productName: product.name,
+          squareToken: product.square_token,
+        });
+      }
 
       const unitPrice = dbVar.sale_price || dbVar.price;
       const lineTotal = unitPrice * quantity;
@@ -360,13 +454,42 @@ export async function POST(request: NextRequest) {
       orderItems.push({
         product_id: dbVar.product_id,
         variation_id: dbVar.id,
-        product_name: (dbVar.products as unknown as { name: string } | null)?.name || "Unknown Product",
+        product_name: product.name || "Unknown Product",
         variation_name: dbVar.name,
         sku: dbVar.sku,
         quantity,
         unit_price: unitPrice,
         total_price: lineTotal,
       });
+    }
+
+    for (const squareProduct of squareProductsToVerify.values()) {
+      try {
+        await square.catalogApi.retrieveCatalogObject(squareProduct.squareToken, false);
+      } catch (catalogError) {
+        if (isSquareNotFoundError(catalogError)) {
+          await supabase
+            .from("products")
+            .update({
+              status: "archived",
+              visibility: "unavailable",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", squareProduct.productId);
+          revalidatePath("/shop");
+          revalidatePath("/admin/products");
+          return NextResponse.json(
+            { error: `${squareProduct.productName} is no longer available` },
+            { status: 400 }
+          );
+        }
+
+        console.error("Square product availability check failed:", catalogError);
+        return NextResponse.json(
+          { error: "Could not verify product availability. Please try again." },
+          { status: 503 }
+        );
+      }
     }
 
     // Calculate tax (10% GST for Australia)
@@ -379,6 +502,54 @@ export async function POST(request: NextRequest) {
     // Find or create customer
     const [firstName, ...lastNameParts] = customerName.split(/\s+/).filter(Boolean);
     const lastName = lastNameParts.join(" ") || null;
+
+    const { data: customersWithPhones, error: phoneLookupError } = await supabase
+      .from("customers")
+      .select("id, email, phone")
+      .not("phone", "is", null);
+
+    if (phoneLookupError) {
+      console.error("Customer phone lookup failed:", phoneLookupError);
+      return NextResponse.json(
+        { error: "Customer validation failed" },
+        { status: 500 }
+      );
+    }
+
+    const phoneConflict = findCustomerPhoneConflict(
+      customersWithPhones || [],
+      customerEmail,
+      customerPhone
+    );
+    if (phoneConflict) {
+      return NextResponse.json(
+        { error: "That phone number is already attached to another customer. Please check your details or contact us." },
+        { status: 409 }
+      );
+    }
+
+    let squarePhoneConflict;
+    try {
+      squarePhoneConflict = await findSquareCustomerPhoneConflict(
+        square,
+        customerEmail,
+        customerPhone
+      );
+    } catch (squarePhoneLookupError) {
+      console.error("Square customer phone lookup failed:", squarePhoneLookupError);
+      return NextResponse.json(
+        { error: "Could not verify customer details. Please try again." },
+        { status: 503 }
+      );
+    }
+
+    if (squarePhoneConflict) {
+      return NextResponse.json(
+        { error: "That phone number is already attached to another customer. Please check your details or contact us." },
+        { status: 409 }
+      );
+    }
+
     let { data: dbCustomer } = await supabase
       .from("customers")
       .select("id, square_customer_id")
@@ -628,7 +799,6 @@ export async function POST(request: NextRequest) {
           .eq("id", order.id);
 
         try {
-          const resend = new Resend(process.env.RESEND_API_KEY);
           const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.dsracingkarts.com.au").replace(/\/$/, "");
           const adminOrderUrl = `${siteUrl}/admin/orders/${order.id}`;
           const safeCustomerName = escapeHtml(customerName);
@@ -652,8 +822,8 @@ export async function POST(request: NextRequest) {
             )
             .join("");
 
-          await resend.emails.send({
-            from: "DS Racing Karts <orders@dsracingkarts.com.au>",
+          await sendEmail({
+            from: ORDER_EMAIL_FROM,
             to: ADMIN_ORDER_EMAIL,
             replyTo: customerEmail,
             subject: `New website invoice - #${order.order_number}`,
@@ -706,6 +876,11 @@ export async function POST(request: NextRequest) {
           });
         } catch (emailError) {
           console.error("Invoice order email failed:", emailError);
+          await appendOrderAdminNote(
+            supabase,
+            order.id,
+            `Admin invoice notification email failed: ${getErrorMessage(emailError)}`
+          );
         }
 
         revalidatePath("/admin/orders");
@@ -830,7 +1005,6 @@ export async function POST(request: NextRequest) {
 
     // ---- 5. Send customer confirmation and internal order notification ----
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
       const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.dsracingkarts.com.au").replace(/\/$/, "");
       const adminOrderUrl = `${siteUrl}/admin/orders/${order.id}`;
       const safeCustomerName = escapeHtml(customerName);
@@ -854,8 +1028,8 @@ export async function POST(request: NextRequest) {
         )
         .join("");
 
-      await resend.emails.send({
-        from: "DS Racing Karts <orders@dsracingkarts.com.au>",
+      await sendEmail({
+        from: ORDER_EMAIL_FROM,
         to: customerEmail,
         subject: `Order Confirmed — #${order.order_number}`,
         html: `
@@ -897,11 +1071,16 @@ export async function POST(request: NextRequest) {
             <div style="height:4px;background:#e60012;margin-top:24px"></div>
           </div>
         `,
-      }).catch((error) => {
+      }).catch(async (error) => {
         console.error("Customer confirmation email failed:", error);
+        await appendOrderAdminNote(
+          supabase,
+          order.id,
+          `Customer confirmation email failed: ${getErrorMessage(error)}`
+        );
       });
-      await resend.emails.send({
-        from: "DS Racing Karts <orders@dsracingkarts.com.au>",
+      await sendEmail({
+        from: ORDER_EMAIL_FROM,
         to: ADMIN_ORDER_EMAIL,
         replyTo: customerEmail,
         subject: `New website order - #${order.order_number}`,
@@ -950,6 +1129,11 @@ export async function POST(request: NextRequest) {
       });
     } catch (emailError) {
       console.error("Order email failed:", emailError);
+      await appendOrderAdminNote(
+        supabase,
+        order.id,
+        `Admin paid-order notification email failed: ${getErrorMessage(emailError)}`
+      );
     }
 
     // ---- 7. Return confirmation ----

@@ -10,6 +10,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
 import { isRealProductImageUrl } from "@/lib/product-images";
+import { isSquareNotFoundError } from "@/lib/square-errors";
 import { createHash } from "crypto";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -417,6 +418,10 @@ export async function syncCatalogItem(
       item = result.object;
       relatedObjects = result.relatedObjects || [];
     } catch (err: any) {
+      if (isSquareNotFoundError(err)) {
+        await archiveCatalogItem(itemId);
+        return { ok: true, reason: "archived_missing_from_square" };
+      }
       console.error(`[square-sync] retrieveCatalogObject failed for ${itemId}:`, err?.message || err);
       return { ok: false, reason: err?.message || "retrieve failed" };
     }
@@ -616,7 +621,11 @@ export async function archiveCatalogItem(squareToken: string) {
   const supabase = createServiceClient();
   await supabase
     .from("products")
-    .update({ status: "archived", updated_at: new Date().toISOString() })
+    .update({
+      status: "archived",
+      visibility: "unavailable",
+      updated_at: new Date().toISOString(),
+    })
     .eq("square_token", squareToken);
 }
 
@@ -809,6 +818,10 @@ export async function reconcileFullCatalog(): Promise<{
     } while (cursor);
   }
 
+  const { archived } = await archiveProductsMissingFromSquare();
+  scanned += archived;
+  synced += archived;
+
   return { scanned, synced, failed, categoriesSynced, failures };
 }
 
@@ -896,6 +909,10 @@ export async function reconcileCatalogForAdminResync(): Promise<{
       }
     } while (cursor);
   }
+
+  const { archived } = await archiveProductsMissingFromSquare();
+  scanned += archived;
+  synced += archived;
 
   return { scanned, synced, failed, categoriesSynced, failures };
 }

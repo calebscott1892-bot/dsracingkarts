@@ -55,6 +55,10 @@ export function isOpenCategoryAssignmentStatus(status: string): status is "pendi
   return status === "pending" || status === "approved" || status === "rejected";
 }
 
+export function blocksCategorySuggestionRegeneration(status: string) {
+  return status === "approved" || status === "applied" || status === "skipped";
+}
+
 function timestamp(value: string) {
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
+import { buildRacewearGroups } from "@/lib/racewear-gallery";
 
 export const metadata: Metadata = {
   title: "Custom Racewear Gallery",
@@ -16,6 +17,23 @@ export const revalidate = 0;
 
 function isRemoteImage(src: string) {
   return src.startsWith("http://") || src.startsWith("https://");
+}
+
+function normalizeRacewearEntries(
+  entries: Array<{
+    id: string;
+    group_label: string;
+    image_url: string;
+    alt_text: string;
+    sort_order?: number | null;
+    created_at?: string | null;
+  }>
+) {
+  return entries.map((entry, index) => ({
+    ...entry,
+    sort_order: Number.isFinite(Number(entry.sort_order)) ? Number(entry.sort_order) : index,
+    created_at: entry.created_at ?? "",
+  }));
 }
 
 const FALLBACK_GALLERY = [
@@ -38,12 +56,15 @@ export default async function RacewearGalleryPage() {
   const supabase = createServiceClient();
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
-    .select("id, group_label, image_url, alt_text")
+    .select("id, group_label, image_url, alt_text, sort_order, created_at")
     .eq("is_active", true)
     .order("sort_order")
     .order("created_at");
 
-  const galleryEntries = dbGallery && dbGallery.length > 0 ? dbGallery : FALLBACK_GALLERY;
+  const galleryEntries = normalizeRacewearEntries(
+    dbGallery && dbGallery.length > 0 ? dbGallery : FALLBACK_GALLERY
+  );
+  const racewearGroups = buildRacewearGroups(galleryEntries);
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-12 md:py-16">
@@ -61,27 +82,36 @@ export default async function RacewearGalleryPage() {
       </div>
 
       <p className="text-white/60 text-sm mb-8 max-w-2xl">
-        This page is ready for expanded racewear uploads. As new photos are added in admin, they will automatically appear here.
+        Custom racewear examples grouped by team and client.
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-        {galleryEntries.map((entry) => (
-          <div key={entry.id} className="group relative aspect-[3/4] overflow-hidden border border-white/10 bg-racing-dark">
-            <Image
-              src={entry.image_url}
-              alt={entry.alt_text || entry.group_label || "Custom racewear"}
-              fill
-              unoptimized={isRemoteImage(entry.image_url)}
-              className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3">
-              <p className="text-[10px] md:text-xs text-white/90 uppercase tracking-[0.15em] font-heading line-clamp-2">
-                {entry.group_label}
-              </p>
+      <div className="space-y-10">
+        {racewearGroups.map(({ label, entries: groupEntries }) => (
+          <section key={label}>
+            <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-heading mb-3">{label}</p>
+            <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 md:gap-4 ${
+              groupEntries.length === 1 ? "max-w-[320px]" : ""
+            }`}>
+              {groupEntries.map((entry) => (
+                <div key={entry.id} className="group relative aspect-[3/4] overflow-hidden border border-white/10 bg-racing-dark">
+                  <Image
+                    src={entry.image_url}
+                    alt={entry.alt_text || entry.group_label || "Custom racewear"}
+                    fill
+                    unoptimized={isRemoteImage(entry.image_url)}
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-[10px] md:text-xs text-white/90 uppercase tracking-[0.15em] font-heading line-clamp-2">
+                      {entry.alt_text || entry.group_label}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
+          </section>
         ))}
       </div>
 

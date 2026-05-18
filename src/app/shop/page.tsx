@@ -267,6 +267,7 @@ export default async function ShopPage({ searchParams }: Props) {
       )
       .eq("status", "active")
       .eq("visibility", "visible")
+      .eq("is_sellable", true)
       .neq("slug", GIFT_CARD_SLUG);
 
     if (categoryProductIds !== null) {

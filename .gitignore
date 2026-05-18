@@ -5,6 +5,7 @@
 
 # testing
 /coverage
+/.tmp/test-modules/
 
 # next.js
 /.next/

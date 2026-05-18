@@ -1,36 +1,74 @@
 "use client";
 
-import { useState, useRef } from "react";
+import type { ChangeEvent, DragEvent, FormEvent } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
-import { Plus, Trash2, Eye, EyeOff, Loader2, X, Camera, GripVertical, Save, Star, StarOff, Pencil, ArrowUp, ArrowDown } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import {
+  ArrowDown,
+  ArrowUp,
+  Camera,
+  Eye,
+  EyeOff,
+  GripVertical,
+  Loader2,
+  Pencil,
+  Plus,
+  Save,
+  Star,
+  StarOff,
+  Trash2,
+  X,
+} from "lucide-react";
+import {
+  buildRacewearGroups,
+  compareRacewearEntries,
+  reorderRacewearEntries,
+  validateRacewearUploadFile,
+  validateRacewearUploadFiles,
+  type RacewearGalleryEntry,
+  type RacewearReorderResult,
+} from "@/lib/racewear-gallery";
 
-interface Entry {
-  id: string;
-  group_label: string;
+interface Entry extends RacewearGalleryEntry {
   image_url: string;
   alt_text: string;
-  sort_order: number;
   is_active: boolean;
   is_featured: boolean;
-  created_at: string;
 }
 
-const emptyForm = () => ({
+interface PendingPhoto {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
+const emptyForm = (sortOrder = 0) => ({
   group_label: "",
   alt_text: "",
-  sort_order: 0,
+  sort_order: sortOrder,
   is_featured: false,
 });
 
-interface Props { initialEntries: Entry[] }
+interface Props {
+  initialEntries: Entry[];
+}
+
+function getNextSortOrder(entries: Entry[]) {
+  if (entries.length === 0) return 0;
+  return Math.max(...entries.map((entry) => Number(entry.sort_order) || 0)) + 1;
+}
+
+function sortEntries(entries: Entry[]) {
+  return [...entries].sort(compareRacewearEntries);
+}
 
 export function RacewearManager({ initialEntries }: Props) {
-  const [entries, setEntries] = useState<Entry[]>(initialEntries);
+  const [entries, setEntries] = useState<Entry[]>(sortEntries(initialEntries));
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState(emptyForm());
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [form, setForm] = useState(emptyForm(getNextSortOrder(initialEntries)));
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [isDraggingUpload, setIsDraggingUpload] = useState(false);
+  const [draggingEntryId, setDraggingEntryId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -42,61 +80,119 @@ export function RacewearManager({ initialEntries }: Props) {
   const [errorMsg, setErrorMsg] = useState("");
   const [movingId, setMovingId] = useState<string | null>(null);
 
-  function setField<K extends keyof ReturnType<typeof emptyForm>>(key: K, value: ReturnType<typeof emptyForm>[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
+  function setField<K extends keyof ReturnType<typeof emptyForm>>(
+    key: K,
+    value: ReturnType<typeof emptyForm>[K]
+  ) {
+    setForm((current) => ({ ...current, [key]: value }));
   }
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { setErrorMsg("Photo must be under 10 MB."); return; }
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      setErrorMsg("Only JPG, PNG or WebP accepted."); return;
+  function clearPendingPhotos() {
+    for (const photo of pendingPhotos) {
+      URL.revokeObjectURL(photo.previewUrl);
     }
-    setErrorMsg("");
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  }
-
-  function removePhoto() {
-    setPhotoFile(null);
-    setPhotoPreview(null);
+    setPendingPhotos([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  async function handleAdd(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.group_label.trim()) { setErrorMsg("Group label is required."); return; }
-    if (!photoFile) { setErrorMsg("Please select a photo."); return; }
+  function addPhotoFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList);
+    const validation = validateRacewearUploadFiles(files);
+    if (!validation.ok) {
+      setErrorMsg(validation.error);
+      return;
+    }
+
+    for (const file of files) {
+      const fileValidation = validateRacewearUploadFile(file);
+      if (!fileValidation.ok) {
+        setErrorMsg(fileValidation.error);
+        return;
+      }
+    }
+
+    setErrorMsg("");
+    setPendingPhotos((current) => [
+      ...current,
+      ...files.map((file) => ({
+        id: `${file.name}-${file.lastModified}-${crypto.randomUUID()}`,
+        file,
+        previewUrl: URL.createObjectURL(file),
+      })),
+    ]);
+  }
+
+  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    if (event.target.files) addPhotoFiles(event.target.files);
+    event.target.value = "";
+  }
+
+  function handleUploadDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setIsDraggingUpload(false);
+    addPhotoFiles(Array.from(event.dataTransfer.files));
+  }
+
+  function removePendingPhoto(id: string) {
+    const photo = pendingPhotos.find((item) => item.id === id);
+    if (photo) URL.revokeObjectURL(photo.previewUrl);
+    setPendingPhotos((current) => current.filter((item) => item.id !== id));
+  }
+
+  function openAddPanel() {
+    cancelEdit();
+    clearPendingPhotos();
+    setForm(emptyForm(getNextSortOrder(entries)));
+    setErrorMsg("");
+    setShowAdd(true);
+  }
+
+  function closePanel() {
+    setShowAdd(false);
+    cancelEdit();
+    clearPendingPhotos();
+  }
+
+  async function handleAdd(event: FormEvent) {
+    event.preventDefault();
+    if (!form.group_label.trim()) {
+      setErrorMsg("Group label is required.");
+      return;
+    }
+    if (pendingPhotos.length === 0) {
+      setErrorMsg("Please select at least one photo.");
+      return;
+    }
+
     setSaving(true);
     setErrorMsg("");
     try {
-      const supabase = createClient();
-      const ext = photoFile.name.split(".").pop() ?? "jpg";
-      const path = `gallery/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("racewear-photos")
-        .upload(path, photoFile, { contentType: photoFile.type, upsert: false });
-      if (uploadErr) throw new Error(`Upload failed: ${uploadErr.message}`);
-      const { data: urlData } = supabase.storage.from("racewear-photos").getPublicUrl(path);
+      const body = new FormData();
+      body.append("group_label", form.group_label.trim());
+      body.append("alt_text", form.alt_text.trim());
+      body.append("sort_order", String(form.sort_order));
+      body.append("is_featured", String(form.is_featured));
+      for (const photo of pendingPhotos) {
+        body.append("photos", photo.file);
+      }
 
       const res = await fetch("/api/admin/racewear", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          group_label: form.group_label.trim(),
-          image_url: urlData.publicUrl,
-          alt_text: form.alt_text.trim(),
-          sort_order: form.sort_order,
-          is_featured: form.is_featured,
-        }),
+        body,
       });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Save failed"); }
-      const { entry } = await res.json();
-      setEntries((prev) => [...prev, entry].sort((a, b) => a.sort_order - b.sort_order));
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Save failed");
+
+      const savedEntries = Array.isArray(data.entries)
+        ? data.entries
+        : data.entry
+          ? [data.entry]
+          : [];
+
+      setEntries((current) => sortEntries([...current, ...savedEntries]));
       setShowAdd(false);
-      setForm(emptyForm());
-      removePhoto();
+      setForm(emptyForm(getNextSortOrder([...entries, ...savedEntries])));
+      clearPendingPhotos();
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -109,8 +205,11 @@ export function RacewearManager({ initialEntries }: Props) {
     setDeleting(id);
     try {
       const res = await fetch(`/api/admin/racewear?id=${id}`, { method: "DELETE" });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Delete failed"); }
-      setEntries((prev) => prev.filter((e) => e.id !== id));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Delete failed");
+      }
+      setEntries((current) => current.filter((entry) => entry.id !== id));
     } catch (err) {
       alert(err instanceof Error ? err.message : "Delete failed");
     } finally {
@@ -127,7 +226,9 @@ export function RacewearManager({ initialEntries }: Props) {
         body: JSON.stringify({ id: entry.id, is_active: !entry.is_active }),
       });
       if (!res.ok) throw new Error("Toggle failed");
-      setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_active: !e.is_active } : e));
+      setEntries((current) =>
+        current.map((item) => (item.id === entry.id ? { ...item, is_active: !item.is_active } : item))
+      );
     } catch {
       alert("Failed to update visibility");
     } finally {
@@ -143,7 +244,9 @@ export function RacewearManager({ initialEntries }: Props) {
         body: JSON.stringify({ id: entry.id, is_featured: !entry.is_featured }),
       });
       if (!res.ok) throw new Error("Feature toggle failed");
-      setEntries((prev) => prev.map((e) => e.id === entry.id ? { ...e, is_featured: !e.is_featured } : e));
+      setEntries((current) =>
+        current.map((item) => (item.id === entry.id ? { ...item, is_featured: !item.is_featured } : item))
+      );
     } catch {
       alert("Failed to update featured setting");
     }
@@ -157,9 +260,8 @@ export function RacewearManager({ initialEntries }: Props) {
         body: JSON.stringify({ id, sort_order: sortValue }),
       });
       if (!res.ok) throw new Error("Update failed");
-      setEntries((prev) =>
-        prev.map((e) => e.id === id ? { ...e, sort_order: sortValue } : e)
-          .sort((a, b) => a.sort_order - b.sort_order)
+      setEntries((current) =>
+        sortEntries(current.map((entry) => (entry.id === id ? { ...entry, sort_order: sortValue } : entry)))
       );
       setEditingSort(null);
     } catch {
@@ -167,75 +269,68 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
-  async function moveWithinGroup(entry: Entry, direction: "up" | "down") {
-    const peers = entries
-      .filter((e) => e.group_label === entry.group_label)
-      .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at));
-    const index = peers.findIndex((p) => p.id === entry.id);
-    if (index === -1) return;
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= peers.length) return;
+  async function persistReorder(
+    result: RacewearReorderResult<Entry>,
+    activeId: string
+  ) {
+    if (result.updates.length === 0) return;
+    const previousEntries = entries;
+    setMovingId(activeId);
+    setEntries(result.entries);
 
-    const neighbour = peers[swapIndex];
-    const entryNewOrder = neighbour.sort_order;
-    const neighbourNewOrder = entry.sort_order;
-
-    // If both share the same sort_order (common when first added), nudge so the
-    // swap is visible.
-    const finalEntryOrder =
-      entryNewOrder === neighbourNewOrder
-        ? direction === "up"
-          ? neighbourNewOrder - 1
-          : neighbourNewOrder + 1
-        : entryNewOrder;
-    const finalNeighbourOrder = neighbourNewOrder;
-
-    setMovingId(entry.id);
     try {
-      // Sequential, not parallel: if the first save succeeds and the second
-      // fails, we still know exactly which row got persisted and can roll
-      // back the local state to match. Promise.all would leave both rows in
-      // an unknown state on a network blip.
-      const firstRes = await fetch("/api/admin/racewear", {
+      const res = await fetch("/api/admin/racewear", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: entry.id, sort_order: finalEntryOrder }),
+        body: JSON.stringify({ action: "reorder", entries: result.updates }),
       });
-      if (!firstRes.ok) throw new Error("Reorder failed");
-
-      const secondRes = await fetch("/api/admin/racewear", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: neighbour.id, sort_order: finalNeighbourOrder }),
-      });
-
-      if (!secondRes.ok) {
-        // Roll back the first save so the database stays consistent.
-        await fetch("/api/admin/racewear", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: entry.id, sort_order: entry.sort_order }),
-        }).catch(() => {});
-        throw new Error("Reorder failed");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Reorder failed");
       }
-
-      setEntries((prev) =>
-        prev
-          .map((e) => {
-            if (e.id === entry.id) return { ...e, sort_order: finalEntryOrder };
-            if (e.id === neighbour.id) return { ...e, sort_order: finalNeighbourOrder };
-            return e;
-          })
-          .sort((a, b) => a.sort_order - b.sort_order)
-      );
     } catch {
+      setEntries(previousEntries);
       alert("Failed to reorder photos. Refresh and try again.");
     } finally {
       setMovingId(null);
     }
   }
 
+  async function moveWithinGroup(entry: Entry, direction: "up" | "down") {
+    const group = buildRacewearGroups(entries).find((item) =>
+      item.entries.some((peer) => peer.id === entry.id)
+    );
+    if (!group) return;
+
+    const index = group.entries.findIndex((peer) => peer.id === entry.id);
+    const neighbour = group.entries[direction === "up" ? index - 1 : index + 1];
+    if (!neighbour) return;
+
+    const result =
+      direction === "up"
+        ? reorderRacewearEntries(entries, entry.id, neighbour.id)
+        : reorderRacewearEntries(entries, neighbour.id, entry.id);
+    await persistReorder(result, entry.id);
+  }
+
+  function handleEntryDragStart(event: DragEvent<HTMLButtonElement>, id: string) {
+    setDraggingEntryId(id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", id);
+  }
+
+  async function handleEntryDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
+    event.preventDefault();
+    const draggedId = draggingEntryId || event.dataTransfer.getData("text/plain");
+    setDraggingEntryId(null);
+    if (!draggedId) return;
+    const result = reorderRacewearEntries(entries, draggedId, targetId);
+    await persistReorder(result, draggedId);
+  }
+
   function openEdit(entry: Entry) {
+    setShowAdd(false);
+    clearPendingPhotos();
     setEditingEntryId(entry.id);
     setEditForm({
       group_label: entry.group_label,
@@ -269,9 +364,9 @@ export function RacewearManager({ initialEntries }: Props) {
         }),
       });
       if (!res.ok) throw new Error("Update failed");
-      setEntries((prev) =>
-        prev
-          .map((entry) =>
+      setEntries((current) =>
+        sortEntries(
+          current.map((entry) =>
             entry.id === id
               ? {
                   ...entry,
@@ -282,7 +377,7 @@ export function RacewearManager({ initialEntries }: Props) {
                 }
               : entry
           )
-          .sort((a, b) => a.sort_order - b.sort_order)
+        )
       );
       cancelEdit();
     } catch {
@@ -290,12 +385,8 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
-  const groups = entries.reduce<Record<string, Entry[]>>((acc, e) => {
-    (acc[e.group_label] ??= []).push(e);
-    return acc;
-  }, {});
-
-  const existingGroupLabels = Array.from(new Set(entries.map((e) => e.group_label)))
+  const groups = buildRacewearGroups(entries);
+  const existingGroupLabels = Array.from(new Set(entries.map((entry) => entry.group_label.trim())))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
 
@@ -303,45 +394,50 @@ export function RacewearManager({ initialEntries }: Props) {
     <div>
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-heading text-3xl uppercase tracking-wider">Racewear Gallery</h1>
-        <button
-          onClick={() => { setShowAdd(true); setForm(emptyForm()); removePhoto(); setErrorMsg(""); }}
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          <Plus size={16} /> Add Photo
+        <button onClick={openAddPanel} className="btn-primary flex items-center gap-2 text-sm">
+          <Plus size={16} /> Add Photos
         </button>
       </div>
 
       <p className="text-text-muted text-sm mb-8">
-        Choose which images are featured on the main Services page and which stay tucked behind the
-        <span className="text-white"> See More </span>
-        gallery. Use the
-        <ArrowUp size={11} className="inline mx-1 align-middle" />
-        and
-        <ArrowDown size={11} className="inline mx-1 align-middle" />
-        arrows to shuffle photos within a group, or click the order number to set it directly.
+        Choose featured images for the main Services page. Drag photos inside a client group to set their
+        order, or use the arrow controls and order number for exact positioning.
       </p>
 
       {(showAdd || editingEntryId) && (
         <div className="card p-6 mb-8 border-brand-red/30">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="font-heading text-lg uppercase tracking-wider">{editingEntryId ? "Edit Photo" : "Add Photo"}</h2>
-            <button onClick={() => { setShowAdd(false); cancelEdit(); }} className="text-text-muted hover:text-white transition-colors">
+            <h2 className="font-heading text-lg uppercase tracking-wider">
+              {editingEntryId ? "Edit Photo" : "Add Photos"}
+            </h2>
+            <button onClick={closePanel} className="text-text-muted hover:text-white transition-colors">
               <X size={18} />
             </button>
           </div>
           {errorMsg && (
-            <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/40 px-3 py-2 mb-4">{errorMsg}</p>
+            <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/40 px-3 py-2 mb-4">
+              {errorMsg}
+            </p>
           )}
-          <form onSubmit={editingEntryId ? (e) => { e.preventDefault(); handleSaveEntry(editingEntryId); } : handleAdd} className="space-y-4">
+          <form
+            onSubmit={editingEntryId ? (event) => { event.preventDefault(); handleSaveEntry(editingEntryId); } : handleAdd}
+            className="space-y-4"
+          >
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Group / Client Name *</label>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
+                  Group / Client Name *
+                </label>
                 <input
                   required
                   list="racewear-group-suggestions"
                   className="input-dark w-full"
                   value={editingEntryId ? editForm.group_label : form.group_label}
-                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, group_label: e.target.value })) : setField("group_label", e.target.value)}
+                  onChange={(event) =>
+                    editingEntryId
+                      ? setEditForm((current) => ({ ...current, group_label: event.target.value }))
+                      : setField("group_label", event.target.value)
+                  }
                   placeholder="e.g. Kart Blanche Racing"
                 />
                 <datalist id="racewear-group-suggestions">
@@ -350,100 +446,173 @@ export function RacewearManager({ initialEntries }: Props) {
                   ))}
                 </datalist>
                 <p className="text-xs text-text-muted mt-1">
-                  Photos with the same group name appear together. Pick an existing group from
-                  the suggestions to keep all photos of one custom kit under one header.
+                  Matching group names stay together under one heading.
                 </p>
               </div>
               <div>
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Alt Text (description)</label>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
+                  Alt Text (description)
+                </label>
                 <input
                   className="input-dark w-full"
                   value={editingEntryId ? editForm.alt_text : form.alt_text}
-                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, alt_text: e.target.value })) : setField("alt_text", e.target.value)}
-                  placeholder="e.g. Kart Blanche - race suit front view"
+                  onChange={(event) =>
+                    editingEntryId
+                      ? setEditForm((current) => ({ ...current, alt_text: event.target.value }))
+                      : setField("alt_text", event.target.value)
+                  }
+                  placeholder="e.g. Kart Blanche race suit front view"
                 />
               </div>
             </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
               <div className="w-32">
-                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Sort Order</label>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
+                  Sort Order
+                </label>
                 <input
                   type="number"
                   className="input-dark w-full"
                   value={editingEntryId ? editForm.sort_order : form.sort_order}
-                  onChange={(e) => editingEntryId ? setEditForm((f) => ({ ...f, sort_order: parseInt(e.target.value) || 0 })) : setField("sort_order", parseInt(e.target.value) || 0)}
+                  onChange={(event) =>
+                    editingEntryId
+                      ? setEditForm((current) => ({ ...current, sort_order: parseInt(event.target.value, 10) || 0 }))
+                      : setField("sort_order", parseInt(event.target.value, 10) || 0)
+                  }
                 />
               </div>
               <div className="flex items-center gap-3 pb-1">
                 <label className="text-sm text-text-secondary">Featured on Services page</label>
                 <button
                   type="button"
-                  onClick={() => editingEntryId ? setEditForm((f) => ({ ...f, is_featured: !f.is_featured })) : setField("is_featured", !form.is_featured)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${(editingEntryId ? editForm.is_featured : form.is_featured) ? "bg-brand-red" : "bg-surface-500"}`}
+                  onClick={() =>
+                    editingEntryId
+                      ? setEditForm((current) => ({ ...current, is_featured: !current.is_featured }))
+                      : setField("is_featured", !form.is_featured)
+                  }
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    (editingEntryId ? editForm.is_featured : form.is_featured)
+                      ? "bg-brand-red"
+                      : "bg-surface-500"
+                  }`}
                 >
-                  <span className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${(editingEntryId ? editForm.is_featured : form.is_featured) ? "translate-x-6" : "translate-x-1"}`} />
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white transition-transform ${
+                      (editingEntryId ? editForm.is_featured : form.is_featured)
+                        ? "translate-x-6"
+                        : "translate-x-1"
+                    }`}
+                  />
                 </button>
               </div>
             </div>
 
             {!editingEntryId && (
-            <div>
-              <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">Photo *</label>
-              {photoPreview ? (
-                <div className="relative inline-block">
-                  {/* eslint-disable-next-line @next/next/no-img-element -- Browser file previews use local blob URLs. */}
-                  <img src={photoPreview} alt="Preview" className="max-h-48 rounded border border-surface-600 object-cover" />
+              <div>
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-2">
+                  Photos *
+                </label>
+                <div
+                  onDragEnter={() => setIsDraggingUpload(true)}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDraggingUpload(true);
+                  }}
+                  onDragLeave={(event) => {
+                    if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget as Node)) return;
+                    setIsDraggingUpload(false);
+                  }}
+                  onDrop={handleUploadDrop}
+                  className={`border border-dashed px-4 py-4 transition-colors ${
+                    isDraggingUpload
+                      ? "border-brand-red bg-brand-red/10 text-white"
+                      : "border-surface-500 bg-surface-800/50 text-text-muted"
+                  }`}
+                >
                   <button
                     type="button"
-                    onClick={removePhoto}
-                    className="absolute top-1 right-1 bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-brand-red transition-colors"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center justify-center gap-2 text-sm hover:text-white transition-colors"
                   >
-                    <X size={12} />
+                    <Camera size={16} /> Select or drop photos
                   </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    className="sr-only"
+                    onChange={handlePhotoChange}
+                  />
                 </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 border border-dashed border-surface-500 hover:border-brand-red/60 bg-surface-800/50 text-text-muted hover:text-white transition-colors px-4 py-3 text-sm w-full justify-center"
-                >
-                  <Camera size={16} /> Upload photo (JPG, PNG, WebP - max 10 MB)
-                </button>
-              )}
-              <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={handlePhotoChange} />
-            </div>
+
+                {pendingPhotos.length > 0 && (
+                  <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {pendingPhotos.map((photo) => (
+                      <div key={photo.id} className="relative aspect-[3/4] overflow-hidden border border-surface-600 bg-surface-900">
+                        {/* eslint-disable-next-line @next/next/no-img-element -- Browser file previews use local blob URLs. */}
+                        <img
+                          src={photo.previewUrl}
+                          alt={photo.file.name}
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removePendingPhoto(photo.id)}
+                          className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white hover:bg-brand-red transition-colors"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             <div className="flex gap-3 pt-2">
               <button type="submit" disabled={saving} className="btn-primary flex items-center gap-2 text-sm">
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                {saving ? (editingEntryId ? "Saving..." : "Uploading...") : (editingEntryId ? "Save Changes" : "Save Photo")}
+                {saving ? (editingEntryId ? "Saving..." : "Uploading...") : (editingEntryId ? "Save Changes" : "Save Photos")}
               </button>
-              <button type="button" onClick={() => { setShowAdd(false); cancelEdit(); }} className="btn-secondary text-sm">Cancel</button>
+              <button type="button" onClick={closePanel} className="btn-secondary text-sm">
+                Cancel
+              </button>
             </div>
           </form>
         </div>
       )}
 
-      {Object.keys(groups).length === 0 ? (
+      {groups.length === 0 ? (
         <div className="card p-8 text-center text-text-muted">
           <Camera size={32} className="mx-auto mb-3 opacity-30" />
-          <p>No photos yet. Click &ldquo;Add Photo&rdquo; to get started.</p>
+          <p>No photos yet. Click Add Photos to get started.</p>
         </div>
       ) : (
         <div className="space-y-8">
-          {Object.entries(groups).map(([label, groupEntries]) => (
+          {groups.map(({ label, entries: groupEntries }) => (
             <div key={label}>
-              <h3 className="font-heading text-sm uppercase tracking-[0.15em] text-brand-red mb-3">{label}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {groupEntries.map((entry, idx) => (
-                  <div key={entry.id} className={`card overflow-hidden ${!entry.is_active ? "opacity-40" : ""}`}>
+              <h3 className="font-heading text-sm uppercase tracking-[0.15em] text-brand-red mb-3">
+                {label}
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {groupEntries.map((entry, index) => (
+                  <div
+                    key={entry.id}
+                    onDragOver={(event) => {
+                      if (draggingEntryId) event.preventDefault();
+                    }}
+                    onDrop={(event) => handleEntryDrop(event, entry.id)}
+                    className={`card overflow-hidden transition-colors ${
+                      !entry.is_active ? "opacity-40" : ""
+                    } ${draggingEntryId === entry.id ? "ring-1 ring-brand-red" : ""}`}
+                  >
                     <div className="relative aspect-[3/4] bg-surface-900">
                       <Image
                         src={entry.image_url}
                         alt={entry.alt_text || entry.group_label}
                         fill
-                        sizes="(min-width: 1024px) 20vw, (min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                         className="object-cover"
                       />
                     </div>
@@ -464,7 +633,7 @@ export function RacewearManager({ initialEntries }: Props) {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => moveWithinGroup(entry, "up")}
-                          disabled={idx === 0 || movingId === entry.id}
+                          disabled={index === 0 || movingId === entry.id}
                           title="Move earlier"
                           className="px-1.5 py-0.5 bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                         >
@@ -472,25 +641,41 @@ export function RacewearManager({ initialEntries }: Props) {
                         </button>
                         <button
                           onClick={() => moveWithinGroup(entry, "down")}
-                          disabled={idx === groupEntries.length - 1 || movingId === entry.id}
+                          disabled={index === groupEntries.length - 1 || movingId === entry.id}
                           title="Move later"
                           className="px-1.5 py-0.5 bg-surface-700 text-text-muted hover:bg-surface-600 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                         >
                           {movingId === entry.id ? <Loader2 size={11} className="animate-spin" /> : <ArrowDown size={11} />}
                         </button>
-                        <GripVertical size={12} className="text-text-muted shrink-0 ml-1" />
+                        <button
+                          type="button"
+                          draggable
+                          onDragStart={(event) => handleEntryDragStart(event, entry.id)}
+                          onDragEnd={() => setDraggingEntryId(null)}
+                          title="Drag to reorder"
+                          className="ml-1 text-text-muted hover:text-white cursor-grab active:cursor-grabbing"
+                        >
+                          <GripVertical size={14} />
+                        </button>
                         {editingSort === entry.id ? (
                           <div className="flex items-center gap-1 flex-1">
                             <input
                               type="number"
                               className="input-dark text-xs px-1 py-0.5 w-14"
                               value={sortValue}
-                              onChange={(e) => setSortValue(parseInt(e.target.value) || 0)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveSort(entry.id); if (e.key === "Escape") setEditingSort(null); }}
+                              onChange={(event) => setSortValue(parseInt(event.target.value, 10) || 0)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") handleSaveSort(entry.id);
+                                if (event.key === "Escape") setEditingSort(null);
+                              }}
                               autoFocus
                             />
-                            <button onClick={() => handleSaveSort(entry.id)} className="text-green-400 hover:text-green-300"><Save size={11} /></button>
-                            <button onClick={() => setEditingSort(null)} className="text-text-muted hover:text-white"><X size={11} /></button>
+                            <button onClick={() => handleSaveSort(entry.id)} className="text-green-400 hover:text-green-300">
+                              <Save size={11} />
+                            </button>
+                            <button onClick={() => setEditingSort(null)} className="text-text-muted hover:text-white">
+                              <X size={11} />
+                            </button>
                           </div>
                         ) : (
                           <button

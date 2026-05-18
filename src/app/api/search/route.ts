@@ -51,7 +51,8 @@ export async function GET(request: NextRequest) {
         { count: "exact" }
       )
       .eq("status", "active")
-      .eq("visibility", "visible");
+      .eq("visibility", "visible")
+      .eq("is_sellable", true);
 
     return applyProductSearchFilter(query, termGroups, mode, relatedMatchIds).limit(100);
   }

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ServiceExpandGrid from "@/components/sections/ServiceExpandGrid";
 import { createServiceClient } from "@/lib/supabase/server";
+import { buildRacewearGroups } from "@/lib/racewear-gallery";
 
 export const metadata: Metadata = {
   title: "Our Services",
@@ -17,6 +18,23 @@ export const revalidate = 0;
 
 function isRemoteImage(src: string) {
   return src.startsWith("http://") || src.startsWith("https://");
+}
+
+function normalizeRacewearEntries(
+  entries: Array<{
+    id: string;
+    group_label: string;
+    image_url: string;
+    alt_text: string;
+    sort_order?: number | null;
+    created_at?: string | null;
+  }>
+) {
+  return entries.map((entry, index) => ({
+    ...entry,
+    sort_order: Number.isFinite(Number(entry.sort_order)) ? Number(entry.sort_order) : index,
+    created_at: entry.created_at ?? "",
+  }));
 }
 
 const services = [
@@ -160,19 +178,16 @@ export default async function ServicesPage() {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
-    .select("id, group_label, image_url, alt_text, is_featured")
+    .select("id, group_label, image_url, alt_text, is_featured, sort_order, created_at")
     .eq("is_active", true)
     .eq("is_featured", true)
     .order("sort_order")
     .order("created_at");
 
-  const galleryEntries = (dbGallery && dbGallery.length > 0) ? dbGallery : FALLBACK_GALLERY;
-
-  // Build grouped structure from flat list
-  const racewearGroups = galleryEntries.reduce<Record<string, { src: string; alt: string }[]>>((acc, entry) => {
-    (acc[entry.group_label] ??= []).push({ src: entry.image_url, alt: entry.alt_text });
-    return acc;
-  }, {});
+  const galleryEntries = normalizeRacewearEntries(
+    (dbGallery && dbGallery.length > 0) ? dbGallery : FALLBACK_GALLERY
+  );
+  const racewearGroups = buildRacewearGroups(galleryEntries);
 
   return (
     <>
@@ -303,21 +318,19 @@ export default async function ServicesPage() {
           Custom-designed race suits, gloves, and gear tailored to your team colours. Here&apos;s some of the racewear we&apos;ve produced.
         </p>
 
-        {Object.entries(racewearGroups).map(([label, images]) => (
+        {racewearGroups.map(({ label, entries: groupEntries }) => (
           <div key={label} className="mb-8">
             <p className="text-xs text-white/30 uppercase tracking-[0.2em] font-heading mb-2">{label}</p>
-            <div className={`grid gap-3 ${
-              images.length === 1 ? "grid-cols-1 max-w-[320px]" :
-              images.length === 2 ? "grid-cols-2" :
-              "grid-cols-3"
+            <div className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 ${
+              groupEntries.length === 1 ? "max-w-[320px]" : ""
             }`}>
-              {images.map(({ src, alt }) => (
-                <div key={src} className="relative aspect-[3/4] bg-racing-dark border border-white/10 overflow-hidden group/img">
+              {groupEntries.map((entry) => (
+                <div key={entry.id} className="relative aspect-[3/4] bg-racing-dark border border-white/10 overflow-hidden group/img">
                   <Image
-                    src={src}
-                    alt={alt}
+                    src={entry.image_url}
+                    alt={entry.alt_text || entry.group_label}
                     fill
-                    unoptimized={isRemoteImage(src)}
+                    unoptimized={isRemoteImage(entry.image_url)}
                     className="object-cover transition-transform duration-500 group-hover/img:scale-105"
                     sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                   />

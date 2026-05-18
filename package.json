@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
+    "test": "node scripts/test-checkout-guards.mjs && node scripts/test-category-assignment-queue.mjs && node scripts/test-racewear-gallery.mjs",
     "import-csv": "node scripts/import-square-csv.js",
     "migrate-images": "node scripts/migrate-images.js",
     "increase-prices": "node scripts/increase-prices.js",

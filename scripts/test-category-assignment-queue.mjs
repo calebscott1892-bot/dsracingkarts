@@ -19,6 +19,7 @@ const { outputText } = ts.transpileModule(source, {
 
 const {
   buildCurrentCategoryAssignmentQueue,
+  blocksCategorySuggestionRegeneration,
   summarizeCategoryAssignmentQueue,
 } = await import(`data:text/javascript;base64,${Buffer.from(outputText).toString("base64")}`);
 
@@ -81,5 +82,12 @@ assert.deepEqual(summarizeCategoryAssignmentQueue(queue), {
   low: 1,
   no_match: 0,
 });
+
+assert.equal(blocksCategorySuggestionRegeneration("pending"), false);
+assert.equal(blocksCategorySuggestionRegeneration("rejected"), false);
+assert.equal(blocksCategorySuggestionRegeneration("approved"), true);
+assert.equal(blocksCategorySuggestionRegeneration("applied"), true);
+assert.equal(blocksCategorySuggestionRegeneration("skipped"), true);
+assert.equal(blocksCategorySuggestionRegeneration("reverted"), false);
 
 console.log("category assignment queue tests passed");

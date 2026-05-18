@@ -29,7 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     .from("products")
     .select("name, seo_title, seo_description, description_plain, product_images(url, is_primary, sort_order)")
     .eq("slug", slug)
-    .single();
+    .eq("status", "active")
+    .eq("visibility", "visible")
+    .eq("is_sellable", true)
+    .maybeSingle();
 
   if (!product) notFound();
 
@@ -91,7 +94,10 @@ export default async function ProductPage({ params }: Props) {
       product_categories ( categories ( id, name, slug ) )
     `)
     .eq("slug", slug)
-    .single();
+    .eq("status", "active")
+    .eq("visibility", "visible")
+    .eq("is_sellable", true)
+    .maybeSingle();
 
   if (!product) notFound();
 
