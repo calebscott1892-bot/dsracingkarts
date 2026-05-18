@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
 const HEADER_IMAGES = [
+  "/WhatsApp Image 2026-05-18 at 3.43.35 AM (1).jpeg",
+  "/WhatsApp Image 2026-05-18 at 3.43.34 AM (1).jpeg",
   "/images/history/Header.jpg",
   "/images/history/Header 2.jpg",
   "/images/history/header 3.jpg",
