@@ -11,6 +11,8 @@ import { Client, Environment } from "square";
 
 import {
   buildDefaultVendorImportRows,
+  collectProductIdsForVendorImportScope,
+  normalizeVendorImportScope,
   rowsToCsv,
   summarizeDefaultVendorImportRows,
 } from "./square-default-vendor-import-utils.mjs";
@@ -37,6 +39,9 @@ function argValue(name, fallback = "") {
 
 const shouldEnsureVendors = process.argv.includes("--ensure-vendors");
 const vendorFilter = argValue("--vendor", "");
+const vendorImportScope = normalizeVendorImportScope(
+  argValue("--scope", process.argv.includes("--all") ? "all" : "uncategorised")
+);
 const outputPath = argValue(
   "--out",
   resolve(
@@ -130,6 +135,54 @@ async function fetchProductsByIds(productIds) {
   return rows;
 }
 
+async function fetchProductIdsForVendorScope(scope) {
+  if (scope !== "all") {
+    const uncategorised = await fetchPaginated("uncategorized products", () =>
+      supabase.from("uncategorized_products").select("id").order("name")
+    );
+    return {
+      productIds: collectProductIdsForVendorImportScope(scope, uncategorised),
+      sourceRows: uncategorised.length,
+    };
+  }
+
+  const supplierCostRefs = await fetchPaginated("supplier cost product references", () =>
+    supabase
+      .from("product_supplier_costs")
+      .select("product_id, variation_id")
+      .order("product_id")
+  );
+  const productIds = collectProductIdsForVendorImportScope(
+    scope,
+    [],
+    supplierCostRefs
+  );
+
+  const variationOnlyIds = [
+    ...new Set(
+      supplierCostRefs
+        .filter((row) => !row.product_id && row.variation_id)
+        .map((row) => row.variation_id)
+    ),
+  ];
+  for (let index = 0; index < variationOnlyIds.length; index += IN_FILTER_CHUNK_SIZE) {
+    const chunk = variationOnlyIds.slice(index, index + IN_FILTER_CHUNK_SIZE);
+    const { data } = await runSupabaseQuery(`supplier cost variation refs ${index}`, () =>
+      supabase.from("product_variations").select("product_id").in("id", chunk)
+    );
+    for (const row of data || []) {
+      if (row.product_id && !productIds.includes(row.product_id)) {
+        productIds.push(row.product_id);
+      }
+    }
+  }
+
+  return {
+    productIds,
+    sourceRows: supplierCostRefs.length,
+  };
+}
+
 function filterRowsByVendor(rows, vendorName) {
   if (!vendorName) return rows;
   const wanted = vendorName.trim().toLowerCase();
@@ -211,15 +264,17 @@ async function ensureSquareVendors(vendorNames) {
 async function main() {
   console.log("DS Racing Karts - Square Default Vendor Import Export");
   console.log("=====================================================");
-  console.log(`Scope:           uncategorised products`);
+  console.log(
+    `Scope:           ${
+      vendorImportScope === "all" ? "all supplier-cost products" : "uncategorised products"
+    }`
+  );
   if (vendorFilter) console.log(`Vendor filter:   ${vendorFilter}`);
   console.log(`Ensure vendors:  ${shouldEnsureVendors ? "yes" : "no"}`);
+  console.log("Output type:      CSV import only - Square Dashboard import is still required");
   console.log();
 
-  const uncategorized = await fetchPaginated("uncategorized products", () =>
-    supabase.from("uncategorized_products").select("id").order("name")
-  );
-  const productIds = uncategorized.map((product) => product.id);
+  const { productIds, sourceRows } = await fetchProductIdsForVendorScope(vendorImportScope);
 
   const [products, variations, supplierCosts] = await Promise.all([
     fetchProductsByIds(productIds),
@@ -271,7 +326,12 @@ async function main() {
     ? await ensureSquareVendors(vendorNames)
     : [];
 
-  console.log(`Uncategorised products: ${uncategorized.length}`);
+  console.log(
+    vendorImportScope === "all"
+      ? `Supplier-cost rows:    ${sourceRows}`
+      : `Uncategorised products: ${sourceRows}`
+  );
+  console.log(`Products selected:      ${productIds.length}`);
   console.log(`Variation rows checked: ${variations.length}`);
   console.log(`Import rows written:    ${summary.importRows}`);
   console.log(`Skipped rows:           ${summary.skippedRows}`);

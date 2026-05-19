@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "node scripts/test-checkout-guards.mjs && node scripts/test-category-assignment-queue.mjs && node scripts/test-racewear-gallery.mjs",
+    "test": "node scripts/test-checkout-guards.mjs && node scripts/test-category-assignment-queue.mjs && node scripts/test-racewear-gallery.mjs && node scripts/test-square-default-vendor-import.mjs",
     "import-csv": "node scripts/import-square-csv.js",
     "migrate-images": "node scripts/migrate-images.js",
     "increase-prices": "node scripts/increase-prices.js",
@@ -16,7 +16,8 @@
     "find-duplicate-categories": "node scripts/find-duplicate-categories.js",
     "merge-duplicate-categories": "node scripts/merge-duplicate-categories.js",
     "reconcile-categories": "node scripts/reconcile-categories-square.js",
-    "export-square-default-vendors": "node scripts/export-square-default-vendor-import.mjs"
+    "export-square-default-vendors": "node scripts/export-square-default-vendor-import.mjs",
+    "export-square-default-vendors:all": "node scripts/export-square-default-vendor-import.mjs --scope all"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

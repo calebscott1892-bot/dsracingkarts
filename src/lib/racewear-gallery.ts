@@ -16,6 +16,8 @@ export interface RacewearReorderResult<T extends RacewearGalleryEntry> {
   updates: Array<{ id: string; sort_order: number }>;
 }
 
+export type RacewearDropPlacement = "before" | "after";
+
 export interface RacewearUploadFileLike {
   name: string;
   size: number;
@@ -77,7 +79,8 @@ function normalSortValues<T extends RacewearGalleryEntry>(entries: T[]) {
 export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
   entries: T[],
   draggedId: string,
-  targetId: string
+  targetId: string,
+  placement: RacewearDropPlacement = "before"
 ): RacewearReorderResult<T> {
   if (draggedId === targetId) {
     return { entries, groupEntries: [], updates: [] };
@@ -98,10 +101,11 @@ export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
     return { entries, groupEntries: [], updates: [] };
   }
 
+  const insertIndex = placement === "after" ? targetIndex + 1 : targetIndex;
   const reorderedPeers = [
-    ...withoutDragged.slice(0, targetIndex),
+    ...withoutDragged.slice(0, insertIndex),
     dragged,
-    ...withoutDragged.slice(targetIndex),
+    ...withoutDragged.slice(insertIndex),
   ];
   const sortValues = normalSortValues(peers);
   const updates = reorderedPeers.map((entry, index) => ({

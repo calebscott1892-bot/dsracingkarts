@@ -4,8 +4,11 @@ import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email";
 import {
+  buildSquareOrderLineItems,
+} from "@/lib/checkout-guards";
+import {
   findCustomerPhoneConflict,
-  getPhoneSearchCandidates,
+  getSquarePhoneSearchCandidate,
   normalizePhoneForSquare,
 } from "@/lib/phone";
 import { isSquareNotFoundError } from "@/lib/square-errors";
@@ -139,34 +142,29 @@ async function findSquareCustomerPhoneConflict(
   email: string,
   phone: string
 ) {
-  const candidates = getPhoneSearchCandidates(phone);
+  const candidate = getSquarePhoneSearchCandidate(phone);
+  if (!candidate) return null;
 
-  for (const candidate of candidates) {
-    const search = await square.customersApi.searchCustomers({
-      limit: BigInt(10),
-      query: {
-        filter: {
-          phoneNumber: {
-            exact: candidate,
-          },
+  const search = await square.customersApi.searchCustomers({
+    limit: BigInt(10),
+    query: {
+      filter: {
+        phoneNumber: {
+          exact: candidate,
         },
       },
-    });
+    },
+  });
 
-    const conflict = findCustomerPhoneConflict(
-      (search.result.customers || []).map((customer) => ({
-        id: customer.id || "",
-        email: customer.emailAddress || null,
-        phone: customer.phoneNumber || null,
-      })),
-      email,
-      phone
-    );
-
-    if (conflict) return conflict;
-  }
-
-  return null;
+  return findCustomerPhoneConflict(
+    (search.result.customers || []).map((customer) => ({
+      id: customer.id || "",
+      email: customer.emailAddress || null,
+      phone: customer.phoneNumber || null,
+    })),
+    email,
+    phone
+  );
 }
 
 async function ensureSquareCustomer({
@@ -460,6 +458,7 @@ export async function POST(request: NextRequest) {
         quantity,
         unit_price: unitPrice,
         total_price: lineTotal,
+        square_variation_token: dbVar.square_token,
       });
     }
 
@@ -666,21 +665,7 @@ export async function POST(request: NextRequest) {
 
     // Create an itemised Square Order before payment so Square/Xero have a
     // real order reference instead of only a standalone card payment.
-    const squareLineItems = orderItems.map((item: any) => ({
-      name: item.product_name,
-      variationName: item.variation_name !== "Regular" ? item.variation_name : undefined,
-      quantity: String(item.quantity),
-      note: item.sku ? `SKU: ${item.sku}` : undefined,
-      basePriceMoney: {
-        amount: BigInt(Math.round(item.unit_price * 100)),
-        currency: "AUD",
-      },
-      metadata: {
-        product_id: item.product_id,
-        variation_id: item.variation_id,
-        sku: item.sku || "",
-      },
-    }));
+    const squareLineItems = buildSquareOrderLineItems(orderItems);
 
     let squareOrderId: string | null = null;
     let squareOrderVersion: number | null = null;

@@ -22,9 +22,13 @@ async function importTs(relativePath) {
 const {
   findCustomerPhoneConflict,
   getPhoneSearchCandidates,
+  getSquarePhoneSearchCandidate,
   normalizeAustralianPhoneForMatch,
   normalizePhoneForSquare,
 } = await importTs("../src/lib/phone.ts");
+const {
+  buildSquareOrderLineItems,
+} = await importTs("../src/lib/checkout-guards.ts");
 const { assertResendSuccess } = await importTs("../src/lib/email.ts");
 const { isSquareNotFoundError } = await importTs("../src/lib/square-errors.ts");
 
@@ -37,6 +41,11 @@ assert.equal(normalizeAustralianPhoneForMatch("0439 762 051"), "0439762051");
 assert.equal(normalizeAustralianPhoneForMatch("61439762051"), "0439762051");
 assert.equal(normalizeAustralianPhoneForMatch("+61 439 762 051"), "0439762051");
 assert.deepEqual(getPhoneSearchCandidates("0439 762 051"), ["+61439762051", "0439762051"]);
+assert.equal(
+  getSquarePhoneSearchCandidate("0439 762 051"),
+  "+61439762051",
+  "Square customer search must use E.164 only; local AU phone format is rejected by Square"
+);
 
 const phoneConflict = findCustomerPhoneConflict(
   [
@@ -74,5 +83,24 @@ assert.throws(
 assert.equal(isSquareNotFoundError({ statusCode: 404 }), true);
 assert.equal(isSquareNotFoundError({ errors: [{ code: "NOT_FOUND" }] }), true);
 assert.equal(isSquareNotFoundError({ statusCode: 500 }), false);
+
+const [squareLineItem] = buildSquareOrderLineItems([
+  {
+    product_id: "product-1",
+    variation_id: "variation-1",
+    product_name: "Catalog Part",
+    variation_name: "Regular",
+    sku: "SKU-1",
+    quantity: 2,
+    unit_price: 12.34,
+    square_variation_token: "SQUAREVAR1",
+  },
+]);
+assert.equal(
+  squareLineItem.catalogObjectId,
+  "SQUAREVAR1",
+  "Square order line items should reference the CatalogItemVariation so Square can associate inventory/catalog data"
+);
+assert.equal(squareLineItem.basePriceMoney.amount, 1234n);
 
 console.log("checkout guard tests passed");

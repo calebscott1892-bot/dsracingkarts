@@ -54,19 +54,30 @@ function timeAgo(iso: string | null): string {
 export function SquareSyncHealth() {
   const [status, setStatus] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [resyncing, setResyncing] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
   const [diagnosing, setDiagnosing] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setStatusError(null);
     try {
       const res = await fetch("/api/admin/square-status", { cache: "no-store" });
-      if (res.ok) {
-        setStatus(await res.json());
+      const contentType = res.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
+        ? await res.json().catch(() => null)
+        : null;
+
+      if (!res.ok) {
+        throw new Error(data?.error || `Square status request failed (${res.status})`);
       }
-    } catch {
-      // The panel will keep the previous state if status refresh fails.
+      if (!data) {
+        throw new Error("Square status response was empty");
+      }
+      setStatus(data);
+    } catch (error) {
+      setStatusError(error instanceof Error ? error.message : "Could not load Square status");
     }
     setLoading(false);
   }, []);
@@ -243,8 +254,12 @@ export function SquareSyncHealth() {
         </div>
       </div>
 
-      {loading || !status ? (
+      {loading && !status ? (
         <p className="text-text-muted text-sm">Loading status...</p>
+      ) : !status ? (
+        <p className="text-yellow-400 text-sm">
+          {statusError ? `Could not load Square status: ${statusError}` : "Square status is unavailable."}
+        </p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
           <Row
@@ -298,11 +313,17 @@ export function SquareSyncHealth() {
         </div>
       )}
 
+      {statusError && status && (
+        <p className="mt-3 text-[11px] text-yellow-400">
+          Could not refresh Square status: {statusError}. Showing the last loaded status.
+        </p>
+      )}
+
       {resyncResult && (
         <p className="mt-4 whitespace-pre-wrap text-xs font-mono text-text-secondary">{resyncResult}</p>
       )}
 
-      {!status?.env.webhookSecretPresent && (
+      {status && !status.env.webhookSecretPresent && (
         <p className="mt-4 text-[11px] text-yellow-400 leading-relaxed">
           To enable real-time sync, set <code>SQUARE_WEBHOOK_SIGNATURE_KEY</code> on Vercel
           and register the webhook URL{" "}

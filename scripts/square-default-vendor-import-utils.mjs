@@ -14,6 +14,39 @@ function cleanString(value) {
   return value == null ? "" : String(value).trim();
 }
 
+export function normalizeVendorImportScope(scope) {
+  const normalized = cleanString(scope).toLowerCase();
+  if (!normalized || normalized === "uncategorised" || normalized === "uncategorized") {
+    return "uncategorised";
+  }
+  if (normalized === "all") return "all";
+  throw new Error(
+    `Unsupported vendor import scope "${scope}". Use "uncategorised" or "all".`
+  );
+}
+
+export function collectProductIdsForVendorImportScope(
+  scope,
+  uncategorisedProducts = [],
+  supplierCosts = []
+) {
+  const normalizedScope = normalizeVendorImportScope(scope);
+  const rows =
+    normalizedScope === "all"
+      ? supplierCosts.map((cost) => cost.product_id)
+      : uncategorisedProducts.map((product) => product.id);
+
+  const seen = new Set();
+  const productIds = [];
+  for (const id of rows) {
+    const cleanId = cleanString(id);
+    if (!cleanId || seen.has(cleanId)) continue;
+    seen.add(cleanId);
+    productIds.push(cleanId);
+  }
+  return productIds;
+}
+
 function formatMoney(value) {
   if (value == null || value === "") return "";
   const parsed = typeof value === "number" ? value : Number.parseFloat(String(value));

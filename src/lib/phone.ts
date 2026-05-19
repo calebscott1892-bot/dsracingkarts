@@ -24,6 +24,10 @@ export function getPhoneSearchCandidates(phone: string) {
   ) as string[];
 }
 
+export function getSquarePhoneSearchCandidate(phone: string) {
+  return normalizePhoneForSquare(phone) || "";
+}
+
 type CustomerPhoneRow = {
   id: string;
   email: string | null;

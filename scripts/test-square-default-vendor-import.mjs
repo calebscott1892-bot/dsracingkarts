@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 
 import {
   buildDefaultVendorImportRows,
+  collectProductIdsForVendorImportScope,
+  normalizeVendorImportScope,
   summarizeDefaultVendorImportRows,
 } from "./square-default-vendor-import-utils.mjs";
 
@@ -63,6 +65,38 @@ const supplierCosts = [
     suppliers: { name: "Revolution Racegear" },
   },
 ];
+
+assert.equal(normalizeVendorImportScope(""), "uncategorised");
+assert.equal(normalizeVendorImportScope("uncategorized"), "uncategorised");
+assert.equal(normalizeVendorImportScope("all"), "all");
+assert.throws(
+  () => normalizeVendorImportScope("active"),
+  /Unsupported vendor import scope/,
+  "unknown export scopes should fail loudly instead of silently exporting the wrong products"
+);
+
+assert.deepEqual(
+  collectProductIdsForVendorImportScope("uncategorised", [
+    { id: "product-1" },
+    { id: "product-2" },
+  ]),
+  ["product-1", "product-2"],
+  "the default scope should preserve the existing uncategorised product export"
+);
+assert.deepEqual(
+  collectProductIdsForVendorImportScope(
+    "all",
+    [],
+    [
+      { product_id: "product-2" },
+      { product_id: "product-1" },
+      { product_id: "product-2" },
+      { product_id: null },
+    ]
+  ),
+  ["product-2", "product-1"],
+  "all scope should export every product that has supplier-cost data, not just uncategorised products"
+);
 
 const { rows, skipped } = buildDefaultVendorImportRows({
   products,

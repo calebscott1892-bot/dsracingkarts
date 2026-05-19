@@ -68,6 +68,17 @@ assert.deepEqual(
   "drag ordering should not move photos between groups"
 );
 
+const reorderAfter = reorderRacewearEntries(entries, "a", "c", "after");
+assert.deepEqual(
+  reorderAfter.groupEntries.map((entry) => [entry.id, entry.sort_order]),
+  [
+    ["c", 0],
+    ["a", 1],
+    ["b", 2],
+  ],
+  "dropping on the lower half of a photo should move the dragged photo after the drop target"
+);
+
 const crossGroup = reorderRacewearEntries(entries, "b", "other");
 assert.deepEqual(crossGroup.updates, [], "dropping across groups should be ignored");
 
