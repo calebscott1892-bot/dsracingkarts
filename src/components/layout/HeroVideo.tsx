@@ -12,7 +12,6 @@ const RECENT_RACING_IMAGES = [
 ];
 
 const EXISTING_HEADER_IMAGES = [
-  "/images/history/Header.jpg",
   "/images/history/Header 2.jpg",
   "/images/history/header 3.jpg",
   "/images/history/header 4.jpg",
