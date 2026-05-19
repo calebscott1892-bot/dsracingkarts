@@ -5,14 +5,20 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
 
-const HEADER_IMAGES = [
-  "/WhatsApp Image 2026-05-18 at 3.43.35 AM (1).jpeg",
+const RECENT_RACING_IMAGES = [
   "/WhatsApp Image 2026-05-18 at 3.43.34 AM (1).jpeg",
+  "/WhatsApp Image 2026-05-18 at 3.43.35 AM (1).jpeg",
+  "/WhatsApp Image 2026-05-18 at 3.43.35 AM (2).jpeg",
+];
+
+const EXISTING_HEADER_IMAGES = [
   "/images/history/Header.jpg",
   "/images/history/Header 2.jpg",
   "/images/history/header 3.jpg",
   "/images/history/header 4.jpg",
 ];
+
+const HEADER_IMAGES = [...RECENT_RACING_IMAGES, ...EXISTING_HEADER_IMAGES];
 
 export function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
