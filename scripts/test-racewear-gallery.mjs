@@ -20,8 +20,11 @@ async function importTs(relativePath) {
 }
 
 const {
+  RACEWEAR_ENTRY_DRAG_MIME,
   buildRacewearGroups,
+  canDropRacewearEntry,
   reorderRacewearEntries,
+  resolveRacewearDraggedEntryId,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
 } = await importTs("../src/lib/racewear-gallery.ts");
@@ -81,6 +84,30 @@ assert.deepEqual(
 
 const crossGroup = reorderRacewearEntries(entries, "b", "other");
 assert.deepEqual(crossGroup.updates, [], "dropping across groups should be ignored");
+
+assert.equal(canDropRacewearEntry("b", "a"), true, "a dragged racewear entry can drop on another entry");
+assert.equal(canDropRacewearEntry("b", "b"), false, "a dragged racewear entry cannot drop on itself");
+assert.equal(canDropRacewearEntry("", "a"), false, "a missing dragged entry id cannot create a drop target");
+
+const dragData = new Map([
+  [RACEWEAR_ENTRY_DRAG_MIME, "b"],
+  ["text/plain", "plain-fallback"],
+]);
+assert.equal(
+  resolveRacewearDraggedEntryId(null, { getData: (type) => dragData.get(type) ?? "" }),
+  "b",
+  "drop handling should recover the dragged entry id from the custom drag payload"
+);
+assert.equal(
+  resolveRacewearDraggedEntryId(null, { getData: (type) => (type === "text/plain" ? "plain-fallback" : "") }),
+  "plain-fallback",
+  "drop handling should fall back to text/plain for older drags"
+);
+assert.equal(
+  resolveRacewearDraggedEntryId("state-id", { getData: () => "payload-id" }),
+  "state-id",
+  "rendered drag state should take precedence when it is available"
+);
 
 assert.deepEqual(validateRacewearUploadFile({ name: "front.JPG", size: 2000, type: "" }), {
   ok: true,

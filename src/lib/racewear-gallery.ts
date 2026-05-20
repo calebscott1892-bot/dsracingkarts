@@ -24,9 +24,14 @@ export interface RacewearUploadFileLike {
   type?: string;
 }
 
+export interface RacewearDragDataSource {
+  getData(type: string): string;
+}
+
 export const RACEWEAR_PHOTOS_BUCKET = "racewear-photos";
 export const RACEWEAR_MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const RACEWEAR_ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const RACEWEAR_ENTRY_DRAG_MIME = "application/x-dsr-racewear-entry";
 
 const MIME_BY_EXTENSION: Record<string, (typeof RACEWEAR_ALLOWED_MIME_TYPES)[number]> = {
   jpg: "image/jpeg",
@@ -125,6 +130,23 @@ export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
     groupEntries: reorderedPeers.map((entry, index) => ({ ...entry, sort_order: sortValues[index] })),
     updates,
   };
+}
+
+export function canDropRacewearEntry(draggedId: string | null | undefined, targetId: string) {
+  return Boolean(draggedId && draggedId !== targetId);
+}
+
+export function resolveRacewearDraggedEntryId(
+  activeId: string | null | undefined,
+  dataTransfer?: RacewearDragDataSource
+) {
+  const stateId = activeId?.trim();
+  if (stateId) return stateId;
+
+  const customId = dataTransfer?.getData(RACEWEAR_ENTRY_DRAG_MIME).trim();
+  if (customId) return customId;
+
+  return dataTransfer?.getData("text/plain").trim() ?? "";
 }
 
 export function getRacewearUploadExtension(fileName: string) {

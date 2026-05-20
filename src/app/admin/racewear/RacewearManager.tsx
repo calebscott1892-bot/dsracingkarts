@@ -20,9 +20,12 @@ import {
   X,
 } from "lucide-react";
 import {
+  RACEWEAR_ENTRY_DRAG_MIME,
   buildRacewearGroups,
+  canDropRacewearEntry,
   compareRacewearEntries,
   reorderRacewearEntries,
+  resolveRacewearDraggedEntryId,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
   type RacewearDropPlacement,
@@ -79,6 +82,7 @@ export function RacewearManager({ initialEntries }: Props) {
     id: string;
     placement: RacewearDropPlacement;
   } | null>(null);
+  const draggingEntryIdRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -324,19 +328,25 @@ export function RacewearManager({ initialEntries }: Props) {
   }
 
   function clearEntryDragState() {
+    draggingEntryIdRef.current = null;
     setDraggingEntryId(null);
     setDragOverEntry(null);
   }
 
   function handleEntryDragStart(event: DragEvent<HTMLElement>, id: string) {
+    draggingEntryIdRef.current = id;
     setDraggingEntryId(id);
     event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(RACEWEAR_ENTRY_DRAG_MIME, id);
     event.dataTransfer.setData("text/plain", id);
   }
 
   async function handleEntryDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
     event.preventDefault();
-    const draggedId = draggingEntryId || event.dataTransfer.getData("text/plain");
+    const draggedId = resolveRacewearDraggedEntryId(
+      draggingEntryIdRef.current || draggingEntryId,
+      event.dataTransfer
+    );
     const placement =
       dragOverEntry?.id === targetId ? dragOverEntry.placement : getDropPlacement(event);
     clearEntryDragState();
@@ -617,7 +627,11 @@ export function RacewearManager({ initialEntries }: Props) {
                   <div
                     key={entry.id}
                     onDragOver={(event) => {
-                      if (!draggingEntryId || draggingEntryId === entry.id) return;
+                      const draggedId = resolveRacewearDraggedEntryId(
+                        draggingEntryIdRef.current || draggingEntryId,
+                        event.dataTransfer
+                      );
+                      if (!canDropRacewearEntry(draggedId, entry.id)) return;
                       event.preventDefault();
                       event.dataTransfer.dropEffect = "move";
                       setDragOverEntry({ id: entry.id, placement: getDropPlacement(event) });
