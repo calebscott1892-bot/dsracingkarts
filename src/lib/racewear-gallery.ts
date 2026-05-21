@@ -28,10 +28,22 @@ export interface RacewearDragDataSource {
   getData(type: string): string;
 }
 
+export interface RacewearDropItem<T extends RacewearUploadFileLike> {
+  kind?: string;
+  getAsFile?: () => T | null;
+}
+
+export interface RacewearDropDataTransfer<T extends RacewearUploadFileLike> {
+  files?: ArrayLike<T>;
+  items?: ArrayLike<RacewearDropItem<T>>;
+}
+
 export const RACEWEAR_PHOTOS_BUCKET = "racewear-photos";
 export const RACEWEAR_MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const RACEWEAR_ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 export const RACEWEAR_ENTRY_DRAG_MIME = "application/x-dsr-racewear-entry";
+export const RACEWEAR_DEFAULT_IS_FEATURED = true;
+export const RACEWEAR_GENERIC_GROUP_LABEL = "racewear gallery";
 
 const MIME_BY_EXTENSION: Record<string, (typeof RACEWEAR_ALLOWED_MIME_TYPES)[number]> = {
   jpg: "image/jpeg",
@@ -47,6 +59,17 @@ function finiteSortOrder(value: unknown) {
 
 function normalizeGroupLabel(label: string) {
   return label.trim() || "Ungrouped";
+}
+
+function isRacewearUploadFileLike<T extends RacewearUploadFileLike>(value: unknown): value is T {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "name" in value &&
+    "size" in value &&
+    typeof (value as RacewearUploadFileLike).name === "string" &&
+    typeof (value as RacewearUploadFileLike).size === "number"
+  );
 }
 
 export function compareRacewearEntries<T extends RacewearGalleryEntry>(a: T, b: T) {
@@ -151,6 +174,39 @@ export function resolveRacewearDraggedEntryId(
   if (customId) return customId;
 
   return dataTransfer?.getData("text/plain").trim() ?? "";
+}
+
+export function resolveRacewearFeaturedFlag(
+  value: unknown,
+  fallback = RACEWEAR_DEFAULT_IS_FEATURED
+) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return fallback;
+  if (["true", "1", "on", "yes"].includes(normalized)) return true;
+  if (["false", "0", "off", "no"].includes(normalized)) return false;
+
+  return Boolean(value);
+}
+
+export function shouldFeatureRacewearGroupByDefault(groupLabel: string) {
+  const normalized = groupLabel.trim().toLowerCase();
+  return Boolean(normalized && normalized !== RACEWEAR_GENERIC_GROUP_LABEL);
+}
+
+export function extractRacewearDroppedFiles<T extends RacewearUploadFileLike>(
+  dataTransfer: RacewearDropDataTransfer<T>
+) {
+  const files = Array.from(dataTransfer.files ?? []).filter(isRacewearUploadFileLike<T>);
+  if (files.length > 0) return files;
+
+  return Array.from(dataTransfer.items ?? [])
+    .filter((item) => !item.kind || item.kind === "file")
+    .map((item) => item.getAsFile?.() ?? null)
+    .filter(isRacewearUploadFileLike<T>);
 }
 
 export function getRacewearUploadExtension(fileName: string) {

@@ -23,9 +23,12 @@ const {
   RACEWEAR_ENTRY_DRAG_MIME,
   buildRacewearGroups,
   canDropRacewearEntry,
+  extractRacewearDroppedFiles,
+  resolveRacewearFeaturedFlag,
   reorderRacewearEntries,
   resolveRacewearDragOverEntryId,
   resolveRacewearDraggedEntryId,
+  shouldFeatureRacewearGroupByDefault,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
 } = await importTs("../src/lib/racewear-gallery.ts");
@@ -142,5 +145,56 @@ assert.deepEqual(validateRacewearUploadFiles([]), {
   ok: false,
   error: "Please select at least one photo.",
 });
+
+assert.equal(
+  resolveRacewearFeaturedFlag(undefined),
+  true,
+  "new admin racewear uploads should be featured on the Services page unless explicitly switched off"
+);
+assert.equal(
+  resolveRacewearFeaturedFlag(null),
+  true,
+  "missing multipart featured values should default to visible on the Services page"
+);
+assert.equal(resolveRacewearFeaturedFlag("false"), false, "an explicit off toggle should stay off");
+assert.equal(resolveRacewearFeaturedFlag(false), false, "an explicit JSON false should stay off");
+assert.equal(resolveRacewearFeaturedFlag("on"), true, "browser form on values should be treated as featured");
+
+assert.equal(
+  shouldFeatureRacewearGroupByDefault("Cathleen Thompson"),
+  true,
+  "named client groups should default to featured"
+);
+assert.equal(
+  shouldFeatureRacewearGroupByDefault("Racewear Gallery"),
+  false,
+  "the generic bulk gallery group should remain See More only by default"
+);
+
+const droppedViaFiles = extractRacewearDroppedFiles({
+  files: [
+    { name: "front.jpg", size: 2000, type: "image/jpeg" },
+    { name: "notes.txt", size: 100, type: "text/plain" },
+  ],
+});
+assert.deepEqual(
+  droppedViaFiles.map((file) => file.name),
+  ["front.jpg", "notes.txt"],
+  "native file drops should use DataTransfer.files when the browser populates it"
+);
+
+const droppedViaItems = extractRacewearDroppedFiles({
+  files: [],
+  items: [
+    { kind: "string", getAsFile: () => null },
+    { kind: "file", getAsFile: () => ({ name: "side.png", size: 2000, type: "image/png" }) },
+    { kind: "file", getAsFile: () => null },
+  ],
+});
+assert.deepEqual(
+  droppedViaItems.map((file) => file.name),
+  ["side.png"],
+  "drag/drop uploads should fall back to DataTransfer.items when files is empty"
+);
 
 console.log("racewear gallery tests passed");

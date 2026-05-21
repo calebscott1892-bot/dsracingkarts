@@ -24,6 +24,7 @@ import {
   buildRacewearGroups,
   canDropRacewearEntry,
   compareRacewearEntries,
+  extractRacewearDroppedFiles,
   reorderRacewearEntries,
   resolveRacewearDragOverEntryId,
   resolveRacewearDraggedEntryId,
@@ -51,7 +52,7 @@ const emptyForm = (sortOrder = 0) => ({
   group_label: "",
   alt_text: "",
   sort_order: sortOrder,
-  is_featured: false,
+  is_featured: true,
 });
 
 interface Props {
@@ -144,8 +145,9 @@ export function RacewearManager({ initialEntries }: Props) {
 
   function handleUploadDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    event.stopPropagation();
     setIsDraggingUpload(false);
-    addPhotoFiles(Array.from(event.dataTransfer.files));
+    addPhotoFiles(extractRacewearDroppedFiles<File>(event.dataTransfer));
   }
 
   function removePendingPhoto(id: string) {
@@ -553,12 +555,19 @@ export function RacewearManager({ initialEntries }: Props) {
                   Photos *
                 </label>
                 <div
-                  onDragEnter={() => setIsDraggingUpload(true)}
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setIsDraggingUpload(true);
+                  }}
                   onDragOver={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
+                    event.dataTransfer.dropEffect = "copy";
                     setIsDraggingUpload(true);
                   }}
                   onDragLeave={(event) => {
+                    event.stopPropagation();
                     if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget as Node)) return;
                     setIsDraggingUpload(false);
                   }}

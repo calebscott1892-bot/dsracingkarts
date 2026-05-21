@@ -6,6 +6,8 @@ import {
   RACEWEAR_ALLOWED_MIME_TYPES,
   RACEWEAR_MAX_FILE_SIZE,
   RACEWEAR_PHOTOS_BUCKET,
+  resolveRacewearFeaturedFlag,
+  shouldFeatureRacewearGroupByDefault,
   validateRacewearUploadFile,
 } from "@/lib/racewear-gallery";
 
@@ -71,10 +73,6 @@ function parseSortOrder(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function parseBoolean(value: FormDataEntryValue | null) {
-  return value === "true" || value === "1" || value === "on";
-}
-
 function revalidateRacewearViews() {
   revalidatePath("/services");
   revalidatePath("/services/racewear-gallery");
@@ -129,7 +127,10 @@ export async function POST(request: NextRequest) {
 
     const baseSortOrder = parseSortOrder(formData.get("sort_order"));
     const altText = String(formData.get("alt_text") ?? "").trim().slice(0, 300);
-    const isFeatured = parseBoolean(formData.get("is_featured"));
+    const isFeatured = resolveRacewearFeaturedFlag(
+      formData.get("is_featured"),
+      shouldFeatureRacewearGroupByDefault(groupLabel)
+    );
     const uploadedPaths: string[] = [];
     const rows: Array<{
       group_label: string;
@@ -219,7 +220,10 @@ export async function POST(request: NextRequest) {
       image_url: String(image_url).trim().slice(0, 500),
       alt_text: String(alt_text || "").trim().slice(0, 300),
       sort_order: Number.isFinite(Number(sort_order)) ? Number(sort_order) : 0,
-      is_featured: Boolean(is_featured),
+      is_featured: resolveRacewearFeaturedFlag(
+        is_featured,
+        shouldFeatureRacewearGroupByDefault(group_label)
+      ),
       is_active: true,
     })
     .select("*")

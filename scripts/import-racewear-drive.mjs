@@ -193,12 +193,14 @@ async function uploadToStorage(file, bytes) {
 }
 
 async function insertGalleryRow(file, imageUrl, sortOrder) {
+  const groupLabel = groupLabelFromTitle(file.title);
   const { error } = await supabase.from("racewear_gallery").insert({
-    group_label: groupLabelFromTitle(file.title),
+    group_label: groupLabel,
     image_url: imageUrl,
     alt_text: altTextFromTitle(file.title),
     sort_order: sortOrder,
     is_active: true,
+    is_featured: groupLabel !== "Racewear Gallery",
   });
   if (error) throw error;
 }
