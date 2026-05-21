@@ -25,6 +25,7 @@ import {
   canDropRacewearEntry,
   compareRacewearEntries,
   reorderRacewearEntries,
+  resolveRacewearDragOverEntryId,
   resolveRacewearDraggedEntryId,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
@@ -341,8 +342,20 @@ export function RacewearManager({ initialEntries }: Props) {
     event.dataTransfer.setData("text/plain", id);
   }
 
+  function handleEntryDragOver(event: DragEvent<HTMLDivElement>, targetId: string) {
+    const draggedId = resolveRacewearDragOverEntryId(
+      draggingEntryIdRef.current || draggingEntryId
+    );
+    if (!canDropRacewearEntry(draggedId, targetId)) return;
+
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverEntry({ id: targetId, placement: getDropPlacement(event) });
+  }
+
   async function handleEntryDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
     event.preventDefault();
+    event.stopPropagation();
     const draggedId = resolveRacewearDraggedEntryId(
       draggingEntryIdRef.current || draggingEntryId,
       event.dataTransfer
@@ -350,7 +363,7 @@ export function RacewearManager({ initialEntries }: Props) {
     const placement =
       dragOverEntry?.id === targetId ? dragOverEntry.placement : getDropPlacement(event);
     clearEntryDragState();
-    if (!draggedId) return;
+    if (!canDropRacewearEntry(draggedId, targetId)) return;
     const result = reorderRacewearEntries(entries, draggedId, targetId, placement);
     await persistReorder(result, draggedId);
   }
@@ -626,16 +639,8 @@ export function RacewearManager({ initialEntries }: Props) {
                 {groupEntries.map((entry, index) => (
                   <div
                     key={entry.id}
-                    onDragOver={(event) => {
-                      const draggedId = resolveRacewearDraggedEntryId(
-                        draggingEntryIdRef.current || draggingEntryId,
-                        event.dataTransfer
-                      );
-                      if (!canDropRacewearEntry(draggedId, entry.id)) return;
-                      event.preventDefault();
-                      event.dataTransfer.dropEffect = "move";
-                      setDragOverEntry({ id: entry.id, placement: getDropPlacement(event) });
-                    }}
+                    onDragEnter={(event) => handleEntryDragOver(event, entry.id)}
+                    onDragOver={(event) => handleEntryDragOver(event, entry.id)}
                     onDragLeave={(event) => {
                       const nextTarget = event.relatedTarget as Node | null;
                       if (nextTarget && event.currentTarget.contains(nextTarget)) return;
@@ -665,6 +670,7 @@ export function RacewearManager({ initialEntries }: Props) {
                         alt={entry.alt_text || entry.group_label}
                         fill
                         sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        draggable={false}
                         className="select-none object-cover"
                       />
                     </div>

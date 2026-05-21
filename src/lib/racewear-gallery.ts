@@ -136,6 +136,10 @@ export function canDropRacewearEntry(draggedId: string | null | undefined, targe
   return Boolean(draggedId && draggedId !== targetId);
 }
 
+export function resolveRacewearDragOverEntryId(activeId: string | null | undefined) {
+  return activeId?.trim() ?? "";
+}
+
 export function resolveRacewearDraggedEntryId(
   activeId: string | null | undefined,
   dataTransfer?: RacewearDragDataSource

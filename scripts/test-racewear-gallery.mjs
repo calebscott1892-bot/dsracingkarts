@@ -24,6 +24,7 @@ const {
   buildRacewearGroups,
   canDropRacewearEntry,
   reorderRacewearEntries,
+  resolveRacewearDragOverEntryId,
   resolveRacewearDraggedEntryId,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
@@ -88,6 +89,21 @@ assert.deepEqual(crossGroup.updates, [], "dropping across groups should be ignor
 assert.equal(canDropRacewearEntry("b", "a"), true, "a dragged racewear entry can drop on another entry");
 assert.equal(canDropRacewearEntry("b", "b"), false, "a dragged racewear entry cannot drop on itself");
 assert.equal(canDropRacewearEntry("", "a"), false, "a missing dragged entry id cannot create a drop target");
+assert.equal(
+  typeof resolveRacewearDragOverEntryId,
+  "function",
+  "dragover handling should use rendered drag state instead of reading protected drop payload data"
+);
+assert.equal(
+  resolveRacewearDragOverEntryId("b"),
+  "b",
+  "dragover handling should accept the active in-memory drag id"
+);
+assert.equal(
+  resolveRacewearDragOverEntryId("  "),
+  "",
+  "dragover handling should not invent a drop target when there is no active drag id"
+);
 
 const dragData = new Map([
   [RACEWEAR_ENTRY_DRAG_MIME, "b"],
