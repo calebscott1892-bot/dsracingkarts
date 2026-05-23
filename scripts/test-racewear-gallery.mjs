@@ -24,6 +24,7 @@ const {
   buildRacewearGroups,
   canDropRacewearEntry,
   extractRacewearDroppedFiles,
+  getRacewearAutoScrollDelta,
   resolveRacewearFeaturedFlag,
   reorderRacewearEntries,
   resolveRacewearDragOverEntryId,
@@ -86,8 +87,58 @@ assert.deepEqual(
   "dropping on the lower half of a photo should move the dragged photo after the drop target"
 );
 
-const crossGroup = reorderRacewearEntries(entries, "b", "other");
-assert.deepEqual(crossGroup.updates, [], "dropping across groups should be ignored");
+const crossGroup = reorderRacewearEntries(entries, "b", "other", "after");
+assert.deepEqual(
+  buildRacewearGroups(crossGroup.entries).map((group) => [group.label, group.entries.map((entry) => entry.id)]),
+  [
+    ["CM Racing", ["a", "c"]],
+    ["Another Team", ["other", "b"]],
+  ],
+  "dropping onto another client group should move the photo into that group and shuffle both groups into display order"
+);
+assert.deepEqual(
+  crossGroup.entries.find((entry) => entry.id === "b")?.group_label,
+  "Another Team",
+  "moving a photo across groups should update its category label"
+);
+assert.deepEqual(
+  crossGroup.updates,
+  [
+    { id: "other", sort_order: 1 },
+    { id: "b", sort_order: 2, group_label: "Another Team" },
+    { id: "a", sort_order: 0 },
+    { id: "c", sort_order: 1 },
+  ],
+  "cross-group drops should persist the target category plus normalized source and target order"
+);
+
+const categoryMoveEntries = [
+  { id: "source", group_label: "Source Team", sort_order: 20, created_at: "2026-05-18T00:00:00.000Z" },
+  { id: "source-peer", group_label: "Source Team", sort_order: 21, created_at: "2026-05-18T01:00:00.000Z" },
+  { id: "x", group_label: "Target Team", sort_order: 10, created_at: "2026-05-18T00:00:00.000Z" },
+  { id: "y", group_label: "Target Team", sort_order: 11, created_at: "2026-05-18T01:00:00.000Z" },
+  { id: "z", group_label: "Target Team", sort_order: 12, created_at: "2026-05-18T02:00:00.000Z" },
+];
+const crossGroupBetween = reorderRacewearEntries(categoryMoveEntries, "source", "y", "before");
+assert.deepEqual(
+  buildRacewearGroups(crossGroupBetween.entries).map((group) => [group.label, group.entries.map((entry) => entry.id)]),
+  [
+    ["Target Team", ["x", "source", "y", "z"]],
+    ["Source Team", ["source-peer"]],
+  ],
+  "dropping before a target image should insert the moved photo between the target group's neighboring photos"
+);
+assert.deepEqual(
+  crossGroupBetween.updates,
+  [
+    { id: "x", sort_order: 10 },
+    { id: "source", sort_order: 11, group_label: "Target Team" },
+    { id: "y", sort_order: 12 },
+    { id: "z", sort_order: 13 },
+    { id: "source-peer", sort_order: 21 },
+  ],
+  "cross-group insertion should shift later target photos over and keep remaining source photos ordered"
+);
 
 assert.equal(canDropRacewearEntry("b", "a"), true, "a dragged racewear entry can drop on another entry");
 assert.equal(canDropRacewearEntry("b", "b"), false, "a dragged racewear entry cannot drop on itself");
@@ -195,6 +246,45 @@ assert.deepEqual(
   droppedViaItems.map((file) => file.name),
   ["side.png"],
   "drag/drop uploads should fall back to DataTransfer.items when files is empty"
+);
+
+assert.equal(
+  typeof getRacewearAutoScrollDelta,
+  "function",
+  "racewear drag/drop should expose edge auto-scroll calculation"
+);
+assert.equal(
+  getRacewearAutoScrollDelta({
+    pointerY: 14,
+    viewportTop: 0,
+    viewportBottom: 600,
+    edgeSize: 100,
+    maxSpeed: 30,
+  }),
+  -26,
+  "dragging near the top edge should scroll upward"
+);
+assert.equal(
+  getRacewearAutoScrollDelta({
+    pointerY: 586,
+    viewportTop: 0,
+    viewportBottom: 600,
+    edgeSize: 100,
+    maxSpeed: 30,
+  }),
+  26,
+  "dragging near the bottom edge should scroll downward"
+);
+assert.equal(
+  getRacewearAutoScrollDelta({
+    pointerY: 300,
+    viewportTop: 0,
+    viewportBottom: 600,
+    edgeSize: 100,
+    maxSpeed: 30,
+  }),
+  0,
+  "dragging in the middle of the viewport should not auto-scroll"
 );
 
 console.log("racewear gallery tests passed");

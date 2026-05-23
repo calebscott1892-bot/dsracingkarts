@@ -13,7 +13,7 @@ export interface RacewearGalleryGroup<T extends RacewearGalleryEntry> {
 export interface RacewearReorderResult<T extends RacewearGalleryEntry> {
   entries: T[];
   groupEntries: T[];
-  updates: Array<{ id: string; sort_order: number }>;
+  updates: Array<{ id: string; sort_order: number; group_label?: string }>;
 }
 
 export type RacewearDropPlacement = "before" | "after";
@@ -36,6 +36,14 @@ export interface RacewearDropItem<T extends RacewearUploadFileLike> {
 export interface RacewearDropDataTransfer<T extends RacewearUploadFileLike> {
   files?: ArrayLike<T>;
   items?: ArrayLike<RacewearDropItem<T>>;
+}
+
+export interface RacewearAutoScrollInput {
+  pointerY: number;
+  viewportTop: number;
+  viewportBottom: number;
+  edgeSize?: number;
+  maxSpeed?: number;
 }
 
 export const RACEWEAR_PHOTOS_BUCKET = "racewear-photos";
@@ -96,12 +104,12 @@ export function buildRacewearGroups<T extends RacewearGalleryEntry>(
   }));
 }
 
-function normalSortValues<T extends RacewearGalleryEntry>(entries: T[]) {
+function normalSortValues<T extends RacewearGalleryEntry>(entries: T[], count = entries.length) {
   const values = entries
     .map((entry) => finiteSortOrder(entry.sort_order))
     .sort((a, b) => a - b);
   const start = values[0] ?? 0;
-  return entries.map((_, index) => start + index);
+  return Array.from({ length: count }, (_, index) => start + index);
 }
 
 export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
@@ -116,41 +124,68 @@ export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
 
   const dragged = entries.find((entry) => entry.id === draggedId);
   const target = entries.find((entry) => entry.id === targetId);
-  if (!dragged || !target || normalizeGroupLabel(dragged.group_label) !== normalizeGroupLabel(target.group_label)) {
+  if (!dragged || !target) {
     return { entries, groupEntries: [], updates: [] };
   }
 
-  const peers = entries
-    .filter((entry) => normalizeGroupLabel(entry.group_label) === normalizeGroupLabel(dragged.group_label))
+  const sourceLabel = normalizeGroupLabel(dragged.group_label);
+  const targetLabel = normalizeGroupLabel(target.group_label);
+  const isCrossGroupMove = sourceLabel !== targetLabel;
+  const targetPeers = entries
+    .filter((entry) => normalizeGroupLabel(entry.group_label) === targetLabel && entry.id !== draggedId)
     .sort(compareRacewearEntries);
-  const withoutDragged = peers.filter((entry) => entry.id !== draggedId);
-  const targetIndex = withoutDragged.findIndex((entry) => entry.id === targetId);
+  const targetIndex = targetPeers.findIndex((entry) => entry.id === targetId);
   if (targetIndex === -1) {
     return { entries, groupEntries: [], updates: [] };
   }
 
+  const movedEntry = isCrossGroupMove ? { ...dragged, group_label: target.group_label } : dragged;
   const insertIndex = placement === "after" ? targetIndex + 1 : targetIndex;
-  const reorderedPeers = [
-    ...withoutDragged.slice(0, insertIndex),
-    dragged,
-    ...withoutDragged.slice(insertIndex),
+  const reorderedTargetPeers = [
+    ...targetPeers.slice(0, insertIndex),
+    movedEntry,
+    ...targetPeers.slice(insertIndex),
   ];
-  const sortValues = normalSortValues(peers);
-  const updates = reorderedPeers.map((entry, index) => ({
+  const targetSortBase = isCrossGroupMove
+    ? targetPeers
+    : entries.filter((entry) => normalizeGroupLabel(entry.group_label) === targetLabel);
+  const targetSortValues = normalSortValues(targetSortBase, reorderedTargetPeers.length);
+  const targetUpdates: RacewearReorderResult<T>["updates"] = reorderedTargetPeers.map((entry, index) => ({
     id: entry.id,
-    sort_order: sortValues[index],
+    sort_order: targetSortValues[index],
+    ...(entry.id === draggedId && isCrossGroupMove ? { group_label: target.group_label } : {}),
   }));
-  const sortById = new Map(updates.map((update) => [update.id, update.sort_order]));
+  const sourcePeers = isCrossGroupMove
+    ? entries
+        .filter((entry) => normalizeGroupLabel(entry.group_label) === sourceLabel && entry.id !== draggedId)
+        .sort(compareRacewearEntries)
+    : [];
+  const sourceSortValues = normalSortValues(sourcePeers);
+  const sourceUpdates: RacewearReorderResult<T>["updates"] = sourcePeers.map((entry, index) => ({
+    id: entry.id,
+    sort_order: sourceSortValues[index],
+  }));
+  const updates = [...targetUpdates, ...sourceUpdates];
+  const updatesById = new Map(updates.map((update) => [update.id, update]));
   const nextEntries = entries
     .map((entry) => {
-      const nextSortOrder = sortById.get(entry.id);
-      return nextSortOrder === undefined ? entry : { ...entry, sort_order: nextSortOrder };
+      const update = updatesById.get(entry.id);
+      return update === undefined
+        ? entry
+        : {
+            ...entry,
+            sort_order: update.sort_order,
+            ...(update.group_label !== undefined ? { group_label: update.group_label } : {}),
+          };
     })
     .sort(compareRacewearEntries);
 
   return {
     entries: nextEntries,
-    groupEntries: reorderedPeers.map((entry, index) => ({ ...entry, sort_order: sortValues[index] })),
+    groupEntries: reorderedTargetPeers.map((entry, index) => ({
+      ...entry,
+      sort_order: targetSortValues[index],
+    })),
     updates,
   };
 }
@@ -207,6 +242,40 @@ export function extractRacewearDroppedFiles<T extends RacewearUploadFileLike>(
     .filter((item) => !item.kind || item.kind === "file")
     .map((item) => item.getAsFile?.() ?? null)
     .filter(isRacewearUploadFileLike<T>);
+}
+
+export function getRacewearAutoScrollDelta({
+  pointerY,
+  viewportTop,
+  viewportBottom,
+  edgeSize = 96,
+  maxSpeed = 28,
+}: RacewearAutoScrollInput) {
+  if (
+    !Number.isFinite(pointerY) ||
+    !Number.isFinite(viewportTop) ||
+    !Number.isFinite(viewportBottom) ||
+    viewportBottom <= viewportTop
+  ) {
+    return 0;
+  }
+
+  const safeEdgeSize = Math.max(1, edgeSize);
+  const safeMaxSpeed = Math.max(0, maxSpeed);
+  const topEdge = viewportTop + safeEdgeSize;
+  const bottomEdge = viewportBottom - safeEdgeSize;
+
+  if (pointerY < topEdge) {
+    const distanceIntoEdge = Math.min(safeEdgeSize, topEdge - pointerY);
+    return -Math.round((distanceIntoEdge / safeEdgeSize) * safeMaxSpeed);
+  }
+
+  if (pointerY > bottomEdge) {
+    const distanceIntoEdge = Math.min(safeEdgeSize, pointerY - bottomEdge);
+    return Math.round((distanceIntoEdge / safeEdgeSize) * safeMaxSpeed);
+  }
+
+  return 0;
 }
 
 export function getRacewearUploadExtension(fileName: string) {

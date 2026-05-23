@@ -252,16 +252,23 @@ export async function PATCH(request: NextRequest) {
     }
 
     const supabase = createServiceClient();
-    for (const update of updates as Array<{ id?: unknown; sort_order?: unknown }>) {
+    for (const update of updates as Array<{ id?: unknown; sort_order?: unknown; group_label?: unknown }>) {
       if (!update?.id) return NextResponse.json({ error: "entry id is required" }, { status: 400 });
       const sortOrder = Number(update.sort_order);
       if (!Number.isFinite(sortOrder)) {
         return NextResponse.json({ error: "sort_order must be a number" }, { status: 400 });
       }
 
+      const values: Record<string, unknown> = { sort_order: sortOrder };
+      if (update.group_label !== undefined) {
+        const groupLabel = String(update.group_label).trim();
+        if (!groupLabel) return NextResponse.json({ error: "group_label must not be empty" }, { status: 400 });
+        values.group_label = groupLabel.slice(0, 200);
+      }
+
       const { error } = await supabase
         .from("racewear_gallery")
-        .update({ sort_order: sortOrder })
+        .update(values)
         .eq("id", String(update.id));
       if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     }

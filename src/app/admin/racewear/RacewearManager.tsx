@@ -1,7 +1,7 @@
 "use client";
 
-import type { ChangeEvent, DragEvent, FormEvent } from "react";
-import { useRef, useState } from "react";
+import type { ChangeEvent, DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowDown,
@@ -20,14 +20,12 @@ import {
   X,
 } from "lucide-react";
 import {
-  RACEWEAR_ENTRY_DRAG_MIME,
   buildRacewearGroups,
   canDropRacewearEntry,
   compareRacewearEntries,
   extractRacewearDroppedFiles,
+  getRacewearAutoScrollDelta,
   reorderRacewearEntries,
-  resolveRacewearDragOverEntryId,
-  resolveRacewearDraggedEntryId,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
   type RacewearDropPlacement,
@@ -68,9 +66,21 @@ function sortEntries(entries: Entry[]) {
   return [...entries].sort(compareRacewearEntries);
 }
 
-function getDropPlacement(event: DragEvent<HTMLElement>): RacewearDropPlacement {
-  const rect = event.currentTarget.getBoundingClientRect();
-  return event.clientY > rect.top + rect.height / 2 ? "after" : "before";
+function getDropPlacementFromClientY(element: HTMLElement, clientY: number): RacewearDropPlacement {
+  const rect = element.getBoundingClientRect();
+  return clientY > rect.top + rect.height / 2 ? "after" : "before";
+}
+
+function findScrollContainer(element: HTMLElement | null) {
+  let current = element?.parentElement ?? null;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = `${style.overflowY} ${style.overflow}`;
+    const canScroll = /(auto|scroll|overlay)/.test(overflowY);
+    if (canScroll && current.scrollHeight > current.clientHeight) return current;
+    current = current.parentElement;
+  }
+  return null;
 }
 
 export function RacewearManager({ initialEntries }: Props) {
@@ -95,6 +105,120 @@ export function RacewearManager({ initialEntries }: Props) {
   const [editForm, setEditForm] = useState(emptyForm());
   const [errorMsg, setErrorMsg] = useState("");
   const [movingId, setMovingId] = useState<string | null>(null);
+  const managerRef = useRef<HTMLDivElement>(null);
+  const entriesRef = useRef(entries);
+  const dragOverEntryRef = useRef<typeof dragOverEntry>(null);
+  const pointerDragRef = useRef<{ id: string; pointerId: number } | null>(null);
+  const lastDragClientYRef = useRef(0);
+
+  const setEntryDragOver = useCallback((next: typeof dragOverEntry) => {
+    dragOverEntryRef.current = next;
+    setDragOverEntry(next);
+  }, []);
+
+  const clearEntryDragState = useCallback(() => {
+    pointerDragRef.current = null;
+    draggingEntryIdRef.current = null;
+    setDraggingEntryId(null);
+    setEntryDragOver(null);
+  }, [setEntryDragOver]);
+
+  useEffect(() => {
+    entriesRef.current = entries;
+  }, [entries]);
+
+  useEffect(() => {
+    if (!draggingEntryId) return;
+
+    let animationFrame = 0;
+    const scrollContainer = findScrollContainer(managerRef.current);
+
+    const requestAutoScroll = () => {
+      if (!animationFrame) {
+        animationFrame = window.requestAnimationFrame(scrollWhileNearEdge);
+      }
+    };
+
+    const scrollWhileNearEdge = () => {
+      animationFrame = 0;
+      const viewport = scrollContainer?.getBoundingClientRect() ?? {
+        top: 0,
+        bottom: window.innerHeight,
+      };
+      const delta = getRacewearAutoScrollDelta({
+        pointerY: lastDragClientYRef.current,
+        viewportTop: viewport.top,
+        viewportBottom: viewport.bottom,
+      });
+
+      if (delta !== 0) {
+        const beforeScroll = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+        if (scrollContainer) {
+          scrollContainer.scrollTop += delta;
+        } else {
+          window.scrollBy({ top: delta });
+        }
+        const afterScroll = scrollContainer ? scrollContainer.scrollTop : window.scrollY;
+        if (afterScroll !== beforeScroll) {
+          requestAutoScroll();
+        }
+      }
+    };
+
+    const updatePointerDropTarget = (clientX: number, clientY: number) => {
+      const target = document
+        .elementFromPoint(clientX, clientY)
+        ?.closest<HTMLElement>("[data-racewear-entry-id]");
+      const targetId = target?.dataset.racewearEntryId;
+      const activeId = pointerDragRef.current?.id || draggingEntryIdRef.current || draggingEntryId;
+
+      if (!target || !targetId || !canDropEntryOnTarget(activeId, targetId)) {
+        setEntryDragOver(null);
+        return;
+      }
+
+      setEntryDragOver({
+        id: targetId,
+        placement: getDropPlacementFromClientY(target, clientY),
+      });
+    };
+
+    const handleWindowDragOver = (event: globalThis.DragEvent) => {
+      lastDragClientYRef.current = event.clientY;
+      requestAutoScroll();
+    };
+
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      if (!pointerDragRef.current) return;
+      event.preventDefault();
+      lastDragClientYRef.current = event.clientY;
+      updatePointerDropTarget(event.clientX, event.clientY);
+      requestAutoScroll();
+    };
+
+    const finishPointerDrag = () => {
+      const activeId = pointerDragRef.current?.id;
+      const target = dragOverEntryRef.current;
+      pointerDragRef.current = null;
+      clearEntryDragState();
+
+      if (!activeId || !target || !canDropEntryOnTarget(activeId, target.id)) return;
+      const result = reorderRacewearEntries(entriesRef.current, activeId, target.id, target.placement);
+      void persistReorder(result, activeId);
+    };
+
+    window.addEventListener("dragover", handleWindowDragOver);
+    window.addEventListener("pointermove", handleWindowPointerMove, { passive: false });
+    window.addEventListener("pointerup", finishPointerDrag);
+    window.addEventListener("pointercancel", clearEntryDragState);
+    return () => {
+      window.removeEventListener("dragover", handleWindowDragOver);
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", finishPointerDrag);
+      window.removeEventListener("pointercancel", clearEntryDragState);
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    };
+  }, [clearEntryDragState, draggingEntryId, setEntryDragOver]);
 
   function setField<K extends keyof ReturnType<typeof emptyForm>>(
     key: K,
@@ -291,8 +415,9 @@ export function RacewearManager({ initialEntries }: Props) {
     activeId: string
   ) {
     if (result.updates.length === 0) return;
-    const previousEntries = entries;
+    const previousEntries = entriesRef.current;
     setMovingId(activeId);
+    entriesRef.current = result.entries;
     setEntries(result.entries);
 
     try {
@@ -306,6 +431,7 @@ export function RacewearManager({ initialEntries }: Props) {
         throw new Error(data.error || "Reorder failed");
       }
     } catch {
+      entriesRef.current = previousEntries;
       setEntries(previousEntries);
       alert("Failed to reorder photos. Refresh and try again.");
     } finally {
@@ -330,44 +456,23 @@ export function RacewearManager({ initialEntries }: Props) {
     await persistReorder(result, entry.id);
   }
 
-  function clearEntryDragState() {
-    draggingEntryIdRef.current = null;
-    setDraggingEntryId(null);
-    setDragOverEntry(null);
-  }
-
-  function handleEntryDragStart(event: DragEvent<HTMLElement>, id: string) {
+  function handleEntryPointerDown(event: ReactPointerEvent<HTMLElement>, id: string) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    pointerDragRef.current = { id, pointerId: event.pointerId };
     draggingEntryIdRef.current = id;
     setDraggingEntryId(id);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData(RACEWEAR_ENTRY_DRAG_MIME, id);
-    event.dataTransfer.setData("text/plain", id);
+    lastDragClientYRef.current = event.clientY;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
-  function handleEntryDragOver(event: DragEvent<HTMLDivElement>, targetId: string) {
-    const draggedId = resolveRacewearDragOverEntryId(
-      draggingEntryIdRef.current || draggingEntryId
+  function canDropEntryOnTarget(draggedId: string | null | undefined, targetId: string) {
+    const currentEntries = entriesRef.current;
+    return Boolean(
+      canDropRacewearEntry(draggedId, targetId) &&
+        currentEntries.some((entry) => entry.id === draggedId) &&
+        currentEntries.some((entry) => entry.id === targetId)
     );
-    if (!canDropRacewearEntry(draggedId, targetId)) return;
-
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    setDragOverEntry({ id: targetId, placement: getDropPlacement(event) });
-  }
-
-  async function handleEntryDrop(event: DragEvent<HTMLDivElement>, targetId: string) {
-    event.preventDefault();
-    event.stopPropagation();
-    const draggedId = resolveRacewearDraggedEntryId(
-      draggingEntryIdRef.current || draggingEntryId,
-      event.dataTransfer
-    );
-    const placement =
-      dragOverEntry?.id === targetId ? dragOverEntry.placement : getDropPlacement(event);
-    clearEntryDragState();
-    if (!canDropRacewearEntry(draggedId, targetId)) return;
-    const result = reorderRacewearEntries(entries, draggedId, targetId, placement);
-    await persistReorder(result, draggedId);
   }
 
   function openEdit(entry: Entry) {
@@ -433,7 +538,7 @@ export function RacewearManager({ initialEntries }: Props) {
     .sort((a, b) => a.localeCompare(b));
 
   return (
-    <div>
+    <div ref={managerRef}>
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-heading text-3xl uppercase tracking-wider">Racewear Gallery</h1>
         <button onClick={openAddPanel} className="btn-primary flex items-center gap-2 text-sm">
@@ -442,8 +547,8 @@ export function RacewearManager({ initialEntries }: Props) {
       </div>
 
       <p className="text-text-muted text-sm mb-8">
-        Choose featured images for the main Services page. Drag photos inside a client group to set their
-        order, or use the arrow controls and order number for exact positioning.
+        Choose featured images for the main Services page. Drag photos onto another image to reorder them,
+        including across client groups, or use the arrow controls and order number for exact positioning.
       </p>
 
       {(showAdd || editingEntryId) && (
@@ -648,14 +753,8 @@ export function RacewearManager({ initialEntries }: Props) {
                 {groupEntries.map((entry, index) => (
                   <div
                     key={entry.id}
-                    onDragEnter={(event) => handleEntryDragOver(event, entry.id)}
-                    onDragOver={(event) => handleEntryDragOver(event, entry.id)}
-                    onDragLeave={(event) => {
-                      const nextTarget = event.relatedTarget as Node | null;
-                      if (nextTarget && event.currentTarget.contains(nextTarget)) return;
-                      setDragOverEntry((current) => (current?.id === entry.id ? null : current));
-                    }}
-                    onDrop={(event) => handleEntryDrop(event, entry.id)}
+                    data-racewear-entry-id={entry.id}
+                    data-racewear-group-label={entry.group_label}
                     className={`card relative overflow-hidden transition-colors ${
                       !entry.is_active ? "opacity-40" : ""
                     } ${draggingEntryId === entry.id ? "ring-1 ring-brand-red" : ""}`}
@@ -668,11 +767,10 @@ export function RacewearManager({ initialEntries }: Props) {
                       />
                     )}
                     <div
-                      draggable
-                      onDragStart={(event) => handleEntryDragStart(event, entry.id)}
-                      onDragEnd={clearEntryDragState}
+                      data-racewear-drag-handle={entry.id}
+                      onPointerDown={(event) => handleEntryPointerDown(event, entry.id)}
                       aria-grabbed={draggingEntryId === entry.id}
-                      className="relative aspect-[3/4] cursor-grab bg-surface-900 active:cursor-grabbing"
+                      className="relative aspect-[3/4] cursor-grab touch-none bg-surface-900 active:cursor-grabbing"
                     >
                       <Image
                         src={entry.image_url}
@@ -680,7 +778,7 @@ export function RacewearManager({ initialEntries }: Props) {
                         fill
                         sizes="(min-width: 768px) 25vw, (min-width: 640px) 33vw, 50vw"
                         draggable={false}
-                        className="select-none object-cover"
+                        className="pointer-events-none select-none object-cover"
                       />
                     </div>
                     <div className="p-2 space-y-1.5">
@@ -716,11 +814,9 @@ export function RacewearManager({ initialEntries }: Props) {
                         </button>
                         <button
                           type="button"
-                          draggable
-                          onDragStart={(event) => handleEntryDragStart(event, entry.id)}
-                          onDragEnd={clearEntryDragState}
+                          onPointerDown={(event) => handleEntryPointerDown(event, entry.id)}
                           title="Drag to reorder"
-                          className="ml-1 text-text-muted hover:text-white cursor-grab active:cursor-grabbing"
+                          className="ml-1 cursor-grab touch-none text-text-muted hover:text-white active:cursor-grabbing"
                         >
                           <GripVertical size={14} />
                         </button>
