@@ -343,6 +343,7 @@ async function main() {
     badRrp: 0,
     duplicateSkuInFile: 0,
     duplicateNameInFile: 0,
+    duplicateExistingSku: 0,
     existingSku: 0,
     existingName: 0,
     importable: 0,
@@ -376,10 +377,15 @@ async function main() {
     }
 
     const skuMatches = existingSkuMap.get(row.skuKey) || [];
-    if (skuMatches.length > 0) {
+    if (skuMatches.length > 1) {
+      stats.duplicateExistingSku += 1;
+      addReportRows(reportRows, "duplicate_existing_sku_match", row, skuMatches);
+      continue;
+    }
+    if (skuMatches.length === 1) {
       stats.existingSku += 1;
       addReportRows(reportRows, "existing_sku_match", row, skuMatches);
-      const preferred = skuMatches.find((match) => match.product?.status === "active") || skuMatches[0];
+      const preferred = skuMatches[0];
       if (preferred?.product && preferred?.variation) {
         matchedSupplierCostRows.push({
           product_id: preferred.product.id,
@@ -490,6 +496,7 @@ async function main() {
     if (!row.skuKey || !row.nameKey || row.rrp == null) continue;
     if ((fileSkuCounts.get(row.skuKey) || 0) > 1 || (fileNameCounts.get(row.nameKey) || 0) > 1) continue;
     const skuMatches = existingSkuMap.get(row.skuKey) || [];
+    if (skuMatches.length > 1) continue;
     const nameMatches = existingNameMap.get(row.nameKey) || [];
     const matches = skuMatches.length > 0 ? skuMatches : nameMatches;
     if (matches.length === 0) continue;
@@ -512,6 +519,7 @@ async function main() {
   console.log(`  Missing/invalid RRP:         ${stats.badRrp}`);
   console.log(`  Duplicate SKU in DPE file:   ${stats.duplicateSkuInFile}`);
   console.log(`  Duplicate name in DPE file:  ${stats.duplicateNameInFile}`);
+  console.log(`  Duplicate existing SKU held: ${stats.duplicateExistingSku}`);
   console.log(`  Existing SKU matches:        ${stats.existingSku}`);
   console.log(`  Existing name matches:       ${stats.existingName}`);
   console.log(`  Supplier-cost rows on matches:${matchedSupplierCostRows.length}`);

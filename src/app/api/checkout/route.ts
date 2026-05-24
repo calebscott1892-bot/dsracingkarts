@@ -7,6 +7,11 @@ import {
   buildSquareOrderLineItems,
 } from "@/lib/checkout-guards";
 import {
+  hasEnoughStockForQuantity,
+  getInventoryQuantity,
+  ZERO_STOCK_CONTACT_MESSAGE,
+} from "@/lib/stock";
+import {
   findCustomerPhoneConflict,
   getSquarePhoneSearchCandidate,
   normalizePhoneForSquare,
@@ -366,7 +371,8 @@ export async function POST(request: NextRequest) {
       .from("product_variations")
       .select(`
         id, price, sale_price, name, sku, product_id, square_token,
-        products ( id, name, status, visibility, is_sellable, square_token )
+        inventory ( quantity, stock_status ),
+        products ( id, name, status, visibility, is_sellable, is_stockable, square_token )
       `)
       .in("id", variationIds);
 
@@ -412,6 +418,7 @@ export async function POST(request: NextRequest) {
               status: string;
               visibility: string;
               is_sellable: boolean;
+              is_stockable: boolean;
               square_token: string | null;
             }
           | {
@@ -420,6 +427,7 @@ export async function POST(request: NextRequest) {
               status: string;
               visibility: string;
               is_sellable: boolean;
+              is_stockable: boolean;
               square_token: string | null;
             }[]
           | null
@@ -433,6 +441,26 @@ export async function POST(request: NextRequest) {
       ) {
         return NextResponse.json(
           { error: `${product?.name || cartItem.product_name || "This item"} is no longer available` },
+          { status: 400 }
+        );
+      }
+
+      const productIsStockable = product.is_stockable !== false;
+      const inventoryQuantity = getInventoryQuantity(dbVar);
+      if (!hasEnoughStockForQuantity(dbVar, quantity, productIsStockable)) {
+        const itemName =
+          dbVar.name && dbVar.name !== "Regular"
+            ? `${product.name} - ${dbVar.name}`
+            : product.name;
+        const detail =
+          inventoryQuantity !== null && inventoryQuantity > 0
+            ? `Only ${inventoryQuantity} available.`
+            : ZERO_STOCK_CONTACT_MESSAGE;
+
+        return NextResponse.json(
+          {
+            error: `${itemName} is not available for immediate purchase. ${detail}`,
+          },
           { status: 400 }
         );
       }

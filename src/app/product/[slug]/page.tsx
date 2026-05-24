@@ -89,7 +89,8 @@ export default async function ProductPage({ params }: Props) {
       product_images ( id, url, alt_text, sort_order, is_primary ),
       product_variations (
         id, name, sku, price, sale_price, sort_order,
-        variation_options ( option_name, option_value )
+        variation_options ( option_name, option_value ),
+        inventory ( quantity, stock_status )
       ),
       product_categories ( categories ( id, name, slug ) )
     `)
@@ -115,6 +116,7 @@ export default async function ProductPage({ params }: Props) {
     id: product.id,
     slug: product.slug,
     name: product.name,
+    is_stockable: product.is_stockable,
     primary_image_url: isRealProductImageUrl(product.primary_image_url)
       ? product.primary_image_url
       : null,

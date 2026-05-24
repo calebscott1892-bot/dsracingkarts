@@ -2,11 +2,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { formatPrice } from "@/lib/utils";
 import { isRealProductImageUrl, isRemoteImageUrl } from "@/lib/product-images";
+import { isUnavailableByStock } from "@/lib/stock";
 import type { Product } from "@/types/database";
 
 interface Props {
-  product: Pick<Product, "id" | "name" | "slug" | "sku" | "base_price" | "primary_image_url"> & {
-    product_variations?: { price: number; sale_price: number | null; sku?: string | null }[];
+  product: Pick<Product, "id" | "name" | "slug" | "sku" | "base_price" | "primary_image_url" | "is_stockable"> & {
+    product_variations?: {
+      price: number;
+      sale_price: number | null;
+      sku?: string | null;
+      inventory?: { quantity: number | null; stock_status?: string | null }[];
+    }[];
   };
   priority?: boolean;
 }
@@ -21,6 +27,11 @@ export function ProductCard({ product, priority = false }: Props) {
   const hasSale = product.product_variations?.some((v) => v.sale_price);
   const displaySku = product.sku || product.product_variations?.find((v) => v.sku)?.sku;
   const realImage = isRealProductImageUrl(product.primary_image_url);
+  const variations = product.product_variations || [];
+  const isSoldOut =
+    product.is_stockable !== false &&
+    variations.length > 0 &&
+    variations.every((variation) => isUnavailableByStock(variation));
 
   return (
     <Link href={`/product/${product.slug}`} scroll className="group animate-fade-in">
@@ -52,6 +63,12 @@ export function ProductCard({ product, priority = false }: Props) {
             </span>
           )}
 
+          {isSoldOut && (
+            <span className="absolute top-0 left-0 bg-surface-950/90 border-b border-r border-racing-red/40 px-2.5 py-1 font-heading text-[10px] uppercase tracking-[0.18em] text-racing-red">
+              Contact for ETA
+            </span>
+          )}
+
           {/* Bottom red line on hover */}
           <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-brand-red scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
         </div>
@@ -72,6 +89,11 @@ export function ProductCard({ product, priority = false }: Props) {
             )}
             <span className="text-white">{formatPrice(lowestPrice)}</span>
           </p>
+          {isSoldOut && (
+            <p className="mt-1 text-[11px] text-racing-red/90 leading-snug">
+              Not available for immediate purchase.
+            </p>
+          )}
         </div>
       </div>
     </Link>

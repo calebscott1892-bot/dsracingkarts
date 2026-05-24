@@ -61,7 +61,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
             i.variation_id === newItem.variation_id
               ? {
                   ...i,
-                  quantity: i.quantity + (newItem.quantity || 1),
+                  max_quantity: newItem.max_quantity,
+                  quantity: Math.min(
+                    i.quantity + (newItem.quantity || 1),
+                    newItem.max_quantity
+                  ),
                 }
               : i
           );
@@ -94,7 +98,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       setItems((prev) => {
         const updated = prev.map((i) =>
-          i.variation_id === variationId ? { ...i, quantity } : i
+          i.variation_id === variationId
+            ? { ...i, quantity: Math.min(quantity, i.max_quantity) }
+            : i
         );
         persist(updated);
         return updated;

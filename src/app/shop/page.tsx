@@ -259,8 +259,8 @@ export default async function ShopPage({ searchParams }: Props) {
       .from("products")
       .select(
         `
-        id, name, slug, sku, description_plain, base_price, primary_image_url,
-        product_variations ( price, sale_price, sku, name ),
+        id, name, slug, sku, description_plain, base_price, primary_image_url, is_stockable,
+        product_variations ( price, sale_price, sku, name, inventory ( quantity, stock_status ) ),
         product_categories ( category_id, categories ( name, slug ) )
       `,
         { count: "exact" }

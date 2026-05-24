@@ -15,7 +15,7 @@ import dotenv from "dotenv";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import XLSX from "xlsx";
+import readXlsxFile from "read-excel-file/node";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env.local") });
@@ -187,11 +187,27 @@ function parseMoney(value) {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
-function parseRows(workbookPath) {
-  const workbook = XLSX.readFile(resolve(workbookPath));
-  const sheetName = workbook.SheetNames[0];
-  const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+function cellValue(value) {
+  if (value == null) return "";
+  if (typeof value !== "object") return value;
+  if (value instanceof Date) return value.toISOString();
+  if ("result" in value) return cellValue(value.result);
+  if ("text" in value) return value.text;
+  if ("richText" in value && Array.isArray(value.richText)) {
+    return value.richText.map((part) => part.text || "").join("");
+  }
+  if ("hyperlink" in value && "text" in value) return value.text;
+  return String(value);
+}
+
+async function parseRows(workbookPath) {
+  const workbookRows = await readXlsxFile(resolve(workbookPath));
+  const firstSheet = Array.isArray(workbookRows[0])
+    ? { sheet: "first sheet", data: workbookRows }
+    : workbookRows[0];
+  const rows = (firstSheet?.data || []).map((row) =>
+    row.map(cellValue)
+  );
 
   const parsed = [];
   for (let index = 0; index < rows.length; index += 1) {
@@ -212,7 +228,7 @@ function parseRows(workbookPath) {
     });
   }
 
-  return { sheetName, rows: parsed };
+  return { sheetName: firstSheet?.sheet || "first sheet", rows: parsed };
 }
 
 function splitName(value) {
@@ -526,7 +542,7 @@ async function main() {
   );
   console.log();
 
-  const { sheetName, rows } = parseRows(resolvedFile);
+  const { sheetName, rows } = await parseRows(resolvedFile);
   console.log(`Parsed ${rows.length} valid retail row(s) from "${sheetName}".`);
 
   console.log("Loading existing Supabase products and SKUs...");
@@ -566,6 +582,8 @@ async function main() {
   const stats = {
     source_rows: rows.length,
     existing_sku_rows: 0,
+    existing_duplicate_sku_rows: 0,
+    existing_supplier_reference_rows: 0,
     manual_review_related_existing_sku: 0,
     planned_create_variations: 0,
     planned_create_products: 0,
@@ -582,6 +600,7 @@ async function main() {
   }
 
   const plannedGroups = new Map();
+  const existingSupplierCostMetas = [];
 
   for (const [groupKey, groupRows] of allRowsByGroup) {
     const hasExistingInGroup = groupRows.some((row) => row.existing_matches.length > 0);
@@ -599,12 +618,22 @@ async function main() {
         action = "manual_review_duplicate_sku_in_file";
         note = "SKU appears more than once in the source workbook.";
         stats.duplicate_skus_in_file += 1;
-      } else if (row.existing_matches.length > 0) {
+      } else if (row.existing_matches.length > 1) {
+        action = "manual_review_duplicate_existing_sku";
+        plannedProductName = "";
+        plannedVariationName = "";
+        note = "SKU matches multiple existing website variations; held for manual review.";
+        stats.existing_duplicate_sku_rows += 1;
+      } else if (row.existing_matches.length === 1) {
         action = "skip_existing_sku";
         plannedProductName = existingMatch?.product?.name || "";
         plannedVariationName = existingMatch?.variation?.name || "";
-        note = "SKU already exists in the website database.";
+        note = "SKU already exists in the website database; supplier RRP/vendor reference will be preserved on apply.";
         stats.existing_sku_rows += 1;
+        if (existingMatch?.product && existingMatch?.variation) {
+          existingSupplierCostMetas.push({ row, match: existingMatch });
+          stats.existing_supplier_reference_rows += 1;
+        }
       } else if (hasExistingInGroup) {
         action = "manual_review_related_existing_sku";
         note =
@@ -736,6 +765,8 @@ async function main() {
   console.log("Plan summary:");
   console.log(`  Source rows parsed:             ${stats.source_rows}`);
   console.log(`  Existing SKU rows skipped:      ${stats.existing_sku_rows}`);
+  console.log(`  Existing supplier refs to write:${stats.existing_supplier_reference_rows}`);
+  console.log(`  Existing duplicate SKUs held:   ${stats.existing_duplicate_sku_rows}`);
   console.log(
     `  Held for related-product review:${stats.manual_review_related_existing_sku}`
   );
@@ -757,6 +788,29 @@ async function main() {
     return;
   }
 
+  const supplierId = await ensureSupplier(VENDOR);
+  const sourceName = resolvedFile.split(/[\\/]/).pop() || "retail-list.xlsx";
+
+  if (existingSupplierCostMetas.length > 0) {
+    console.log();
+    console.log("Writing supplier retail references for existing SKU matches...");
+    await upsertSupplierCosts(
+      existingSupplierCostMetas.map(({ row, match }) => ({
+        product_id: match.product.id,
+        variation_id: match.variation.id,
+        supplier_id: supplierId,
+        supplier_sku: row.sku,
+        supplier_item_name: row.source_name,
+        wholesale_price: null,
+        retail_price: row.price,
+        currency: "AUD",
+        source: sourceName,
+        source_row_number: row.source_row,
+        updated_at: new Date().toISOString(),
+      }))
+    );
+  }
+
   if (plannedGroups.size === 0) {
     console.log();
     console.log("No new grouped products to import.");
@@ -767,9 +821,7 @@ async function main() {
   console.log("Importing planned products into Supabase...");
   console.log("Square is not touched by this script. Run push-stocklist-to-square.js afterwards.");
 
-  const supplierId = await ensureSupplier(VENDOR);
   const usedSlugs = new Set(products.map((product) => product.slug).filter(Boolean));
-  const sourceName = resolvedFile.split(/[\\/]/).pop() || "retail-list.xlsx";
 
   const groupEntries = Array.from(plannedGroups.entries()).map(([groupKey, groupRows]) => {
     const first = groupRows[0];
@@ -898,7 +950,7 @@ async function main() {
   console.log(`  Products inserted:   ${insertedProducts.length}`);
   console.log(`  Variations inserted: ${insertedVariations.length}`);
   console.log(`  Option rows:         ${optionRecords.length}`);
-  console.log(`  Supplier rows:       ${variationMetas.length}`);
+  console.log(`  Supplier rows:       ${variationMetas.length + existingSupplierCostMetas.length}`);
   console.log("Next step: run scripts/push-stocklist-to-square.js --dry-run, then live if clean.");
 }
 
