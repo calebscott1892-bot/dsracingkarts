@@ -1,5 +1,5 @@
 export const ZERO_STOCK_CONTACT_MESSAGE =
-  "Many items not currently in stock may be available within 25-48 hours. Please contact us to confirm ETA.";
+  "Many items not currently in stock may be available within 24-48 hours. Please contact us to confirm ETA.";
 
 type InventoryLike = {
   quantity?: number | string | null;
