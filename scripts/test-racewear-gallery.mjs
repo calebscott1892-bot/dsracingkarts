@@ -25,8 +25,11 @@ const {
   canDropRacewearEntry,
   extractRacewearDroppedFiles,
   getRacewearAutoScrollDelta,
+  getRacewearDropPlacement,
+  moveRacewearEntriesToGroup,
   resolveRacewearFeaturedFlag,
   reorderRacewearEntries,
+  renameRacewearGroup,
   resolveRacewearDragOverEntryId,
   resolveRacewearDraggedEntryId,
   shouldFeatureRacewearGroupByDefault,
@@ -138,6 +141,60 @@ assert.deepEqual(
     { id: "source-peer", sort_order: 21 },
   ],
   "cross-group insertion should shift later target photos over and keep remaining source photos ordered"
+);
+
+const bulkGroupMove = moveRacewearEntriesToGroup(
+  [
+    { id: "pm-design", group_label: "Unsorted", sort_order: 0, created_at: "2026-05-18T00:00:00.000Z" },
+    { id: "ncr-design", group_label: "NCR", sort_order: 1, created_at: "2026-05-18T01:00:00.000Z" },
+    { id: "pm-finished", group_label: "Mixed", sort_order: 2, created_at: "2026-05-18T02:00:00.000Z" },
+    { id: "pm-boots", group_label: "Polaris Marine", sort_order: 10, created_at: "2026-05-18T03:00:00.000Z" },
+  ],
+  ["pm-finished", "pm-design"],
+  "Polaris Marine"
+);
+assert.deepEqual(
+  buildRacewearGroups(bulkGroupMove.entries).map((group) => [group.label, group.entries.map((entry) => entry.id)]),
+  [
+    ["NCR", ["ncr-design"]],
+    ["Polaris Marine", ["pm-boots", "pm-design", "pm-finished"]],
+  ],
+  "bulk group moves should move selected photos into the requested category while preserving their display order"
+);
+assert.deepEqual(
+  bulkGroupMove.updates,
+  [
+    { id: "pm-boots", sort_order: 10 },
+    { id: "pm-design", sort_order: 11, group_label: "Polaris Marine" },
+    { id: "pm-finished", sort_order: 12, group_label: "Polaris Marine" },
+  ],
+  "bulk group moves should persist the target category and shifted order for the moved set"
+);
+
+const renamedGroup = renameRacewearGroup(
+  [
+    { id: "pm-design", group_label: "PM", sort_order: 0, created_at: "2026-05-18T00:00:00.000Z" },
+    { id: "pm-finished", group_label: "PM", sort_order: 1, created_at: "2026-05-18T01:00:00.000Z" },
+    { id: "ncr-design", group_label: "NCR", sort_order: 2, created_at: "2026-05-18T02:00:00.000Z" },
+  ],
+  "PM",
+  "PM (Polaris Marine)"
+);
+assert.deepEqual(
+  buildRacewearGroups(renamedGroup.entries).map((group) => [group.label, group.entries.map((entry) => entry.id)]),
+  [
+    ["PM (Polaris Marine)", ["pm-design", "pm-finished"]],
+    ["NCR", ["ncr-design"]],
+  ],
+  "renaming a group should update every photo in that category without splitting the set"
+);
+assert.deepEqual(
+  renamedGroup.updates,
+  [
+    { id: "pm-design", sort_order: 0, group_label: "PM (Polaris Marine)" },
+    { id: "pm-finished", sort_order: 1, group_label: "PM (Polaris Marine)" },
+  ],
+  "renaming a group should persist the new category label for each affected photo"
 );
 
 assert.equal(canDropRacewearEntry("b", "a"), true, "a dragged racewear entry can drop on another entry");
@@ -285,6 +342,34 @@ assert.equal(
   }),
   0,
   "dragging in the middle of the viewport should not auto-scroll"
+);
+
+assert.equal(
+  getRacewearDropPlacement({
+    clientX: 175,
+    clientY: 150,
+    rect: { left: 100, top: 100, width: 100, height: 150 },
+  }),
+  "after",
+  "desktop grid drops on the right half of a photo should insert after that photo"
+);
+assert.equal(
+  getRacewearDropPlacement({
+    clientX: 125,
+    clientY: 150,
+    rect: { left: 100, top: 100, width: 100, height: 150 },
+  }),
+  "before",
+  "desktop grid drops on the left half of a photo should insert before that photo"
+);
+assert.equal(
+  getRacewearDropPlacement({
+    clientX: 150,
+    clientY: 235,
+    rect: { left: 100, top: 100, width: 100, height: 150 },
+  }),
+  "after",
+  "drops near the bottom edge should still insert after when the vertical intent is clearer"
 );
 
 console.log("racewear gallery tests passed");

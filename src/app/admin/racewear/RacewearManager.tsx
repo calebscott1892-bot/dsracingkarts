@@ -7,13 +7,16 @@ import {
   ArrowDown,
   ArrowUp,
   Camera,
+  CheckSquare,
   Eye,
   EyeOff,
+  FolderInput,
   GripVertical,
   Loader2,
   Pencil,
   Plus,
   Save,
+  Square,
   Star,
   StarOff,
   Trash2,
@@ -25,7 +28,10 @@ import {
   compareRacewearEntries,
   extractRacewearDroppedFiles,
   getRacewearAutoScrollDelta,
+  getRacewearDropPlacement,
+  moveRacewearEntriesToGroup,
   reorderRacewearEntries,
+  renameRacewearGroup,
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
   type RacewearDropPlacement,
@@ -66,9 +72,18 @@ function sortEntries(entries: Entry[]) {
   return [...entries].sort(compareRacewearEntries);
 }
 
-function getDropPlacementFromClientY(element: HTMLElement, clientY: number): RacewearDropPlacement {
+function getDropPlacementFromPointer(element: HTMLElement, clientX: number, clientY: number): RacewearDropPlacement {
   const rect = element.getBoundingClientRect();
-  return clientY > rect.top + rect.height / 2 ? "after" : "before";
+  return getRacewearDropPlacement({
+    clientX,
+    clientY,
+    rect: {
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+    },
+  });
 }
 
 function findScrollContainer(element: HTMLElement | null) {
@@ -105,7 +120,14 @@ export function RacewearManager({ initialEntries }: Props) {
   const [editForm, setEditForm] = useState(emptyForm());
   const [errorMsg, setErrorMsg] = useState("");
   const [movingId, setMovingId] = useState<string | null>(null);
+  const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
+  const [bulkGroupLabel, setBulkGroupLabel] = useState("");
+  const [renamingGroupLabel, setRenamingGroupLabel] = useState<string | null>(null);
+  const [renameGroupValue, setRenameGroupValue] = useState("");
+  const [groupAction, setGroupAction] = useState<string | null>(null);
   const managerRef = useRef<HTMLDivElement>(null);
+  const addPanelRef = useRef<HTMLDivElement>(null);
+  const addGroupInputRef = useRef<HTMLInputElement>(null);
   const entriesRef = useRef(entries);
   const dragOverEntryRef = useRef<typeof dragOverEntry>(null);
   const pointerDragRef = useRef<{ id: string; pointerId: number } | null>(null);
@@ -125,6 +147,14 @@ export function RacewearManager({ initialEntries }: Props) {
 
   useEffect(() => {
     entriesRef.current = entries;
+  }, [entries]);
+
+  useEffect(() => {
+    const entryIds = new Set(entries.map((entry) => entry.id));
+    setSelectedEntryIds((current) => {
+      const next = current.filter((id) => entryIds.has(id));
+      return next.length === current.length ? current : next;
+    });
   }, [entries]);
 
   useEffect(() => {
@@ -166,21 +196,31 @@ export function RacewearManager({ initialEntries }: Props) {
     };
 
     const updatePointerDropTarget = (clientX: number, clientY: number) => {
-      const target = document
-        .elementFromPoint(clientX, clientY)
-        ?.closest<HTMLElement>("[data-racewear-entry-id]");
-      const targetId = target?.dataset.racewearEntryId;
       const activeId = pointerDragRef.current?.id || draggingEntryIdRef.current || draggingEntryId;
+      const element = document.elementFromPoint(clientX, clientY);
+      const target = element?.closest<HTMLElement>("[data-racewear-entry-id]");
+      const targetId = target?.dataset.racewearEntryId;
 
-      if (!target || !targetId || !canDropEntryOnTarget(activeId, targetId)) {
-        setEntryDragOver(null);
+      if (target && targetId && canDropEntryOnTarget(activeId, targetId)) {
+        setEntryDragOver({
+          id: targetId,
+          placement: getDropPlacementFromPointer(target, clientX, clientY),
+        });
         return;
       }
 
-      setEntryDragOver({
-        id: targetId,
-        placement: getDropPlacementFromClientY(target, clientY),
-      });
+      const groupTarget = element?.closest<HTMLElement>("[data-racewear-group-drop-label]");
+      const groupLabel = groupTarget?.dataset.racewearGroupDropLabel;
+      if (groupLabel && activeId) {
+        const group = buildRacewearGroups(entriesRef.current).find((item) => item.label === groupLabel);
+        const fallbackTarget = group?.entries.filter((entry) => entry.id !== activeId).at(-1);
+        if (fallbackTarget && canDropEntryOnTarget(activeId, fallbackTarget.id)) {
+          setEntryDragOver({ id: fallbackTarget.id, placement: "after" });
+          return;
+        }
+      }
+
+      setEntryDragOver(null);
     };
 
     const handleWindowDragOver = (event: globalThis.DragEvent) => {
@@ -286,6 +326,10 @@ export function RacewearManager({ initialEntries }: Props) {
     setForm(emptyForm(getNextSortOrder(entries)));
     setErrorMsg("");
     setShowAdd(true);
+    window.requestAnimationFrame(() => {
+      addPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      addGroupInputRef.current?.focus({ preventScroll: true });
+    });
   }
 
   function closePanel() {
@@ -439,6 +483,103 @@ export function RacewearManager({ initialEntries }: Props) {
     }
   }
 
+  async function persistGroupUpdates(
+    result: RacewearReorderResult<Entry>,
+    actionKey: string,
+    failureMessage: string
+  ) {
+    if (result.updates.length === 0) return true;
+
+    const previousEntries = entriesRef.current;
+    setGroupAction(actionKey);
+    entriesRef.current = result.entries;
+    setEntries(result.entries);
+
+    try {
+      const res = await fetch("/api/admin/racewear", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reorder", entries: result.updates }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || failureMessage);
+      }
+      return true;
+    } catch {
+      entriesRef.current = previousEntries;
+      setEntries(previousEntries);
+      alert(failureMessage);
+      return false;
+    } finally {
+      setGroupAction(null);
+    }
+  }
+
+  function toggleEntrySelection(id: string) {
+    setSelectedEntryIds((current) =>
+      current.includes(id) ? current.filter((entryId) => entryId !== id) : [...current, id]
+    );
+  }
+
+  function toggleGroupSelection(groupEntries: Entry[]) {
+    const groupIds = groupEntries.map((entry) => entry.id);
+    const groupIdSet = new Set(groupIds);
+    const allSelected = groupIds.every((id) => selectedEntryIds.includes(id));
+    setSelectedEntryIds((current) =>
+      allSelected
+        ? current.filter((id) => !groupIdSet.has(id))
+        : Array.from(new Set([...current, ...groupIds]))
+    );
+  }
+
+  async function handleMoveSelectedToGroup() {
+    const targetLabel = bulkGroupLabel.trim();
+    if (!targetLabel) {
+      setErrorMsg("Enter a group name before moving selected photos.");
+      return;
+    }
+    if (selectedEntryIds.length === 0) return;
+
+    setErrorMsg("");
+    const result = moveRacewearEntriesToGroup(entriesRef.current, selectedEntryIds, targetLabel);
+    const saved = await persistGroupUpdates(
+      result,
+      "bulk-move",
+      "Failed to move selected photos. Refresh and try again."
+    );
+    if (saved) {
+      setSelectedEntryIds([]);
+      setBulkGroupLabel("");
+    }
+  }
+
+  function startRenameGroup(label: string) {
+    setRenamingGroupLabel(label);
+    setRenameGroupValue(label);
+    setErrorMsg("");
+  }
+
+  async function handleRenameGroup(label: string) {
+    const nextLabel = renameGroupValue.trim();
+    if (!nextLabel) {
+      setErrorMsg("Group name is required.");
+      return;
+    }
+
+    setErrorMsg("");
+    const result = renameRacewearGroup(entriesRef.current, label, nextLabel);
+    const saved = await persistGroupUpdates(
+      result,
+      `rename:${label}`,
+      "Failed to rename group. Refresh and try again."
+    );
+    if (saved) {
+      setRenamingGroupLabel(null);
+      setRenameGroupValue("");
+    }
+  }
+
   async function moveWithinGroup(entry: Entry, direction: "up" | "down") {
     const group = buildRacewearGroups(entries).find((item) =>
       item.entries.some((peer) => peer.id === entry.id)
@@ -536,23 +677,89 @@ export function RacewearManager({ initialEntries }: Props) {
   const existingGroupLabels = Array.from(new Set(entries.map((entry) => entry.group_label.trim())))
     .filter(Boolean)
     .sort((a, b) => a.localeCompare(b));
+  const selectedEntryIdSet = new Set(selectedEntryIds);
 
   return (
     <div ref={managerRef}>
       <div className="flex items-center justify-between mb-8">
         <h1 className="font-heading text-3xl uppercase tracking-wider">Racewear Gallery</h1>
-        <button onClick={openAddPanel} className="btn-primary flex items-center gap-2 text-sm">
+        <button
+          type="button"
+          onClick={openAddPanel}
+          aria-controls="racewear-add-panel"
+          aria-expanded={showAdd}
+          className="btn-primary flex items-center gap-2 text-sm"
+        >
           <Plus size={16} /> Add Photos
         </button>
       </div>
 
       <p className="text-text-muted text-sm mb-8">
         Choose featured images for the main Services page. Drag photos onto another image to reorder them,
-        including across client groups, or use the arrow controls and order number for exact positioning.
+        use the checkboxes to move sets into a named group, or rename a whole group from its heading.
       </p>
 
+      {errorMsg && !showAdd && !editingEntryId && (
+        <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/40 px-3 py-2 mb-4">
+          {errorMsg}
+        </p>
+      )}
+
+      {entries.length > 0 && (
+        <div className="mb-6 border border-surface-600 bg-surface-800/40 p-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="font-heading text-sm uppercase tracking-[0.14em] text-white">
+                {selectedEntryIds.length} selected
+              </p>
+              <p className="text-xs text-text-muted">
+                Move selected photos into an existing group or type a new group name.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <div className="min-w-0 sm:w-72">
+                <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
+                  Target Group
+                </label>
+                <input
+                  list="racewear-group-suggestions"
+                  className="input-dark w-full text-sm"
+                  value={bulkGroupLabel}
+                  onChange={(event) => setBulkGroupLabel(event.target.value)}
+                  placeholder="e.g. PM (Polaris Marine)"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleMoveSelectedToGroup}
+                disabled={selectedEntryIds.length === 0 || !bulkGroupLabel.trim() || groupAction === "bulk-move"}
+                className="btn-primary flex items-center justify-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {groupAction === "bulk-move" ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <FolderInput size={14} />
+                )}
+                Move
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedEntryIds([]);
+                  setBulkGroupLabel("");
+                }}
+                disabled={selectedEntryIds.length === 0 && !bulkGroupLabel}
+                className="btn-secondary text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(showAdd || editingEntryId) && (
-        <div className="card p-6 mb-8 border-brand-red/30">
+        <div id="racewear-add-panel" ref={addPanelRef} className="card p-6 mb-8 border-brand-red/30">
           <div className="flex items-center justify-between mb-5">
             <h2 className="font-heading text-lg uppercase tracking-wider">
               {editingEntryId ? "Edit Photo" : "Add Photos"}
@@ -577,6 +784,7 @@ export function RacewearManager({ initialEntries }: Props) {
                 </label>
                 <input
                   required
+                  ref={!editingEntryId ? addGroupInputRef : undefined}
                   list="racewear-group-suggestions"
                   className="input-dark w-full"
                   value={editingEntryId ? editForm.group_label : form.group_label}
@@ -744,21 +952,105 @@ export function RacewearManager({ initialEntries }: Props) {
         </div>
       ) : (
         <div className="space-y-8">
-          {groups.map(({ label, entries: groupEntries }) => (
-            <div key={label}>
-              <h3 className="font-heading text-sm uppercase tracking-[0.15em] text-brand-red mb-3">
-                {label}
-              </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {groupEntries.map((entry, index) => (
-                  <div
-                    key={entry.id}
-                    data-racewear-entry-id={entry.id}
-                    data-racewear-group-label={entry.group_label}
-                    className={`card relative overflow-hidden transition-colors ${
-                      !entry.is_active ? "opacity-40" : ""
-                    } ${draggingEntryId === entry.id ? "ring-1 ring-brand-red" : ""}`}
-                  >
+          {groups.map(({ label, entries: groupEntries }) => {
+            const allGroupSelected = groupEntries.every((entry) => selectedEntryIdSet.has(entry.id));
+            const renameActionKey = `rename:${label}`;
+            return (
+              <div key={label} data-racewear-group-drop-label={label}>
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  {renamingGroupLabel === label ? (
+                    <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+                      <input
+                        className="input-dark min-w-0 flex-1 text-sm"
+                        value={renameGroupValue}
+                        onChange={(event) => setRenameGroupValue(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") void handleRenameGroup(label);
+                          if (event.key === "Escape") {
+                            setRenamingGroupLabel(null);
+                            setRenameGroupValue("");
+                          }
+                        }}
+                        autoFocus
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleRenameGroup(label)}
+                          disabled={!renameGroupValue.trim() || groupAction === renameActionKey}
+                          className="btn-primary flex items-center gap-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {groupAction === renameActionKey ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Save size={13} />
+                          )}
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRenamingGroupLabel(null);
+                            setRenameGroupValue("");
+                          }}
+                          className="btn-secondary text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <h3 className="font-heading text-sm uppercase tracking-[0.15em] text-brand-red">
+                      {label}
+                    </h3>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => toggleGroupSelection(groupEntries)}
+                      className="inline-flex items-center gap-1.5 border border-surface-600 bg-surface-800 px-3 py-2 text-xs text-text-secondary transition-colors hover:border-surface-500 hover:text-white"
+                    >
+                      {allGroupSelected ? <CheckSquare size={13} /> : <Square size={13} />}
+                      {allGroupSelected ? "Clear group" : "Select group"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => startRenameGroup(label)}
+                      disabled={Boolean(groupAction)}
+                      className="inline-flex items-center gap-1.5 border border-surface-600 bg-surface-800 px-3 py-2 text-xs text-text-secondary transition-colors hover:border-surface-500 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Pencil size={13} />
+                      Rename
+                    </button>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                  {groupEntries.map((entry, index) => (
+                    <div
+                      key={entry.id}
+                      data-racewear-entry-id={entry.id}
+                      data-racewear-group-label={entry.group_label}
+                      className={`card relative overflow-hidden transition-colors ${
+                        !entry.is_active ? "opacity-40" : ""
+                      } ${draggingEntryId === entry.id ? "ring-1 ring-brand-red" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        aria-pressed={selectedEntryIdSet.has(entry.id)}
+                        title={selectedEntryIdSet.has(entry.id) ? "Deselect photo" : "Select photo"}
+                        onPointerDown={(event) => event.stopPropagation()}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleEntrySelection(entry.id);
+                        }}
+                        className={`absolute left-2 top-2 z-30 flex h-8 w-8 items-center justify-center border transition-colors ${
+                          selectedEntryIdSet.has(entry.id)
+                            ? "border-brand-red bg-brand-red text-white"
+                            : "border-white/30 bg-black/70 text-white hover:border-brand-red hover:text-brand-red"
+                        }`}
+                      >
+                        {selectedEntryIdSet.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}
+                      </button>
                     {dragOverEntry?.id === entry.id && (
                       <div
                         className={`pointer-events-none absolute left-0 right-0 z-20 h-1 bg-brand-red ${
@@ -891,7 +1183,8 @@ export function RacewearManager({ initialEntries }: Props) {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

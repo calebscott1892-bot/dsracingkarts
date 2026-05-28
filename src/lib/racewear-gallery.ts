@@ -46,6 +46,17 @@ export interface RacewearAutoScrollInput {
   maxSpeed?: number;
 }
 
+export interface RacewearDropPlacementInput {
+  clientX: number;
+  clientY: number;
+  rect: {
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  };
+}
+
 export const RACEWEAR_PHOTOS_BUCKET = "racewear-photos";
 export const RACEWEAR_MAX_FILE_SIZE = 10 * 1024 * 1024;
 export const RACEWEAR_ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
@@ -190,6 +201,106 @@ export function reorderRacewearEntries<T extends RacewearGalleryEntry>(
   };
 }
 
+export function moveRacewearEntriesToGroup<T extends RacewearGalleryEntry>(
+  entries: T[],
+  entryIds: string[],
+  targetGroupLabel: string
+): RacewearReorderResult<T> {
+  const targetLabel = targetGroupLabel.trim();
+  if (!targetLabel) {
+    return { entries, groupEntries: [], updates: [] };
+  }
+
+  const selectedIds = new Set(entryIds.filter(Boolean));
+  const selectedEntries = entries
+    .filter((entry) => selectedIds.has(entry.id))
+    .sort(compareRacewearEntries);
+  if (selectedEntries.length === 0) {
+    return { entries, groupEntries: [], updates: [] };
+  }
+
+  const normalizedTargetLabel = normalizeGroupLabel(targetLabel);
+  const existingTargetPeers = entries
+    .filter(
+      (entry) =>
+        !selectedIds.has(entry.id) &&
+        normalizeGroupLabel(entry.group_label) === normalizedTargetLabel
+    )
+    .sort(compareRacewearEntries);
+  const movedEntries = selectedEntries.map((entry) => ({
+    ...entry,
+    group_label: targetLabel,
+  }));
+  const targetPeers = [...existingTargetPeers, ...movedEntries];
+  const targetSortBase = existingTargetPeers.length > 0 ? existingTargetPeers : selectedEntries;
+  const targetSortValues = normalSortValues(targetSortBase, targetPeers.length);
+  const targetUpdates: RacewearReorderResult<T>["updates"] = targetPeers.map((entry, index) => ({
+    id: entry.id,
+    sort_order: targetSortValues[index],
+    ...(selectedIds.has(entry.id) ? { group_label: targetLabel } : {}),
+  }));
+
+  const sourceLabels = Array.from(
+    new Set(
+      selectedEntries
+        .map((entry) => normalizeGroupLabel(entry.group_label))
+        .filter((label) => label !== normalizedTargetLabel)
+    )
+  );
+  const sourceUpdates: RacewearReorderResult<T>["updates"] = sourceLabels.flatMap((label) => {
+    const sourcePeers = entries
+      .filter(
+        (entry) =>
+          !selectedIds.has(entry.id) &&
+          normalizeGroupLabel(entry.group_label) === label
+      )
+      .sort(compareRacewearEntries);
+    const sourceSortValues = normalSortValues(sourcePeers);
+    return sourcePeers.map((entry, index) => ({
+      id: entry.id,
+      sort_order: sourceSortValues[index],
+    }));
+  });
+
+  const updates = [...targetUpdates, ...sourceUpdates];
+  const updatesById = new Map(updates.map((update) => [update.id, update]));
+  const nextEntries = entries
+    .map((entry) => {
+      const update = updatesById.get(entry.id);
+      return update === undefined
+        ? entry
+        : {
+            ...entry,
+            sort_order: update.sort_order,
+            ...(update.group_label !== undefined ? { group_label: update.group_label } : {}),
+          };
+    })
+    .sort(compareRacewearEntries);
+
+  return {
+    entries: nextEntries,
+    groupEntries: targetPeers.map((entry, index) => ({
+      ...entry,
+      sort_order: targetSortValues[index],
+      ...(selectedIds.has(entry.id) ? { group_label: targetLabel } : {}),
+    })),
+    updates,
+  };
+}
+
+export function renameRacewearGroup<T extends RacewearGalleryEntry>(
+  entries: T[],
+  currentGroupLabel: string,
+  nextGroupLabel: string
+): RacewearReorderResult<T> {
+  const normalizedCurrentLabel = normalizeGroupLabel(currentGroupLabel);
+  const affectedIds = entries
+    .filter((entry) => normalizeGroupLabel(entry.group_label) === normalizedCurrentLabel)
+    .map((entry) => entry.id);
+
+  return moveRacewearEntriesToGroup(entries, affectedIds, nextGroupLabel);
+}
+
 export function canDropRacewearEntry(draggedId: string | null | undefined, targetId: string) {
   return Boolean(draggedId && draggedId !== targetId);
 }
@@ -276,6 +387,25 @@ export function getRacewearAutoScrollDelta({
   }
 
   return 0;
+}
+
+export function getRacewearDropPlacement({
+  clientX,
+  clientY,
+  rect,
+}: RacewearDropPlacementInput): RacewearDropPlacement {
+  const width = Math.max(1, rect.width);
+  const height = Math.max(1, rect.height);
+  const horizontalMidpoint = rect.left + width / 2;
+  const verticalMidpoint = rect.top + height / 2;
+  const horizontalIntent = Math.abs(clientX - horizontalMidpoint) / width;
+  const verticalIntent = Math.abs(clientY - verticalMidpoint) / height;
+
+  if (horizontalIntent >= verticalIntent) {
+    return clientX > horizontalMidpoint ? "after" : "before";
+  }
+
+  return clientY > verticalMidpoint ? "after" : "before";
 }
 
 export function getRacewearUploadExtension(fileName: string) {
