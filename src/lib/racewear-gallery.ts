@@ -399,9 +399,8 @@ export function getRacewearDropPlacement({
   const horizontalMidpoint = rect.left + width / 2;
   const verticalMidpoint = rect.top + height / 2;
   const horizontalIntent = Math.abs(clientX - horizontalMidpoint) / width;
-  const verticalIntent = Math.abs(clientY - verticalMidpoint) / height;
 
-  if (horizontalIntent >= verticalIntent) {
+  if (horizontalIntent >= 0.08) {
     return clientX > horizontalMidpoint ? "after" : "before";
   }
 

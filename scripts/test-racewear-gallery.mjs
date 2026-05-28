@@ -371,5 +371,14 @@ assert.equal(
   "after",
   "drops near the bottom edge should still insert after when the vertical intent is clearer"
 );
+assert.equal(
+  getRacewearDropPlacement({
+    clientX: 175,
+    clientY: 105,
+    rect: { left: 100, top: 100, width: 100, height: 150 },
+  }),
+  "after",
+  "desktop grid drops on the right side should insert after even near the top edge"
+);
 
 console.log("racewear gallery tests passed");

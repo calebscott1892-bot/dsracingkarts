@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import {
   ArrowDown,
@@ -96,6 +96,20 @@ function findScrollContainer(element: HTMLElement | null) {
     current = current.parentElement;
   }
   return null;
+}
+
+function RacewearDropSlot({ placement }: { placement: RacewearDropPlacement }) {
+  return (
+    <div
+      data-racewear-drop-slot="true"
+      data-racewear-drop-placement={placement}
+      className="card relative aspect-[3/4] border-2 border-dashed border-brand-red bg-brand-red/10 shadow-[0_0_24px_rgba(230,0,18,0.22)]"
+    >
+      <div className="absolute inset-2 border border-brand-red/50 bg-brand-red/5" />
+      <div className="absolute inset-x-4 top-1/2 h-1 -translate-y-1/2 bg-brand-red shadow-[0_0_16px_rgba(230,0,18,0.8)]" />
+      <span className="sr-only">Drop photo here</span>
+    </div>
+  );
 }
 
 export function RacewearManager({ initialEntries }: Props) {
@@ -1025,29 +1039,40 @@ export function RacewearManager({ initialEntries }: Props) {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                  {groupEntries.map((entry, index) => (
-                    <div
-                      key={entry.id}
-                      data-racewear-entry-id={entry.id}
-                      data-racewear-group-label={entry.group_label}
-                      className={`card relative overflow-hidden transition-colors ${
-                        !entry.is_active ? "opacity-40" : ""
-                      } ${draggingEntryId === entry.id ? "ring-1 ring-brand-red" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        aria-pressed={selectedEntryIdSet.has(entry.id)}
-                        title={selectedEntryIdSet.has(entry.id) ? "Deselect photo" : "Select photo"}
-                        onPointerDown={(event) => event.stopPropagation()}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleEntrySelection(entry.id);
-                        }}
-                        className={`absolute left-2 top-2 z-30 flex h-8 w-8 items-center justify-center border transition-colors ${
-                          selectedEntryIdSet.has(entry.id)
-                            ? "border-brand-red bg-brand-red text-white"
-                            : "border-white/30 bg-black/70 text-white hover:border-brand-red hover:text-brand-red"
-                        }`}
+                  {groupEntries.map((entry, index) => {
+                    const showDropBefore =
+                      draggingEntryId !== entry.id &&
+                      dragOverEntry?.id === entry.id &&
+                      dragOverEntry.placement === "before";
+                    const showDropAfter =
+                      draggingEntryId !== entry.id &&
+                      dragOverEntry?.id === entry.id &&
+                      dragOverEntry.placement === "after";
+
+                    return (
+                      <Fragment key={entry.id}>
+                        {showDropBefore && <RacewearDropSlot placement="before" />}
+                        <div
+                          data-racewear-entry-id={entry.id}
+                          data-racewear-group-label={entry.group_label}
+                          className={`card relative overflow-hidden transition-colors ${
+                            !entry.is_active ? "opacity-40" : ""
+                          } ${draggingEntryId === entry.id ? "scale-[0.98] opacity-50 ring-1 ring-brand-red" : ""}`}
+                        >
+                          <button
+                            type="button"
+                            aria-pressed={selectedEntryIdSet.has(entry.id)}
+                            title={selectedEntryIdSet.has(entry.id) ? "Deselect photo" : "Select photo"}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleEntrySelection(entry.id);
+                            }}
+                            className={`absolute left-2 top-2 z-30 flex h-8 w-8 items-center justify-center border transition-colors ${
+                              selectedEntryIdSet.has(entry.id)
+                                ? "border-brand-red bg-brand-red text-white"
+                                : "border-white/30 bg-black/70 text-white hover:border-brand-red hover:text-brand-red"
+                            }`}
                       >
                         {selectedEntryIdSet.has(entry.id) ? <CheckSquare size={16} /> : <Square size={16} />}
                       </button>
@@ -1180,7 +1205,10 @@ export function RacewearManager({ initialEntries }: Props) {
                       </div>
                     </div>
                   </div>
-                ))}
+                        {showDropAfter && <RacewearDropSlot placement="after" />}
+                      </Fragment>
+                    );
+                  })}
               </div>
             </div>
             );
