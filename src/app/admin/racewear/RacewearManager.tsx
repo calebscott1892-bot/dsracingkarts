@@ -29,6 +29,7 @@ import {
   extractRacewearDroppedFiles,
   getRacewearAutoScrollDelta,
   getRacewearDropPlacement,
+  hasRacewearUploadDrag,
   moveRacewearEntriesToGroup,
   reorderRacewearEntries,
   renameRacewearGroup,
@@ -289,7 +290,7 @@ export function RacewearManager({ initialEntries }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function addPhotoFiles(fileList: FileList | File[]) {
+  const addPhotoFiles = useCallback((fileList: FileList | File[]) => {
     const files = Array.from(fileList);
     const validation = validateRacewearUploadFiles(files);
     if (!validation.ok) {
@@ -314,12 +315,52 @@ export function RacewearManager({ initialEntries }: Props) {
         previewUrl: URL.createObjectURL(file),
       })),
     ]);
-  }
+  }, []);
 
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     if (event.target.files) addPhotoFiles(event.target.files);
     event.target.value = "";
   }
+
+  useEffect(() => {
+    if (!showAdd || editingEntryId) return;
+
+    const handleWindowFileDrag = (event: globalThis.DragEvent) => {
+      if (!hasRacewearUploadDrag<File>(event.dataTransfer)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+      setIsDraggingUpload(true);
+    };
+
+    const handleWindowFileDrop = (event: globalThis.DragEvent) => {
+      if (!hasRacewearUploadDrag<File>(event.dataTransfer)) return;
+      event.preventDefault();
+      setIsDraggingUpload(false);
+
+      const files = event.dataTransfer ? extractRacewearDroppedFiles<File>(event.dataTransfer) : [];
+      if (files.length > 0) {
+        addPhotoFiles(files);
+        return;
+      }
+
+      setErrorMsg("Drop image files from your computer, or use Select photos.");
+    };
+
+    const handleWindowFileDragEnd = () => {
+      setIsDraggingUpload(false);
+    };
+
+    window.addEventListener("dragenter", handleWindowFileDrag);
+    window.addEventListener("dragover", handleWindowFileDrag);
+    window.addEventListener("drop", handleWindowFileDrop);
+    window.addEventListener("dragend", handleWindowFileDragEnd);
+    return () => {
+      window.removeEventListener("dragenter", handleWindowFileDrag);
+      window.removeEventListener("dragover", handleWindowFileDrag);
+      window.removeEventListener("drop", handleWindowFileDrop);
+      window.removeEventListener("dragend", handleWindowFileDragEnd);
+    };
+  }, [addPhotoFiles, editingEntryId, showAdd]);
 
   function handleUploadDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();

@@ -50,6 +50,7 @@ export interface RacewearDropItem<T extends RacewearUploadFileLike> {
 export interface RacewearDropDataTransfer<T extends RacewearUploadFileLike> {
   files?: ArrayLike<T>;
   items?: ArrayLike<RacewearDropItem<T>>;
+  types?: ArrayLike<string>;
 }
 
 export interface RacewearAutoScrollInput {
@@ -443,6 +444,27 @@ export function extractRacewearDroppedFiles<T extends RacewearUploadFileLike>(
     .filter((item) => !item.kind || item.kind === "file")
     .map((item) => item.getAsFile?.() ?? null)
     .filter(isRacewearUploadFileLike<T>);
+}
+
+export function hasRacewearFileDrag<T extends RacewearUploadFileLike>(
+  dataTransfer: RacewearDropDataTransfer<T> | null | undefined
+) {
+  if (!dataTransfer) return false;
+
+  if (Array.from(dataTransfer.files ?? []).some(isRacewearUploadFileLike<T>)) return true;
+  if (Array.from(dataTransfer.items ?? []).some((item) => !item.kind || item.kind === "file")) return true;
+
+  return Array.from(dataTransfer.types ?? []).some((type) => type.toLowerCase() === "files");
+}
+
+export function hasRacewearUploadDrag<T extends RacewearUploadFileLike>(
+  dataTransfer: RacewearDropDataTransfer<T> | null | undefined
+) {
+  if (hasRacewearFileDrag(dataTransfer)) return true;
+
+  return Array.from(dataTransfer?.types ?? []).some((type) =>
+    ["text/uri-list", "text/html"].includes(type.toLowerCase())
+  );
 }
 
 export function getRacewearAutoScrollDelta({

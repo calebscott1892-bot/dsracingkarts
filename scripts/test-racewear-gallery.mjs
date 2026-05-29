@@ -27,6 +27,8 @@ const {
   extractRacewearDroppedFiles,
   getRacewearAutoScrollDelta,
   getRacewearDropPlacement,
+  hasRacewearFileDrag,
+  hasRacewearUploadDrag,
   moveRacewearEntriesToGroup,
   parseRacewearReorderUpdates,
   resolveRacewearFeaturedFlag,
@@ -413,6 +415,35 @@ assert.deepEqual(
   droppedViaFiles.map((file) => file.name),
   ["front.jpg", "notes.txt"],
   "native file drops should use DataTransfer.files when the browser populates it"
+);
+assert.equal(
+  hasRacewearFileDrag({ files: [], items: [], types: ["Files"] }),
+  true,
+  "upload drop handling should detect protected browser file drags before files are readable"
+);
+assert.equal(
+  hasRacewearFileDrag({
+    files: [],
+    items: [{ kind: "file", getAsFile: () => null }],
+    types: [],
+  }),
+  true,
+  "upload drop handling should detect file drags from DataTransfer.items"
+);
+assert.equal(
+  hasRacewearFileDrag({ files: [], items: [], types: ["text/uri-list"] }),
+  false,
+  "upload drop handling should not treat plain URL drags as uploadable files"
+);
+assert.equal(
+  hasRacewearUploadDrag({ files: [], items: [], types: ["text/uri-list"] }),
+  true,
+  "upload drop handling should still block browser navigation when a dragged local image exposes a URL instead of a File"
+);
+assert.equal(
+  hasRacewearUploadDrag({ files: [], items: [], types: ["text/plain"] }),
+  false,
+  "upload drop handling should leave ordinary text drags alone"
 );
 
 const droppedViaItems = extractRacewearDroppedFiles({
