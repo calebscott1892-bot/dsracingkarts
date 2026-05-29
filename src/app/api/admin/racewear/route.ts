@@ -259,17 +259,21 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    const ids = parsed.updates.map((update) => update.id);
     const { data: existingRows, error: existingError } = await admin
       .from("racewear_gallery")
-      .select("id, group_label, image_url")
-      .in("id", ids);
+      .select("id, group_label, image_url, sort_order, created_at");
 
     if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
 
     const batchRows = buildRacewearReorderBatchRows(
       parsed.updates,
-      (existingRows ?? []) as Array<{ id: string; group_label: string; image_url: string }>
+      (existingRows ?? []) as Array<{
+        id: string;
+        group_label: string;
+        image_url: string;
+        sort_order: number;
+        created_at: string;
+      }>
     );
     if (!batchRows.ok) return NextResponse.json({ error: batchRows.error }, { status: 404 });
 

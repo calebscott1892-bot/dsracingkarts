@@ -66,8 +66,20 @@ const batchRows = buildRacewearReorderBatchRows(
     { id: "photo-2", sort_order: 13 },
   ],
   [
-    { id: "photo-1", group_label: "Old PM", image_url: "/racewear/photo-1.jpg" },
-    { id: "photo-2", group_label: "NCR", image_url: "/racewear/photo-2.jpg" },
+    {
+      id: "photo-1",
+      group_label: "Old PM",
+      image_url: "/racewear/photo-1.jpg",
+      sort_order: 10,
+      created_at: "2026-05-18T00:00:00.000Z",
+    },
+    {
+      id: "photo-2",
+      group_label: "NCR",
+      image_url: "/racewear/photo-2.jpg",
+      sort_order: 11,
+      created_at: "2026-05-18T01:00:00.000Z",
+    },
   ]
 );
 assert.deepEqual(
@@ -77,19 +89,76 @@ assert.deepEqual(
     rows: [
       {
         id: "photo-1",
-        sort_order: 12,
+        sort_order: 0,
         group_label: "PM (Polaris Marine)",
         image_url: "/racewear/photo-1.jpg",
       },
-      { id: "photo-2", sort_order: 13, group_label: "NCR", image_url: "/racewear/photo-2.jpg" },
+      { id: "photo-2", sort_order: 1, group_label: "NCR", image_url: "/racewear/photo-2.jpg" },
     ],
   },
-  "batch reorder rows should include required database fields so one upsert can save the whole move"
+  "batch reorder rows should include required database fields and normalized display order"
 );
 assert.deepEqual(
   buildRacewearReorderBatchRows([{ id: "missing", sort_order: 1 }], []),
   { ok: false, error: "Racewear photo missing was not found." },
   "batch reorder rows should reject unknown ids instead of attempting partial saves"
+);
+
+const normalizedBatchRows = buildRacewearReorderBatchRows(
+  [
+    { id: "cathleen-2", sort_order: 92 },
+    { id: "cathleen-1", sort_order: 93 },
+  ],
+  [
+    {
+      id: "cathleen-1",
+      group_label: "Cathleen Thompson",
+      image_url: "/racewear/cathleen-1.jpg",
+      sort_order: 92,
+      created_at: "2026-05-18T01:00:00.000Z",
+    },
+    {
+      id: "gallery-1",
+      group_label: "Racewear Gallery",
+      image_url: "/racewear/gallery-1.jpg",
+      sort_order: 92,
+      created_at: "2026-05-18T00:00:00.000Z",
+    },
+    {
+      id: "cathleen-2",
+      group_label: "Cathleen Thompson",
+      image_url: "/racewear/cathleen-2.jpg",
+      sort_order: 93,
+      created_at: "2026-05-18T02:00:00.000Z",
+    },
+  ]
+);
+assert.deepEqual(
+  normalizedBatchRows,
+  {
+    ok: true,
+    rows: [
+      {
+        id: "gallery-1",
+        sort_order: 0,
+        group_label: "Racewear Gallery",
+        image_url: "/racewear/gallery-1.jpg",
+      },
+      {
+        id: "cathleen-2",
+        sort_order: 1,
+        group_label: "Cathleen Thompson",
+        image_url: "/racewear/cathleen-2.jpg",
+      },
+      {
+        id: "cathleen-1",
+        sort_order: 2,
+        group_label: "Cathleen Thompson",
+        image_url: "/racewear/cathleen-1.jpg",
+      },
+    ],
+  },
+  "reorder saves should normalize the full gallery so old overlapping sort values cannot keep groups interleaved"
 );
 
 const entries = [

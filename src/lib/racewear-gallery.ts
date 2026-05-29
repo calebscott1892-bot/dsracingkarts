@@ -28,6 +28,8 @@ export interface RacewearExistingGroupLabel {
   id: string;
   group_label: string;
   image_url: string;
+  sort_order: number;
+  created_at: string;
 }
 
 export interface RacewearUploadFileLike {
@@ -145,24 +147,36 @@ export function buildRacewearReorderBatchRows(
   existingRows: RacewearExistingGroupLabel[]
 ) {
   const existingById = new Map(existingRows.map((row) => [row.id, row]));
-  const rows: Array<{ id: string; sort_order: number; group_label: string; image_url: string }> = [];
+  const updatesById = new Map(updates.map((update) => [update.id, update]));
 
   for (const update of updates) {
     const existingRow = existingById.get(update.id);
     if (!existingRow?.image_url) {
       return { ok: false as const, error: `Racewear photo ${update.id} was not found.` };
     }
+  }
 
-    const groupLabel = (update.group_label ?? existingRow.group_label ?? "").trim();
+  const mergedEntries: RacewearExistingGroupLabel[] = [];
+  for (const row of existingRows) {
+    const update = updatesById.get(row.id);
+    const groupLabel = (update?.group_label ?? row.group_label ?? "").trim();
     if (!groupLabel) return { ok: false as const, error: "group_label must not be empty" };
 
-    rows.push({
-      id: update.id,
-      sort_order: update.sort_order,
+    mergedEntries.push({
+      ...row,
+      sort_order: update?.sort_order ?? row.sort_order,
       group_label: groupLabel.slice(0, 200),
-      image_url: existingRow.image_url,
     });
   }
+
+  const rows = buildRacewearGroups(mergedEntries)
+    .flatMap((group) => group.entries)
+    .map((entry, index) => ({
+      id: entry.id,
+      sort_order: index,
+      group_label: entry.group_label,
+      image_url: entry.image_url,
+    }));
 
   return { ok: true as const, rows };
 }
