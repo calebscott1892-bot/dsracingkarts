@@ -1,6 +1,6 @@
 import type { SendEmailPayload } from "./email";
 
-export const DEFAULT_TRANSACTIONAL_EMAIL_FROM = "DS Racing Karts <onboarding@resend.dev>";
+export const DEFAULT_TRANSACTIONAL_EMAIL_FROM = "DS Racing Karts <noreply@dsracingkarts.com.au>";
 const DEFAULT_CONTACT_EMAIL_TO = "dsracing@bigpond.com";
 
 type EmailEnv = Record<string, string | undefined>;
