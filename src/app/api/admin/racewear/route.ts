@@ -6,6 +6,8 @@ import {
   RACEWEAR_ALLOWED_MIME_TYPES,
   RACEWEAR_MAX_FILE_SIZE,
   RACEWEAR_PHOTOS_BUCKET,
+  buildRacewearReorderBatchRows,
+  parseRacewearReorderUpdates,
   resolveRacewearFeaturedFlag,
   shouldFeatureRacewearGroupByDefault,
   validateRacewearUploadFile,
@@ -246,32 +248,36 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (body.action === "reorder") {
-    const updates = Array.isArray(body.entries) ? body.entries : [];
-    if (updates.length === 0) {
-      return NextResponse.json({ error: "entries are required" }, { status: 400 });
+    const parsed = parseRacewearReorderUpdates(body.entries);
+    if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
+
+    let admin: ReturnType<typeof getAdminStorageClient>;
+    try {
+      admin = getAdminStorageClient();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Admin client unavailable";
+      return NextResponse.json({ error: message }, { status: 500 });
     }
 
-    const supabase = createServiceClient();
-    for (const update of updates as Array<{ id?: unknown; sort_order?: unknown; group_label?: unknown }>) {
-      if (!update?.id) return NextResponse.json({ error: "entry id is required" }, { status: 400 });
-      const sortOrder = Number(update.sort_order);
-      if (!Number.isFinite(sortOrder)) {
-        return NextResponse.json({ error: "sort_order must be a number" }, { status: 400 });
-      }
+    const ids = parsed.updates.map((update) => update.id);
+    const { data: existingRows, error: existingError } = await admin
+      .from("racewear_gallery")
+      .select("id, group_label, image_url")
+      .in("id", ids);
 
-      const values: Record<string, unknown> = { sort_order: sortOrder };
-      if (update.group_label !== undefined) {
-        const groupLabel = String(update.group_label).trim();
-        if (!groupLabel) return NextResponse.json({ error: "group_label must not be empty" }, { status: 400 });
-        values.group_label = groupLabel.slice(0, 200);
-      }
+    if (existingError) return NextResponse.json({ error: existingError.message }, { status: 500 });
 
-      const { error } = await supabase
-        .from("racewear_gallery")
-        .update(values)
-        .eq("id", String(update.id));
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    const batchRows = buildRacewearReorderBatchRows(
+      parsed.updates,
+      (existingRows ?? []) as Array<{ id: string; group_label: string; image_url: string }>
+    );
+    if (!batchRows.ok) return NextResponse.json({ error: batchRows.error }, { status: 404 });
+
+    const { error } = await admin
+      .from("racewear_gallery")
+      .upsert(batchRows.rows, { onConflict: "id" });
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
     revalidateRacewearViews();
     return NextResponse.json({ success: true });

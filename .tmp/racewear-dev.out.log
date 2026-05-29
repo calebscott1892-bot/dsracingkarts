@@ -1,0 +1,19 @@
+
+> dsracingkarts@0.1.0 dev
+> next dev --hostname 127.0.0.1 --port 3017
+
+▲ Next.js 16.2.6 (Turbopack)
+- Local:         http://127.0.0.1:3017
+- Network:       http://127.0.0.1:3017
+- Environments: .env.local
+✓ Ready in 329ms
+Creating turbopack project { dir: 'C:\\Users\\belac\\Downloads\\dsracingkarts', testMode: true }
+- Experiments (use with caution):
+  · clientTraceMetadata
+
+ GET /contact 200 in 909ms (next.js: 153ms, proxy.ts: 106ms, application-code: 650ms)
+ GET /racewear-admin-harness 200 in 755ms (next.js: 21ms, proxy.ts: 5ms, application-code: 729ms)
+ GET /racewear-admin-harness 200 in 338ms (next.js: 3ms, proxy.ts: 4ms, application-code: 330ms)
+ GET /racewear-admin-harness 200 in 351ms (next.js: 4ms, proxy.ts: 4ms, application-code: 343ms)
+ GET /racewear-admin-harness 200 in 298ms (next.js: 4ms, proxy.ts: 5ms, application-code: 289ms)
+ GET /racewear-admin-harness 200 in 295ms (next.js: 4ms, proxy.ts: 4ms, application-code: 286ms)

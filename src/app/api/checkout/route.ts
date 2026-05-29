@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSquareClient, SQUARE_LOCATION_ID } from "@/lib/square";
 import { createServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_TRANSACTIONAL_EMAIL_FROM } from "@/lib/contact-email";
 import { sendEmail } from "@/lib/email";
 import {
   buildSquareOrderLineItems,
@@ -42,7 +43,7 @@ const RATE_MAX = 10;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_CART_LINE_QTY = 20;
 const ADMIN_ORDER_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || "dsracing@bigpond.com";
-const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || "DS Racing Karts <noreply@dsracingkarts.com.au>";
+const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || DEFAULT_TRANSACTIONAL_EMAIL_FROM;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")

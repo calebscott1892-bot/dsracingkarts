@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-type SendEmailPayload = Parameters<Resend["emails"]["send"]>[0];
+export type SendEmailPayload = Parameters<Resend["emails"]["send"]>[0];
 type ResendSendResult = Awaited<ReturnType<Resend["emails"]["send"]>>;
 
 function formatResendError(error: NonNullable<ResendSendResult["error"]>) {

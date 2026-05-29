@@ -13,10 +13,22 @@ export interface RacewearGalleryGroup<T extends RacewearGalleryEntry> {
 export interface RacewearReorderResult<T extends RacewearGalleryEntry> {
   entries: T[];
   groupEntries: T[];
-  updates: Array<{ id: string; sort_order: number; group_label?: string }>;
+  updates: RacewearReorderUpdate[];
 }
 
 export type RacewearDropPlacement = "before" | "after";
+
+export interface RacewearReorderUpdate {
+  id: string;
+  sort_order: number;
+  group_label?: string;
+}
+
+export interface RacewearExistingGroupLabel {
+  id: string;
+  group_label: string;
+  image_url: string;
+}
 
 export interface RacewearUploadFileLike {
   name: string;
@@ -89,6 +101,70 @@ function isRacewearUploadFileLike<T extends RacewearUploadFileLike>(value: unkno
     typeof (value as RacewearUploadFileLike).name === "string" &&
     typeof (value as RacewearUploadFileLike).size === "number"
   );
+}
+
+export function parseRacewearReorderUpdates(value: unknown) {
+  const entries = Array.isArray(value) ? value : [];
+  if (entries.length === 0) {
+    return { ok: false as const, error: "entries are required" };
+  }
+
+  const updates: RacewearReorderUpdate[] = [];
+  const seenIds = new Set<string>();
+
+  for (const entry of entries as Array<{ id?: unknown; sort_order?: unknown; group_label?: unknown }>) {
+    const id = String(entry?.id ?? "").trim();
+    if (!id) return { ok: false as const, error: "entry id is required" };
+    if (seenIds.has(id)) return { ok: false as const, error: "entry ids must be unique" };
+
+    const sortOrder = Number(entry.sort_order);
+    if (!Number.isFinite(sortOrder)) {
+      return { ok: false as const, error: "sort_order must be a number" };
+    }
+
+    const update: RacewearReorderUpdate = {
+      id,
+      sort_order: sortOrder,
+    };
+
+    if (entry.group_label !== undefined) {
+      const groupLabel = String(entry.group_label).trim();
+      if (!groupLabel) return { ok: false as const, error: "group_label must not be empty" };
+      update.group_label = groupLabel.slice(0, 200);
+    }
+
+    seenIds.add(id);
+    updates.push(update);
+  }
+
+  return { ok: true as const, updates };
+}
+
+export function buildRacewearReorderBatchRows(
+  updates: RacewearReorderUpdate[],
+  existingRows: RacewearExistingGroupLabel[]
+) {
+  const existingById = new Map(existingRows.map((row) => [row.id, row]));
+  const rows: Array<{ id: string; sort_order: number; group_label: string; image_url: string }> = [];
+
+  for (const update of updates) {
+    const existingRow = existingById.get(update.id);
+    if (!existingRow?.image_url) {
+      return { ok: false as const, error: `Racewear photo ${update.id} was not found.` };
+    }
+
+    const groupLabel = (update.group_label ?? existingRow.group_label ?? "").trim();
+    if (!groupLabel) return { ok: false as const, error: "group_label must not be empty" };
+
+    rows.push({
+      id: update.id,
+      sort_order: update.sort_order,
+      group_label: groupLabel.slice(0, 200),
+      image_url: existingRow.image_url,
+    });
+  }
+
+  return { ok: true as const, rows };
 }
 
 export function compareRacewearEntries<T extends RacewearGalleryEntry>(a: T, b: T) {

@@ -21,12 +21,14 @@ async function importTs(relativePath) {
 
 const {
   RACEWEAR_ENTRY_DRAG_MIME,
+  buildRacewearReorderBatchRows,
   buildRacewearGroups,
   canDropRacewearEntry,
   extractRacewearDroppedFiles,
   getRacewearAutoScrollDelta,
   getRacewearDropPlacement,
   moveRacewearEntriesToGroup,
+  parseRacewearReorderUpdates,
   resolveRacewearFeaturedFlag,
   reorderRacewearEntries,
   renameRacewearGroup,
@@ -36,6 +38,59 @@ const {
   validateRacewearUploadFile,
   validateRacewearUploadFiles,
 } = await importTs("../src/lib/racewear-gallery.ts");
+
+const parsedReorder = parseRacewearReorderUpdates([
+  { id: " photo-1 ", sort_order: "12", group_label: " PM (Polaris Marine) " },
+  { id: "photo-2", sort_order: 13 },
+]);
+assert.deepEqual(
+  parsedReorder,
+  {
+    ok: true,
+    updates: [
+      { id: "photo-1", sort_order: 12, group_label: "PM (Polaris Marine)" },
+      { id: "photo-2", sort_order: 13 },
+    ],
+  },
+  "racewear reorder payloads should be normalised before database writes"
+);
+assert.deepEqual(
+  parseRacewearReorderUpdates([{ id: "photo-1", sort_order: 1 }, { id: "photo-1", sort_order: 2 }]),
+  { ok: false, error: "entry ids must be unique" },
+  "racewear reorder payloads should reject duplicate photo ids"
+);
+
+const batchRows = buildRacewearReorderBatchRows(
+  [
+    { id: "photo-1", sort_order: 12, group_label: "PM (Polaris Marine)" },
+    { id: "photo-2", sort_order: 13 },
+  ],
+  [
+    { id: "photo-1", group_label: "Old PM", image_url: "/racewear/photo-1.jpg" },
+    { id: "photo-2", group_label: "NCR", image_url: "/racewear/photo-2.jpg" },
+  ]
+);
+assert.deepEqual(
+  batchRows,
+  {
+    ok: true,
+    rows: [
+      {
+        id: "photo-1",
+        sort_order: 12,
+        group_label: "PM (Polaris Marine)",
+        image_url: "/racewear/photo-1.jpg",
+      },
+      { id: "photo-2", sort_order: 13, group_label: "NCR", image_url: "/racewear/photo-2.jpg" },
+    ],
+  },
+  "batch reorder rows should include required database fields so one upsert can save the whole move"
+);
+assert.deepEqual(
+  buildRacewearReorderBatchRows([{ id: "missing", sort_order: 1 }], []),
+  { ok: false, error: "Racewear photo missing was not found." },
+  "batch reorder rows should reject unknown ids instead of attempting partial saves"
+);
 
 const entries = [
   { id: "b", group_label: "CM Racing", sort_order: 2, created_at: "2026-05-18T02:00:00.000Z" },

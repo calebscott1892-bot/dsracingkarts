@@ -488,10 +488,11 @@ export function RacewearManager({ initialEntries }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Reorder failed");
       }
-    } catch {
+    } catch (err) {
       entriesRef.current = previousEntries;
       setEntries(previousEntries);
-      alert("Failed to reorder photos. Refresh and try again.");
+      const message = err instanceof Error ? err.message : "Refresh and try again.";
+      alert(`Failed to reorder photos. ${message}`);
     } finally {
       setMovingId(null);
     }
@@ -520,10 +521,11 @@ export function RacewearManager({ initialEntries }: Props) {
         throw new Error(data.error || failureMessage);
       }
       return true;
-    } catch {
+    } catch (err) {
       entriesRef.current = previousEntries;
       setEntries(previousEntries);
-      alert(failureMessage);
+      const message = err instanceof Error ? err.message : failureMessage;
+      alert(message);
       return false;
     } finally {
       setGroupAction(null);
@@ -727,13 +729,13 @@ export function RacewearManager({ initialEntries }: Props) {
                 {selectedEntryIds.length} selected
               </p>
               <p className="text-xs text-text-muted">
-                Move selected photos into an existing group or type a new group name.
+                Select photos, type a line name, then move them together.
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
               <div className="min-w-0 sm:w-72">
                 <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
-                  Target Group
+                  Group / New Line
                 </label>
                 <input
                   list="racewear-group-suggestions"
@@ -754,7 +756,7 @@ export function RacewearManager({ initialEntries }: Props) {
                 ) : (
                   <FolderInput size={14} />
                 )}
-                Move
+                Move to Line
               </button>
               <button
                 type="button"

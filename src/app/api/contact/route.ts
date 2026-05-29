@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { buildContactEmailPayload } from "@/lib/contact-email";
 import { sendEmail } from "@/lib/email";
 
 // Simple in-memory rate limiter (per IP, 3 submissions per 15 minutes)
@@ -13,15 +14,6 @@ function isRateLimited(ip: string): boolean {
   timestamps.push(now);
   rateMap.set(ip, timestamps);
   return false;
-}
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export async function POST(req: NextRequest) {
@@ -57,42 +49,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const safeName = escapeHtml(name);
-    const safeEmail = escapeHtml(email);
-    const safeSubject = escapeHtml(subject);
-    const safeMessage = escapeHtml(message);
-
-    await sendEmail({
-      from: "DS Racing Karts <noreply@dsracingkarts.com.au>",
-      to: "dsracing@bigpond.com",
-      replyTo: email,
-      subject: `[${safeSubject}] Contact from ${safeName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px;">
-          <h2 style="color: #e11d48;">New Contact Form Submission</h2>
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px 12px; font-weight: bold; border-bottom: 1px solid #eee;">Name</td>
-              <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${safeName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; font-weight: bold; border-bottom: 1px solid #eee;">Email</td>
-              <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${safeEmail}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; font-weight: bold; border-bottom: 1px solid #eee;">Subject</td>
-              <td style="padding: 8px 12px; border-bottom: 1px solid #eee;">${safeSubject}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px 12px; font-weight: bold; vertical-align: top;">Message</td>
-              <td style="padding: 8px 12px; white-space: pre-wrap;">${safeMessage}</td>
-            </tr>
-          </table>
-          <hr style="margin-top: 24px; border: none; border-top: 1px solid #eee;" />
-          <p style="font-size: 12px; color: #888;">Sent from the DS Racing Karts website contact form.</p>
-        </div>
-      `,
-    });
+    await sendEmail(buildContactEmailPayload({ name, email, subject, message }));
 
     return NextResponse.json({ success: true });
   } catch (error) {
