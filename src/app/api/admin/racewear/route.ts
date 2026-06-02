@@ -6,7 +6,9 @@ import {
   RACEWEAR_ALLOWED_MIME_TYPES,
   RACEWEAR_MAX_FILE_SIZE,
   RACEWEAR_PHOTOS_BUCKET,
+  buildRacewearUploadPath,
   buildRacewearReorderBatchRows,
+  isRacewearUploadPath,
   parseRacewearReorderUpdates,
   resolveRacewearFeaturedFlag,
   shouldFeatureRacewearGroupByDefault,
@@ -75,10 +77,40 @@ function parseSortOrder(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseJsonSortOrder(value: unknown) {
+  const parsed = Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function revalidateRacewearViews() {
   revalidatePath("/services");
   revalidatePath("/services/racewear-gallery");
   revalidatePath("/admin/racewear");
+}
+
+function getErrorMessage(err: unknown, fallback: string) {
+  return err instanceof Error && err.message ? err.message : fallback;
+}
+
+function getRacewearUploadPaths(value: unknown) {
+  return Array.from(
+    new Set(
+      (Array.isArray(value) ? value : [])
+        .map((item) =>
+          typeof item === "string" ? item.trim() : String((item as { path?: unknown })?.path ?? "").trim()
+        )
+        .filter((path) => isRacewearUploadPath(path))
+    )
+  );
+}
+
+async function removeRacewearUploadPaths(
+  admin: ReturnType<typeof getAdminStorageClient>,
+  paths: string[]
+) {
+  const safePaths = getRacewearUploadPaths(paths);
+  if (safePaths.length === 0) return;
+  await admin.storage.from(RACEWEAR_PHOTOS_BUCKET).remove(safePaths).catch(() => {});
 }
 
 export async function GET() {
@@ -203,6 +235,142 @@ export async function POST(request: NextRequest) {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (body.action === "create-upload-urls") {
+    const photos = Array.isArray(body.photos) ? body.photos : [];
+    if (photos.length === 0) {
+      return NextResponse.json({ error: "Please select at least one photo." }, { status: 400 });
+    }
+
+    let admin: ReturnType<typeof getAdminStorageClient>;
+    try {
+      admin = getAdminStorageClient();
+      await ensureRacewearBucket(admin);
+    } catch (err) {
+      return NextResponse.json({ error: getErrorMessage(err, "Storage bucket unavailable") }, { status: 500 });
+    }
+
+    const uploads = [];
+    for (const [index, photo] of photos.entries()) {
+      const name = String(photo?.name ?? `photo-${index}.jpg`);
+      const size = Number(photo?.size ?? 0);
+      const type = typeof photo?.type === "string" ? photo.type : "";
+      const validation = validateRacewearUploadFile({ name, size, type });
+
+      if (!validation.ok) {
+        return NextResponse.json({ error: `${name}: ${validation.error}` }, { status: 400 });
+      }
+
+      const path = buildRacewearUploadPath({
+        index,
+        extension: validation.extension,
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+      });
+      const { data: signedUpload, error } = await admin.storage
+        .from(RACEWEAR_PHOTOS_BUCKET)
+        .createSignedUploadUrl(path);
+
+      if (error || !signedUpload?.token) {
+        return NextResponse.json(
+          { error: `Couldn't prepare ${name} for upload.` },
+          { status: 500 }
+        );
+      }
+
+      const {
+        data: { publicUrl },
+      } = admin.storage.from(RACEWEAR_PHOTOS_BUCKET).getPublicUrl(path);
+
+      uploads.push({
+        name,
+        path,
+        token: signedUpload.token,
+        publicUrl,
+        contentType: validation.contentType,
+      });
+    }
+
+    return NextResponse.json({ uploads });
+  }
+
+  if (body.action === "complete-uploads") {
+    const groupLabel = String(body.group_label ?? "").trim();
+    if (!groupLabel) {
+      return NextResponse.json({ error: "group_label is required" }, { status: 400 });
+    }
+
+    const paths = getRacewearUploadPaths(body.photos);
+    if (paths.length === 0) {
+      return NextResponse.json({ error: "Please select at least one photo." }, { status: 400 });
+    }
+
+    let admin: ReturnType<typeof getAdminStorageClient>;
+    try {
+      admin = getAdminStorageClient();
+    } catch (err) {
+      return NextResponse.json({ error: getErrorMessage(err, "Admin client unavailable") }, { status: 500 });
+    }
+
+    for (const path of paths) {
+      const { data: exists, error } = await admin.storage.from(RACEWEAR_PHOTOS_BUCKET).exists(path);
+      if (error || !exists) {
+        await removeRacewearUploadPaths(admin, paths);
+        return NextResponse.json(
+          { error: "One or more photos did not finish uploading. Please try again." },
+          { status: 400 }
+        );
+      }
+    }
+
+    const baseSortOrder = parseJsonSortOrder(body.sort_order);
+    const altText = String(body.alt_text ?? "").trim().slice(0, 300);
+    const isFeatured = resolveRacewearFeaturedFlag(
+      body.is_featured,
+      shouldFeatureRacewearGroupByDefault(groupLabel)
+    );
+    const rows = paths.map((path, index) => {
+      const {
+        data: { publicUrl },
+      } = admin.storage.from(RACEWEAR_PHOTOS_BUCKET).getPublicUrl(path);
+
+      return {
+        group_label: groupLabel.slice(0, 200),
+        image_url: publicUrl,
+        alt_text: altText,
+        sort_order: baseSortOrder + index,
+        is_featured: isFeatured,
+        is_active: true,
+      };
+    });
+
+    const { data, error } = await admin
+      .from("racewear_gallery")
+      .insert(rows)
+      .select("*")
+      .order("sort_order")
+      .order("created_at");
+
+    if (error) {
+      await removeRacewearUploadPaths(admin, paths);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    revalidateRacewearViews();
+    return NextResponse.json({ entry: data?.[0] ?? null, entries: data ?? [] }, { status: 201 });
+  }
+
+  if (body.action === "cleanup-uploads") {
+    let admin: ReturnType<typeof getAdminStorageClient>;
+    try {
+      admin = getAdminStorageClient();
+    } catch (err) {
+      return NextResponse.json({ error: getErrorMessage(err, "Admin client unavailable") }, { status: 500 });
+    }
+
+    await removeRacewearUploadPaths(admin, getRacewearUploadPaths(body.paths));
+    return NextResponse.json({ success: true });
   }
 
   const { group_label, image_url, alt_text, sort_order, is_featured } = body;

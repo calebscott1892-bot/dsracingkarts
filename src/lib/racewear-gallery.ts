@@ -78,6 +78,7 @@ export const RACEWEAR_ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/we
 export const RACEWEAR_ENTRY_DRAG_MIME = "application/x-dsr-racewear-entry";
 export const RACEWEAR_DEFAULT_IS_FEATURED = true;
 export const RACEWEAR_GENERIC_GROUP_LABEL = "racewear gallery";
+export const RACEWEAR_UPLOAD_FOLDER = "gallery";
 
 const MIME_BY_EXTENSION: Record<string, (typeof RACEWEAR_ALLOWED_MIME_TYPES)[number]> = {
   jpg: "image/jpeg",
@@ -523,6 +524,29 @@ export function getRacewearUploadExtension(fileName: string) {
   const ext = fileName.split(".").pop()?.toLowerCase() ?? "";
   if (ext === "jpeg") return "jpg";
   return MIME_BY_EXTENSION[ext] ? ext : "";
+}
+
+export function buildRacewearUploadPath({
+  index,
+  extension,
+  id,
+  timestamp,
+}: {
+  index: number;
+  extension: string;
+  id: string;
+  timestamp: number;
+}) {
+  const safeIndex = Number.isFinite(index) && index >= 0 ? Math.floor(index) : 0;
+  const safeExtension = getRacewearUploadExtension(`file.${extension}`) || "jpg";
+  const safeId = id.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 80) || "upload";
+  const safeTimestamp = Number.isFinite(timestamp) && timestamp > 0 ? Math.floor(timestamp) : Date.now();
+  return `${RACEWEAR_UPLOAD_FOLDER}/${safeTimestamp}-${safeIndex}-${safeId}.${safeExtension}`;
+}
+
+export function isRacewearUploadPath(path: string) {
+  const normalized = path.trim();
+  return /^gallery\/\d+-\d+-[a-zA-Z0-9-]+\.(jpg|png|webp)$/.test(normalized);
 }
 
 export function getRacewearUploadContentType(file: RacewearUploadFileLike) {

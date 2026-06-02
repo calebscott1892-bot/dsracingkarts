@@ -21,6 +21,7 @@ async function importTs(relativePath) {
 
 const {
   RACEWEAR_ENTRY_DRAG_MIME,
+  buildRacewearUploadPath,
   buildRacewearReorderBatchRows,
   buildRacewearGroups,
   canDropRacewearEntry,
@@ -29,6 +30,7 @@ const {
   getRacewearDropPlacement,
   hasRacewearFileDrag,
   hasRacewearUploadDrag,
+  isRacewearUploadPath,
   moveRacewearEntriesToGroup,
   parseRacewearReorderUpdates,
   resolveRacewearFeaturedFlag,
@@ -379,6 +381,32 @@ assert.deepEqual(validateRacewearUploadFiles([]), {
   ok: false,
   error: "Please select at least one photo.",
 });
+
+assert.equal(
+  buildRacewearUploadPath({
+    index: 2,
+    extension: "jpeg",
+    id: "abc-123_unsafe!",
+    timestamp: 1770000000000,
+  }),
+  "gallery/1770000000000-2-abc-123unsafe.jpg",
+  "direct racewear uploads should generate safe storage paths under the gallery folder"
+);
+assert.equal(
+  isRacewearUploadPath("gallery/1770000000000-2-abc-123unsafe.jpg"),
+  true,
+  "direct racewear upload cleanup should accept generated gallery paths"
+);
+assert.equal(
+  isRacewearUploadPath("../other-bucket/file.jpg"),
+  false,
+  "direct racewear upload cleanup should reject paths outside the gallery folder"
+);
+assert.equal(
+  isRacewearUploadPath("gallery/freeform.gif"),
+  false,
+  "direct racewear upload cleanup should reject ungenerated or unsupported paths"
+);
 
 assert.equal(
   resolveRacewearFeaturedFlag(undefined),

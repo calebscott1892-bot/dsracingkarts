@@ -3,6 +3,7 @@
 import type { ChangeEvent, DragEvent, FormEvent, PointerEvent as ReactPointerEvent } from "react";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import { createClient as createBrowserSupabaseClient } from "@/lib/supabase/client";
 import {
   ArrowDown,
   ArrowUp,
@@ -23,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  RACEWEAR_PHOTOS_BUCKET,
   buildRacewearGroups,
   canDropRacewearEntry,
   compareRacewearEntries,
@@ -53,6 +55,14 @@ interface PendingPhoto {
   previewUrl: string;
 }
 
+interface RacewearUploadTarget {
+  name: string;
+  path: string;
+  token: string;
+  publicUrl: string;
+  contentType: string;
+}
+
 const emptyForm = (sortOrder = 0) => ({
   group_label: "",
   alt_text: "",
@@ -71,6 +81,27 @@ function getNextSortOrder(entries: Entry[]) {
 
 function sortEntries(entries: Entry[]) {
   return [...entries].sort(compareRacewearEntries);
+}
+
+async function readRacewearResponse(res: Response, fallbackMessage: string) {
+  const contentType = res.headers.get("content-type") ?? "";
+  let data: any = {};
+
+  if (contentType.toLowerCase().includes("application/json")) {
+    data = await res.json().catch(() => ({}));
+  } else {
+    const text = await res.text().catch(() => "");
+    if (text.trim()) data = { error: text.trim().slice(0, 300) };
+  }
+
+  if (!res.ok) {
+    if (res.status === 413) {
+      throw new Error("Those photos are too large to upload through the site. Try smaller or compressed image files.");
+    }
+    throw new Error(typeof data.error === "string" && data.error.trim() ? data.error : fallbackMessage);
+  }
+
+  return data;
 }
 
 function getDropPlacementFromPointer(element: HTMLElement, clientX: number, clientY: number): RacewearDropPlacement {
@@ -406,22 +437,66 @@ export function RacewearManager({ initialEntries }: Props) {
 
     setSaving(true);
     setErrorMsg("");
+    const uploadedPaths: string[] = [];
     try {
-      const body = new FormData();
-      body.append("group_label", form.group_label.trim());
-      body.append("alt_text", form.alt_text.trim());
-      body.append("sort_order", String(form.sort_order));
-      body.append("is_featured", String(form.is_featured));
-      for (const photo of pendingPhotos) {
-        body.append("photos", photo.file);
+      const prepareRes = await fetch("/api/admin/racewear", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create-upload-urls",
+          photos: pendingPhotos.map((photo) => ({
+            name: photo.file.name,
+            size: photo.file.size,
+            type: photo.file.type,
+          })),
+        }),
+      });
+      const prepareData = await readRacewearResponse(
+        prepareRes,
+        "Couldn't prepare photos for upload."
+      );
+      const uploadTargets = Array.isArray(prepareData.uploads)
+        ? (prepareData.uploads as RacewearUploadTarget[])
+        : [];
+
+      if (uploadTargets.length !== pendingPhotos.length) {
+        throw new Error("Couldn't prepare every photo for upload. Please try again.");
       }
 
-      const res = await fetch("/api/admin/racewear", {
+      const supabase = createBrowserSupabaseClient();
+      for (const [index, photo] of pendingPhotos.entries()) {
+        const target = uploadTargets[index];
+        if (!target?.path || !target.token) {
+          throw new Error(`Couldn't prepare ${photo.file.name} for upload.`);
+        }
+
+        const { error } = await supabase.storage
+          .from(RACEWEAR_PHOTOS_BUCKET)
+          .uploadToSignedUrl(target.path, target.token, photo.file, {
+            contentType: target.contentType || photo.file.type,
+            upsert: false,
+          });
+
+        if (error) {
+          throw new Error(`Upload failed for ${photo.file.name}: ${error.message}`);
+        }
+
+        uploadedPaths.push(target.path);
+      }
+
+      const completeRes = await fetch("/api/admin/racewear", {
         method: "POST",
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "complete-uploads",
+          group_label: form.group_label.trim(),
+          alt_text: form.alt_text.trim(),
+          sort_order: form.sort_order,
+          is_featured: form.is_featured,
+          photos: uploadTargets.map((target) => ({ path: target.path })),
+        }),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || "Save failed");
+      const data = await readRacewearResponse(completeRes, "Failed to save uploaded photos.");
 
       const savedEntries = Array.isArray(data.entries)
         ? data.entries
@@ -434,6 +509,13 @@ export function RacewearManager({ initialEntries }: Props) {
       setForm(emptyForm(getNextSortOrder([...entries, ...savedEntries])));
       clearPendingPhotos();
     } catch (err) {
+      if (uploadedPaths.length > 0) {
+        await fetch("/api/admin/racewear", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "cleanup-uploads", paths: uploadedPaths }),
+        }).catch(() => {});
+      }
       setErrorMsg(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
