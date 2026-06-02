@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
 gsap.registerPlugin(ScrollTrigger);
 
-const STATS = [
-  { value: 3500, suffix: "+", label: "Parts Available" },
+const DEFAULT_PARTS_AVAILABLE = 3500;
+
+const BASE_STATS = [
   { value: 40, suffix: "", label: "Years in Karting" },
   { value: 1000, suffix: "+", label: "Karts Serviced" },
   { value: 48, suffix: "", label: "Tracks Raced On Nationally" },
@@ -231,10 +232,25 @@ function describeArc(cx: number, cy: number, r: number, startAngle: number, endA
   return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
 }
 
-export function Speedometer() {
+interface SpeedometerProps {
+  partsAvailableCount?: number;
+}
+
+export function Speedometer({ partsAvailableCount = DEFAULT_PARTS_AVAILABLE }: SpeedometerProps) {
   const sectionRef = useRef<HTMLDivElement>(null);
+  const stats = useMemo(
+    () => [
+      {
+        value: Math.max(partsAvailableCount, DEFAULT_PARTS_AVAILABLE),
+        suffix: "+",
+        label: "Parts Available",
+      },
+      ...BASE_STATS,
+    ],
+    [partsAvailableCount]
+  );
   const [rpm, setRpm] = useState(0);
-  const [counters, setCounters] = useState(STATS.map(() => 0));
+  const [counters, setCounters] = useState(stats.map(() => 0));
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -268,7 +284,7 @@ export function Speedometer() {
       });
 
       // Stat counters
-      STATS.forEach((stat, i) => {
+      stats.forEach((stat, i) => {
         const obj = { val: 0 };
         gsap.to(obj, {
           val: stat.value,
@@ -290,7 +306,7 @@ export function Speedometer() {
     }, section);
 
     return () => ctx.revert();
-  }, []);
+  }, [stats]);
 
   return (
     <section ref={sectionRef} className="relative py-24 md:py-32 bg-racing-dark carbon-fiber overflow-hidden">
@@ -316,7 +332,7 @@ export function Speedometer() {
 
         {/* Stats */}
         <div className="max-w-4xl mx-auto pt-10 md:pt-14 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-7 lg:gap-9">
-          {STATS.map((stat, i) => (
+          {stats.map((stat, i) => (
             <div
               key={stat.label}
               className={`stat-${i} text-center p-6 md:p-7 min-h-[170px] md:min-h-[190px] bg-racing-black/50 border border-surface-600/30 flex flex-col items-center justify-center`}

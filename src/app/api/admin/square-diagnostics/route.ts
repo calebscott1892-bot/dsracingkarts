@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { diagnoseCatalogSyncFailures } from "@/lib/square-sync";
+import { toErrorMessage } from "@/lib/error-message";
 
 export const maxDuration = 300;
 
@@ -34,7 +35,7 @@ export async function POST() {
   } catch (err: any) {
     return NextResponse.json(
       {
-        error: err?.message || "Diagnostics failed",
+        error: toErrorMessage(err, "Diagnostics failed"),
         durationMs: Date.now() - startedAt,
       },
       { status: 500 }

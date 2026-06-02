@@ -11,6 +11,10 @@ import { ReviewsCarousel } from "@/components/sections/ReviewsCarousel";
 import { HomeFaqAccordion } from "@/components/sections/HomeFaqAccordion";
 import { ChevronRight, Shield, Wrench, Truck } from "lucide-react";
 
+const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
+const PARTS_AVAILABLE_FALLBACK = 3500;
+const PARTS_AVAILABLE_ROUNDING = 500;
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -73,6 +77,14 @@ const HOME_FAQS = [
   },
 ];
 
+function getPartsAvailableCount(productCount: number | null) {
+  if (!productCount || productCount < PARTS_AVAILABLE_FALLBACK) {
+    return PARTS_AVAILABLE_FALLBACK;
+  }
+
+  return Math.floor(productCount / PARTS_AVAILABLE_ROUNDING) * PARTS_AVAILABLE_ROUNDING;
+}
+
 export default async function HomePage() {
   const supabase = await createClient();
 
@@ -90,8 +102,17 @@ export default async function HomePage() {
     .order("sort_order")
     .order("created_at");
 
+  const { count: productCount } = await supabase
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active")
+    .eq("visibility", "visible")
+    .eq("is_sellable", true)
+    .neq("slug", GIFT_CARD_SLUG);
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
   const featuredCategories = (categories || []).slice(0, 7);
+  const partsAvailableCount = getPartsAvailableCount(productCount);
 
   return (
     <>
@@ -195,7 +216,7 @@ export default async function HomePage() {
 
       <div className="chequered-stripe" />
 
-      <Speedometer />
+      <Speedometer partsAvailableCount={partsAvailableCount} />
 
       <ReviewsCarousel reviews={reviews ?? []} />
 

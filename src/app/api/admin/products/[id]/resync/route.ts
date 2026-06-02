@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { syncCatalogItem } from "@/lib/square-sync";
+import { toErrorMessage } from "@/lib/error-message";
 
 /**
  * Manual single-product resync from Square. Backs the "Resync from Square"
@@ -50,11 +51,19 @@ export async function POST(
     );
   }
 
-  const result = await syncCatalogItem(product.square_token);
+  let result: Awaited<ReturnType<typeof syncCatalogItem>>;
+  try {
+    result = await syncCatalogItem(product.square_token);
+  } catch (error) {
+    return NextResponse.json(
+      { error: toErrorMessage(error, "Resync failed") },
+      { status: 500 }
+    );
+  }
 
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.reason || "Resync failed" },
+      { error: toErrorMessage(result.reason, "Resync failed") },
       { status: 500 }
     );
   }

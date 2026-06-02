@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { reconcileCatalogChunk, reconcileCatalogForAdminResync } from "@/lib/square-sync";
+import { toErrorMessage } from "@/lib/error-message";
 
 export const maxDuration = 300; // up to 5 minutes for a full catalog walk
 
@@ -133,7 +134,7 @@ export async function POST(request: NextRequest) {
     console.error("[square-resync] failed:", err);
     return NextResponse.json(
       {
-        error: err?.message || "Reconciliation failed",
+        error: toErrorMessage(err, "Reconciliation failed"),
         durationMs: Date.now() - startedAt,
       },
       { status: 500 }

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
+import { toErrorMessage } from "@/lib/error-message";
 
 /**
  * Diagnostic endpoint backing the Sync Health card on the admin dashboard.
@@ -71,7 +72,7 @@ export async function GET() {
         .join(" | ");
       square = {
         ok: false,
-        error: detail || err?.message || "Square API error",
+        error: detail || toErrorMessage(err, "Square API error"),
       };
     }
   } else {

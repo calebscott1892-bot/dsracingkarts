@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw, CheckCircle, AlertCircle } from "lucide-react";
+import { toErrorMessage } from "@/lib/error-message";
 
 interface Props {
   productId: string;
@@ -31,10 +32,10 @@ export function ResyncProductButton({ productId, hasSquareToken }: Props) {
         setMsg({ kind: "ok", text: "Resynced from Square" });
         router.refresh();
       } else {
-        setMsg({ kind: "err", text: data.error || "Resync failed" });
+        setMsg({ kind: "err", text: toErrorMessage(data?.error, "Resync failed") });
       }
-    } catch {
-      setMsg({ kind: "err", text: "Network error" });
+    } catch (error) {
+      setMsg({ kind: "err", text: toErrorMessage(error, "Network error") });
     }
     setLoading(false);
     setTimeout(() => setMsg(null), 4000);

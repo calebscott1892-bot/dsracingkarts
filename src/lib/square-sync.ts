@@ -11,6 +11,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getSquareClient } from "@/lib/square";
 import { isRealProductImageUrl } from "@/lib/product-images";
 import { isSquareNotFoundError } from "@/lib/square-errors";
+import { toErrorMessage } from "@/lib/error-message";
 import { createHash } from "crypto";
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -368,7 +369,7 @@ async function syncProductImages(
         const { result } = await square.catalogApi.retrieveCatalogObject(id, false);
         url = result.object?.type === "IMAGE" ? result.object.imageData?.url : null;
       } catch (err: any) {
-        console.error(`[square-sync] image retrieve failed for ${id}:`, err?.message || err);
+        console.error(`[square-sync] image retrieve failed for ${id}:`, toErrorMessage(err, "image retrieve failed"));
       }
     }
     if (url) resolved.push({ url, squareId: id, sortOrder: i });
@@ -422,8 +423,8 @@ export async function syncCatalogItem(
         await archiveCatalogItem(itemId);
         return { ok: true, reason: "archived_missing_from_square" };
       }
-      console.error(`[square-sync] retrieveCatalogObject failed for ${itemId}:`, err?.message || err);
-      return { ok: false, reason: err?.message || "retrieve failed" };
+      console.error(`[square-sync] retrieveCatalogObject failed for ${itemId}:`, toErrorMessage(err, "retrieve failed"));
+      return { ok: false, reason: toErrorMessage(err, "retrieve failed") };
     }
   }
 
@@ -512,8 +513,8 @@ export async function syncCatalogItem(
     .single();
 
   if (productError || !product) {
-    console.error(`[square-sync] product upsert failed for "${name}":`, productError?.message);
-    return { ok: false, reason: productError?.message || "upsert failed" };
+    console.error(`[square-sync] product upsert failed for "${name}":`, toErrorMessage(productError, "upsert failed"));
+    return { ok: false, reason: toErrorMessage(productError, "upsert failed") };
   }
 
   const productId = product.id;
@@ -540,7 +541,7 @@ export async function syncCatalogItem(
       .single();
 
     if (varError || !upsertedVar) {
-      console.error(`[square-sync] variation upsert failed:`, varError?.message);
+      console.error(`[square-sync] variation upsert failed:`, toErrorMessage(varError, "variation upsert failed"));
       continue;
     }
 
@@ -690,7 +691,7 @@ export async function pushItemCategoryToSquare(
     );
     item = result.object;
   } catch (err: any) {
-    return { ok: false, reason: `Square retrieve failed: ${err?.message || err}` };
+    return { ok: false, reason: `Square retrieve failed: ${toErrorMessage(err, "retrieve failed")}` };
   }
 
   if (!item || item.type !== "ITEM" || !item.itemData) {
@@ -726,10 +727,7 @@ export async function pushItemCategoryToSquare(
       object: updatedObject,
     });
   } catch (err: any) {
-    const detail =
-      err?.errors?.map?.((e: any) => `${e.code}: ${e.detail}`).join("; ") ||
-      err?.message ||
-      String(err);
+    const detail = toErrorMessage(err, "upsert failed");
     return { ok: false, reason: `Square upsert failed: ${detail}` };
   }
 
@@ -776,7 +774,7 @@ export async function reconcileFullCatalog(): Promise<{
         scanned++;
         if (obj.type !== "CATEGORY") continue;
         const dbId = await upsertCategoryFromSquare(obj.id).catch((err) => {
-          failures.push({ id: obj.id, reason: err?.message || "category sync exception" });
+          failures.push({ id: obj.id, reason: toErrorMessage(err, "category sync exception") });
           return null;
         });
         if (dbId) {
@@ -801,7 +799,7 @@ export async function reconcileFullCatalog(): Promise<{
         scanned++;
         const res = await syncCatalogItem(item.id).catch((err) => ({
           ok: false as const,
-          reason: err?.message || "exception",
+          reason: toErrorMessage(err, "exception"),
         }));
         if (res.ok) {
           synced++;
@@ -859,7 +857,7 @@ export async function reconcileCatalogForAdminResync(): Promise<{
     for (const obj of Array.from(categoryObjects.values())) {
       scanned++;
       const dbId = await upsertCategoryObjectFromSquare(obj, categoryObjects, categoryIdMap).catch((err) => {
-        failures.push({ id: obj.id, reason: err?.message || "category sync exception" });
+        failures.push({ id: obj.id, reason: toErrorMessage(err, "category sync exception") });
         return null;
       });
       if (dbId) {
@@ -893,7 +891,7 @@ export async function reconcileCatalogForAdminResync(): Promise<{
           retrieveMissingImages: false,
         }).catch((err) => ({
           ok: false as const,
-          reason: err?.message || "exception",
+          reason: toErrorMessage(err, "exception"),
         }));
         if (res.ok) {
           synced++;
@@ -979,7 +977,7 @@ export async function reconcileCatalogChunk({
     for (const obj of Array.from(categoryObjects.values())) {
       scanned++;
       const dbId = await upsertCategoryObjectFromSquare(obj, categoryObjects, categoryIdMap).catch((err) => {
-        failures.push({ id: obj.id, reason: err?.message || "category sync exception" });
+        failures.push({ id: obj.id, reason: toErrorMessage(err, "category sync exception") });
         return null;
       });
       if (dbId) {
@@ -1034,7 +1032,7 @@ export async function reconcileCatalogChunk({
       `item sync timed out after ${CHUNK_ITEM_TIMEOUT_MS / 1000}s`
     ).catch((err) => ({
       ok: false as const,
-      reason: err?.message || "exception",
+      reason: toErrorMessage(err, "exception"),
     }));
     if (res.ok) {
       synced++;
@@ -1110,7 +1108,7 @@ export async function diagnoseCatalogSyncFailures({
         `item sync timed out after ${CHUNK_ITEM_TIMEOUT_MS / 1000}s`
       ).catch((err) => ({
         ok: false as const,
-        reason: err?.message || "exception",
+        reason: toErrorMessage(err, "exception"),
       }));
 
       if (!res.ok) {

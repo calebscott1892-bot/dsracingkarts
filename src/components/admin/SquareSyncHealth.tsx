@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { RefreshCw, CheckCircle2, AlertTriangle, Activity } from "lucide-react";
+import { toErrorMessage } from "@/lib/error-message";
 
 type Status = {
   env: {
@@ -28,7 +29,7 @@ type Status = {
 };
 
 type SyncPhase = "categories" | "items" | "archive";
-type SyncFailure = { id: string; reason: string };
+type SyncFailure = { id: unknown; reason: unknown };
 type SyncTotals = {
   scanned: number;
   synced: number;
@@ -70,14 +71,14 @@ export function SquareSyncHealth() {
         : null;
 
       if (!res.ok) {
-        throw new Error(data?.error || `Square status request failed (${res.status})`);
+        throw new Error(toErrorMessage(data?.error, `Square status request failed (${res.status})`));
       }
       if (!data) {
         throw new Error("Square status response was empty");
       }
       setStatus(data);
     } catch (error) {
-      setStatusError(error instanceof Error ? error.message : "Could not load Square status");
+      setStatusError(toErrorMessage(error, "Could not load Square status"));
     }
     setLoading(false);
   }, []);
@@ -129,7 +130,7 @@ export function SquareSyncHealth() {
           : { error: (await res.text()).slice(0, 180) || `Server returned ${res.status}` };
 
         if (!res.ok) {
-          setResyncResult(data.error || "Resync failed");
+          setResyncResult(toErrorMessage(data?.error, "Resync failed"));
           return;
         }
 
@@ -138,7 +139,7 @@ export function SquareSyncHealth() {
           synced: totals.synced + (data.synced || 0),
           failed: totals.failed + (data.failed || 0),
           categoriesSynced: totals.categoriesSynced + (data.categoriesSynced || 0),
-          failures: [...totals.failures, ...(data.failures || [])].slice(0, 20),
+          failures: [...totals.failures, ...normalizeFailures(data.failures)].slice(0, 20),
         };
 
         setResyncResult(
@@ -175,7 +176,7 @@ export function SquareSyncHealth() {
             "Earlier batches already saved. Click Resync Now again to keep going."
         );
       } else {
-        setResyncResult(err?.message || "Network error during resync");
+        setResyncResult(toErrorMessage(err, "Network error during resync"));
       }
     } finally {
       setResyncing(false);
@@ -189,16 +190,16 @@ export function SquareSyncHealth() {
       const res = await fetch("/api/admin/square-diagnostics", { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        setResyncResult(data.error || "Diagnostics failed");
+        setResyncResult(toErrorMessage(data?.error, "Diagnostics failed"));
         return;
       }
-      const failures = (data.failures || []) as SyncFailure[];
+      const failures = normalizeFailures(data.failures);
       setResyncResult(
         `Diagnostics scanned ${data.scanned} items and found ${data.failed} failures.` +
           formatFailures(failures)
       );
     } catch (err: any) {
-      setResyncResult(err?.message || "Diagnostics failed");
+      setResyncResult(toErrorMessage(err, "Diagnostics failed"));
     } finally {
       setDiagnosing(false);
     }
@@ -335,10 +336,31 @@ export function SquareSyncHealth() {
   );
 }
 
-function formatFailures(failures: SyncFailure[]) {
-  if (!failures.length) return "";
-  return `\nFailed items:\n${failures
-    .map((failure) => `- ${failure.reason} (${failure.id})`)
+function normalizeFailures(value: unknown): SyncFailure[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((failure) => {
+    if (failure && typeof failure === "object") {
+      const entry = failure as Partial<SyncFailure>;
+      return {
+        id: entry.id,
+        reason: entry.reason,
+      };
+    }
+    return { id: null, reason: failure };
+  });
+}
+
+function formatFailures(failures: unknown) {
+  const normalizedFailures = normalizeFailures(failures);
+  if (!normalizedFailures.length) return "";
+  return `\nFailed items:\n${normalizedFailures
+    .map(
+      (failure) =>
+        `- ${toErrorMessage(failure.reason, "unknown failure")} (${toErrorMessage(
+          failure.id,
+          "unknown id"
+        )})`
+    )
     .join("\n")}`;
 }
 
