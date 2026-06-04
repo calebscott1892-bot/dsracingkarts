@@ -23,6 +23,56 @@ function toSydneyLocal(utcIso: string): string {
   return `${g("year")}-${g("month")}-${g("day")}T${h}:${g("minute")}`;
 }
 
+function padDatePart(value: string | number) {
+  return String(value).padStart(2, "0");
+}
+
+function normalizeDateTimeLocalInput(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed)) return trimmed;
+
+  const compact = trimmed.replace(",", " ").replace(/\s+/g, " ");
+  const isoLike = compact.match(
+    /^(\d{4})-(\d{1,2})-(\d{1,2})[ T](\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i
+  );
+  const auLike = compact.match(
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i
+  );
+  const match = isoLike ?? auLike;
+  if (!match) return null;
+
+  const [, first, second, third, rawHour, minute, meridiem] = match;
+  const year = isoLike ? first : third;
+  const month = second;
+  const day = isoLike ? third : first;
+  let hour = Number(rawHour);
+  const monthNumber = Number(month);
+  const dayNumber = Number(day);
+  const minuteNumber = Number(minute);
+
+  if (meridiem) {
+    const isPm = meridiem.toLowerCase() === "pm";
+    if (hour === 12) hour = isPm ? 12 : 0;
+    else if (isPm) hour += 12;
+  }
+
+  if (
+    monthNumber < 1 ||
+    monthNumber > 12 ||
+    dayNumber < 1 ||
+    dayNumber > 31 ||
+    hour < 0 ||
+    hour > 23 ||
+    minuteNumber < 0 ||
+    minuteNumber > 59
+  ) {
+    return null;
+  }
+
+  return `${year}-${padDatePart(monthNumber)}-${padDatePart(dayNumber)}T${padDatePart(hour)}:${padDatePart(minuteNumber)}`;
+}
+
 // Convert a datetime-local string (entered as Sydney time) to a UTC ISO string.
 function sydneyLocalToUTC(local: string): string {
   if (!local) return "";
@@ -89,6 +139,17 @@ export function AnnouncementForm({ announcement, isNew = false }: Props) {
 
   function setField<K extends keyof Announcement>(key: K, value: Announcement[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function setDateField(key: "starts_at" | "ends_at", value: string) {
+    setField(key, normalizeDateTimeLocalInput(value) ?? value);
+  }
+
+  function handleDatePaste(key: "starts_at" | "ends_at", event: React.ClipboardEvent<HTMLInputElement>) {
+    const normalized = normalizeDateTimeLocalInput(event.clipboardData.getData("text"));
+    if (!normalized) return;
+    event.preventDefault();
+    setField(key, normalized);
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -260,9 +321,12 @@ export function AnnouncementForm({ announcement, isNew = false }: Props) {
             <label className={labelClass}>Show From</label>
             <input
               type="datetime-local"
+              lang="en-GB"
+              step={60}
               className={inputClass}
               value={form.starts_at}
-              onChange={(e) => setField("starts_at", e.target.value)}
+              onChange={(e) => setDateField("starts_at", e.target.value)}
+              onPaste={(e) => handleDatePaste("starts_at", e)}
             />
             <p className="text-xs text-text-muted mt-1">Leave blank to show immediately</p>
           </div>
@@ -270,9 +334,12 @@ export function AnnouncementForm({ announcement, isNew = false }: Props) {
             <label className={labelClass}>Hide After</label>
             <input
               type="datetime-local"
+              lang="en-GB"
+              step={60}
               className={inputClass}
               value={form.ends_at}
-              onChange={(e) => setField("ends_at", e.target.value)}
+              onChange={(e) => setDateField("ends_at", e.target.value)}
+              onPaste={(e) => handleDatePaste("ends_at", e)}
             />
             <p className="text-xs text-text-muted mt-1">Leave blank to show indefinitely</p>
           </div>

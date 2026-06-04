@@ -19,6 +19,12 @@ const EXISTING_HEADER_IMAGES = [
 
 const HEADER_IMAGES = [...RECENT_RACING_IMAGES, ...EXISTING_HEADER_IMAGES];
 
+function keepHomepageAtHeroTop() {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname !== "/" || window.location.hash) return;
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+}
+
 export function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoEnded, setVideoEnded] = useState(false);
@@ -26,16 +32,27 @@ export function HeroVideo() {
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
   useEffect(() => {
+    const originalScrollRestoration = window.history.scrollRestoration;
+    if (!window.location.hash) {
+      window.history.scrollRestoration = "manual";
+      keepHomepageAtHeroTop();
+    }
+
     const v = videoRef.current;
-    if (!v) return;
+    if (!v) {
+      window.history.scrollRestoration = originalScrollRestoration;
+      return;
+    }
 
     v.play().catch(() => {
       setVideoEnded(true);
       setContentVisible(true);
+      keepHomepageAtHeroTop();
     });
 
     const onEnded = () => {
       setVideoEnded(true);
+      keepHomepageAtHeroTop();
       setTimeout(() => setContentVisible(true), 400);
     };
 
@@ -45,12 +62,14 @@ export function HeroVideo() {
       if (!contentVisible) {
         setVideoEnded(true);
         setContentVisible(true);
+        keepHomepageAtHeroTop();
       }
     }, 12000);
 
     return () => {
       v.removeEventListener("ended", onEnded);
       clearTimeout(fallback);
+      window.history.scrollRestoration = originalScrollRestoration;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

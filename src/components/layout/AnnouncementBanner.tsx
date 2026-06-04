@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, Megaphone, AlertTriangle, Calendar, Tag, ChevronRight } from "lucide-react";
+import { X, Megaphone, AlertTriangle, Calendar, Tag, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
 interface Announcement {
@@ -14,10 +14,34 @@ interface Announcement {
 }
 
 const TYPE_CONFIG = {
-  info:    { bg: "bg-blue-600",   icon: Megaphone },
-  warning: { bg: "bg-yellow-500", icon: AlertTriangle },
-  event:   { bg: "bg-purple-600", icon: Calendar },
-  promo:   { bg: "bg-green-600",  icon: Tag },
+  info: {
+    bg: "bg-racing-red",
+    text: "text-white",
+    body: "text-white/90",
+    button: "text-white/85 hover:text-white hover:bg-white/10",
+    icon: Megaphone,
+  },
+  warning: {
+    bg: "bg-racing-gold",
+    text: "text-racing-black",
+    body: "text-racing-black/80",
+    button: "text-racing-black/75 hover:text-racing-black hover:bg-black/10",
+    icon: AlertTriangle,
+  },
+  event: {
+    bg: "bg-surface-800 border-y border-racing-red/50",
+    text: "text-white",
+    body: "text-white/90",
+    button: "text-white/85 hover:text-white hover:bg-white/10",
+    icon: Calendar,
+  },
+  promo: {
+    bg: "bg-emerald-700",
+    text: "text-white",
+    body: "text-white/90",
+    button: "text-white/85 hover:text-white hover:bg-white/10",
+    icon: Tag,
+  },
 };
 
 const DISMISSED_KEY = "dsr_dismissed_announcements";
@@ -33,7 +57,22 @@ function markDismissed(id: string) {
   } catch { /* ignore */ }
 }
 
-// White diagonal checkerboard pattern for the side wings
+function getDismissalId(announcement: Announcement) {
+  const content = [
+    announcement.id,
+    announcement.type,
+    announcement.title,
+    announcement.body,
+    announcement.cta_label ?? "",
+    announcement.cta_url ?? "",
+  ].join("|");
+  let hash = 0;
+  for (let index = 0; index < content.length; index += 1) {
+    hash = (hash * 31 + content.charCodeAt(index)) | 0;
+  }
+  return `${announcement.id}:${Math.abs(hash)}`;
+}
+
 const checkerStyle: React.CSSProperties = {
   backgroundImage:
     "linear-gradient(45deg,rgba(255,255,255,0.25) 25%,transparent 25%)," +
@@ -47,14 +86,17 @@ const checkerStyle: React.CSSProperties = {
 export function AnnouncementBanner({ announcement }: { announcement: Announcement }) {
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const dismissalId = getDismissalId(announcement);
 
   useEffect(() => {
     setMounted(true);
-    if (!getDismissed().includes(announcement.id)) setVisible(true);
-  }, [announcement.id]);
+    setExpanded(false);
+    setVisible(!getDismissed().includes(dismissalId));
+  }, [dismissalId]);
 
   function handleDismiss() {
-    markDismissed(announcement.id);
+    markDismissed(dismissalId);
     setVisible(false);
   }
 
@@ -62,11 +104,12 @@ export function AnnouncementBanner({ announcement }: { announcement: Announcemen
 
   const cfg = TYPE_CONFIG[announcement.type] ?? TYPE_CONFIG.info;
   const Icon = cfg.icon;
+  const showExpand = announcement.body.trim().length > 120 || announcement.body.includes("\n");
 
   return (
     <div
       role="banner"
-      className={`relative ${cfg.bg} text-white text-sm overflow-hidden`}
+      className={`relative ${cfg.bg} ${cfg.text} text-sm overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.18)]`}
       style={{ animation: "bannerDrop 0.35s cubic-bezier(0.22,1,0.36,1) both" }}
     >
       <style>{`
@@ -81,28 +124,42 @@ export function AnnouncementBanner({ announcement }: { announcement: Announcemen
       {/* Right checkered wing */}
       <div className="absolute right-0 top-0 bottom-0 w-20 pointer-events-none" style={checkerStyle} />
 
-      {/* Content */}
-      <div className="relative max-w-7xl mx-auto px-24 py-2.5 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <Icon size={16} className="shrink-0 opacity-90" />
-          <span className="font-semibold shrink-0">{announcement.title}:</span>
-          <span className="text-white/90 truncate hidden sm:block">{announcement.body}</span>
-          <span className="text-white/90 sm:hidden line-clamp-1">{announcement.body}</span>
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-8 lg:px-24 py-3 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3 flex-1 min-w-0">
+          <Icon size={17} className="shrink-0 opacity-90 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <span className="font-semibold">{announcement.title}:</span>
+            <p className={`${cfg.body} whitespace-pre-line leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
+              {announcement.body}
+            </p>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 md:pt-0.5">
+          {showExpand && (
+            <button
+              type="button"
+              onClick={() => setExpanded((current) => !current)}
+              className={`flex items-center gap-1 rounded px-2 py-1 text-xs font-medium transition-colors ${cfg.button}`}
+              aria-expanded={expanded}
+            >
+              {expanded ? "Less" : "More"}
+              <ChevronDown size={13} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+            </button>
+          )}
           {announcement.cta_label && announcement.cta_url && (
             <Link
               href={announcement.cta_url}
-              className="flex items-center gap-1 underline underline-offset-2 text-white/90 hover:text-white transition-colors text-xs font-medium whitespace-nowrap"
+              className={`flex items-center gap-1 underline underline-offset-2 transition-colors text-xs font-medium whitespace-nowrap ${cfg.button}`}
             >
               {announcement.cta_label} <ChevronRight size={12} />
             </Link>
           )}
           <button
+            type="button"
             onClick={handleDismiss}
             aria-label="Dismiss announcement"
-            className="text-white/70 hover:text-white transition-colors"
+            className={`rounded p-1 transition-colors ${cfg.button}`}
           >
             <X size={16} />
           </button>
