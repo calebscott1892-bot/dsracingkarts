@@ -29,7 +29,7 @@ const TYPE_CONFIG = {
     icon: AlertTriangle,
   },
   event: {
-    bg: "bg-surface-800 border-y border-racing-red/50",
+    bg: "bg-racing-red border-y border-racing-red",
     text: "text-white",
     body: "text-white/90",
     button: "text-white/85 hover:text-white hover:bg-white/10",
