@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Megaphone, AlertTriangle, Calendar, Tag, ChevronDown, ChevronRight } from "lucide-react";
 import Link from "next/link";
 
@@ -84,16 +84,37 @@ const checkerStyle: React.CSSProperties = {
 };
 
 export function AnnouncementBanner({ announcement }: { announcement: Announcement }) {
+  const bodyRef = useRef<HTMLParagraphElement>(null);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
   const dismissalId = getDismissalId(announcement);
 
   useEffect(() => {
     setMounted(true);
     setExpanded(false);
+    setCanExpand(false);
     setVisible(!getDismissed().includes(dismissalId));
   }, [dismissalId]);
+
+  useEffect(() => {
+    if (!visible || expanded) return;
+
+    const updateOverflow = () => {
+      const body = bodyRef.current;
+      if (!body) return;
+      setCanExpand(body.scrollHeight > body.clientHeight + 1);
+    };
+
+    updateOverflow();
+    const frame = window.requestAnimationFrame(updateOverflow);
+    window.addEventListener("resize", updateOverflow);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updateOverflow);
+    };
+  }, [announcement.body, expanded, visible]);
 
   function handleDismiss() {
     markDismissed(dismissalId);
@@ -104,7 +125,6 @@ export function AnnouncementBanner({ announcement }: { announcement: Announcemen
 
   const cfg = TYPE_CONFIG[announcement.type] ?? TYPE_CONFIG.info;
   const Icon = cfg.icon;
-  const showExpand = announcement.body.trim().length > 120 || announcement.body.includes("\n");
 
   return (
     <div
@@ -129,14 +149,17 @@ export function AnnouncementBanner({ announcement }: { announcement: Announcemen
           <Icon size={17} className="shrink-0 opacity-90 mt-0.5" />
           <div className="min-w-0 flex-1">
             <span className="font-semibold">{announcement.title}:</span>
-            <p className={`${cfg.body} whitespace-pre-line leading-relaxed ${expanded ? "" : "line-clamp-2"}`}>
+            <p
+              ref={bodyRef}
+              className={`${cfg.body} whitespace-pre-line leading-relaxed ${expanded ? "" : "line-clamp-2"}`}
+            >
               {announcement.body}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0 md:pt-0.5">
-          {showExpand && (
+          {(canExpand || expanded) && (
             <button
               type="button"
               onClick={() => setExpanded((current) => !current)}

@@ -19,40 +19,53 @@ const EXISTING_HEADER_IMAGES = [
 
 const HEADER_IMAGES = [...RECENT_RACING_IMAGES, ...EXISTING_HEADER_IMAGES];
 
-function keepHomepageAtHeroTop() {
+function keepHomepageAtHeroTop(userHasInteracted = false) {
   if (typeof window === "undefined") return;
+  if (userHasInteracted) return;
   if (window.location.pathname !== "/" || window.location.hash) return;
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
 export function HeroVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const userHasInteractedRef = useRef(false);
   const [videoEnded, setVideoEnded] = useState(false);
   const [contentVisible, setContentVisible] = useState(false);
   const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
   useEffect(() => {
     const originalScrollRestoration = window.history.scrollRestoration;
+    const markUserInteraction = () => {
+      userHasInteractedRef.current = true;
+    };
+
     if (!window.location.hash) {
       window.history.scrollRestoration = "manual";
       keepHomepageAtHeroTop();
     }
 
+    window.addEventListener("wheel", markUserInteraction, { passive: true });
+    window.addEventListener("touchmove", markUserInteraction, { passive: true });
+    window.addEventListener("keydown", markUserInteraction);
+
     const v = videoRef.current;
     if (!v) {
       window.history.scrollRestoration = originalScrollRestoration;
+      window.removeEventListener("wheel", markUserInteraction);
+      window.removeEventListener("touchmove", markUserInteraction);
+      window.removeEventListener("keydown", markUserInteraction);
       return;
     }
 
     v.play().catch(() => {
       setVideoEnded(true);
       setContentVisible(true);
-      keepHomepageAtHeroTop();
+      keepHomepageAtHeroTop(userHasInteractedRef.current);
     });
 
     const onEnded = () => {
       setVideoEnded(true);
-      keepHomepageAtHeroTop();
+      keepHomepageAtHeroTop(userHasInteractedRef.current);
       setTimeout(() => setContentVisible(true), 400);
     };
 
@@ -62,13 +75,16 @@ export function HeroVideo() {
       if (!contentVisible) {
         setVideoEnded(true);
         setContentVisible(true);
-        keepHomepageAtHeroTop();
+        keepHomepageAtHeroTop(userHasInteractedRef.current);
       }
     }, 12000);
 
     return () => {
       v.removeEventListener("ended", onEnded);
       clearTimeout(fallback);
+      window.removeEventListener("wheel", markUserInteraction);
+      window.removeEventListener("touchmove", markUserInteraction);
+      window.removeEventListener("keydown", markUserInteraction);
       window.history.scrollRestoration = originalScrollRestoration;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
