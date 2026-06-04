@@ -43,6 +43,10 @@ function errorMessage(value: unknown, seen: WeakSet<object>): string | null {
     return String(value);
   }
 
+  if (typeof value !== "object") return null;
+  if (seen.has(value)) return null;
+  seen.add(value);
+
   if (Array.isArray(value)) {
     const parts = value
       .map((entry) => errorMessage(entry, seen))
@@ -51,8 +55,6 @@ function errorMessage(value: unknown, seen: WeakSet<object>): string | null {
   }
 
   if (!isRecord(value)) return null;
-  if (seen.has(value)) return null;
-  seen.add(value);
 
   const body = errorMessage(value.body, seen);
   if (body) return body;
