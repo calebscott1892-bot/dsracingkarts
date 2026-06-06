@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import ServiceExpandGrid from "@/components/sections/ServiceExpandGrid";
+import { CHASSIS_CATEGORY_HREF } from "@/lib/shop-links";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildRacewearGroups } from "@/lib/racewear-gallery";
 
@@ -262,8 +263,8 @@ export default async function ServicesPage() {
               </p>
               <p className="text-white/50 text-sm">
                 Looking for a chassis?{" "}
-                <Link href="/predator-chassis" className="text-racing-red hover:text-racing-red/80 underline underline-offset-2 transition-colors">
-                  Browse our chassis marketplace →
+                <Link href={CHASSIS_CATEGORY_HREF} className="text-racing-red hover:text-racing-red/80 underline underline-offset-2 transition-colors">
+                  Browse the chassis category {"->"}
                 </Link>
               </p>
             </div>
@@ -440,7 +441,7 @@ export default async function ServicesPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/contact" className="btn-primary px-8">Enquire About the Predator</Link>
-              <Link href="/predator-chassis" className="btn-secondary px-8">Looking to Buy Second-Hand?</Link>
+              <Link href={CHASSIS_CATEGORY_HREF} className="btn-secondary px-8">Shop Chassis</Link>
             </div>
           </div>
         </div>

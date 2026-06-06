@@ -57,9 +57,9 @@ const HOME_FAQS = [
       "Yes. We organise custom race suits, gloves, apparel, and branded team gear tailored to your colours and logos.",
   },
   {
-    question: "Can I buy used or preloved kart chassis through DS Racing Karts?",
+    question: "Can I buy kart chassis through DS Racing Karts?",
     answer:
-      "Yes. We also run a preloved chassis section for second-hand Predator and endurance kart listings.",
+      "Yes. Browse the chassis category in the shop for current chassis options. Used and preloved listings will be added when they are available.",
   },
   {
     question: "Do I need an appointment before visiting the workshop?",
@@ -122,6 +122,12 @@ export default async function HomePage() {
       <p className="sr-only">
         DS Racing Karts — go kart parts, kart servicing, racewear, and performance support in Sydney, Australia.
       </p>
+
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `if(location.pathname==="/"&&location.hash==="#categories"&&matchMedia("(max-width: 767px)").matches){history.replaceState(history.state,"",location.pathname+location.search);scrollTo(0,0);}`,
+        }}
+      />
 
       <HeroVideo />
 

@@ -6,6 +6,7 @@ import { ProductCard } from "@/components/shop/ProductCard";
 import { ShopFilters } from "@/components/shop/ShopFilters";
 import { SearchAutocomplete } from "@/components/shop/SearchAutocomplete";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
+import { CHASSIS_CATEGORY_HREF } from "@/lib/shop-links";
 import { isRealProductImageUrl } from "@/lib/product-images";
 import {
   applyProductSearchFilter,
@@ -47,6 +48,20 @@ type ShopCategory = {
 
 function normalizeCategoryKey(name: string) {
   return name.trim().toLowerCase();
+}
+
+function slugifyCategoryName(name: string) {
+  return normalizeCategoryKey(name)
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function findCategoryByParam(categories: ShopCategory[], categoryParam: string) {
+  return (
+    categories.find((category) => category.slug === categoryParam) ??
+    categories.find((category) => slugifyCategoryName(category.name) === categoryParam)
+  );
 }
 
 function buildCategoryLookup(categories: ShopCategory[]) {
@@ -147,7 +162,7 @@ export default async function ShopPage({ searchParams }: Props) {
   const categoryLookup = buildCategoryLookup((allCategories || []) as ShopCategory[]);
   const dedupedCategories = categoryLookup.dedupedCategories;
   const selectedCategory = params.category
-    ? dedupedCategories.find((c) => c.slug === params.category)
+    ? findCategoryByParam(dedupedCategories, params.category)
     : null;
 
   const selectedCanonicalIds = selectedCategory
@@ -361,9 +376,9 @@ export default async function ShopPage({ searchParams }: Props) {
   const showMobileCategoryLanding =
     !params.category && !params.search && params.view !== "all";
 
-  const categoryTitle = params.category
+  const categoryTitle = selectedCategory?.name ?? (params.category
     ? params.category.replace(/-/g, " ")
-    : "Shop";
+    : "Shop");
 
   function buildUrl(pageNum: number) {
     const p = new URLSearchParams();
@@ -413,14 +428,14 @@ export default async function ShopPage({ searchParams }: Props) {
         <div className="border border-white/10 bg-white/[0.03] px-4 py-4 md:px-5 md:py-4 flex flex-col md:flex-row md:items-center gap-4">
           <div className="flex-1 min-w-0">
             <p className="font-heading text-xs uppercase tracking-[0.25em] text-racing-red mb-1">
-              Looking For Second-Hand Chassis?
+              Need a Chassis?
             </p>
             <p className="text-white/65 text-sm leading-relaxed">
-              Browse our preloved Predator chassis board if you&apos;re chasing a used enduro setup, or want to list one for sale.
+              Go straight to our chassis category for new chassis and related kart setup options.
             </p>
           </div>
-          <Link href="/predator-chassis" className="btn-secondary shrink-0 text-sm px-5 self-start md:self-auto">
-            Browse Preloved Chassis
+          <Link href={CHASSIS_CATEGORY_HREF} className="btn-secondary shrink-0 text-sm px-5 self-start md:self-auto">
+            Shop Chassis
           </Link>
         </div>
       </div>
@@ -512,7 +527,7 @@ export default async function ShopPage({ searchParams }: Props) {
         <aside className="lg:w-60 shrink-0">
           <ShopFilters
             categories={dedupedCategories}
-            currentCategory={params.category}
+            currentCategory={selectedCategory?.slug ?? params.category}
             currentSort={params.sort}
             currentSearch={params.search}
           />

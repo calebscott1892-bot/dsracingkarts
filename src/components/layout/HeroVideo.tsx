@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { CHASSIS_CATEGORY_HREF } from "@/lib/shop-links";
 
 const RECENT_RACING_IMAGES = [
   "/WhatsApp Image 2026-05-18 at 3.43.34 AM (1).jpeg",
@@ -19,10 +20,29 @@ const EXISTING_HEADER_IMAGES = [
 
 const HEADER_IMAGES = [...RECENT_RACING_IMAGES, ...EXISTING_HEADER_IMAGES];
 
+function hasMobileCategoriesHash() {
+  if (typeof window === "undefined") return false;
+  return (
+    window.location.hash === "#categories" &&
+    window.matchMedia("(max-width: 767px)").matches
+  );
+}
+
+function clearMobileCategoriesHash() {
+  if (!hasMobileCategoriesHash()) return;
+  window.history.replaceState(
+    window.history.state,
+    "",
+    `${window.location.pathname}${window.location.search}`
+  );
+}
+
 function keepHomepageAtHeroTop(userHasInteracted = false) {
   if (typeof window === "undefined") return;
   if (userHasInteracted) return;
-  if (window.location.pathname !== "/" || window.location.hash) return;
+  if (window.location.pathname !== "/") return;
+  if (window.location.hash && !hasMobileCategoriesHash()) return;
+  clearMobileCategoriesHash();
   window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 }
 
@@ -188,7 +208,7 @@ export function HeroVideo() {
             sit behind it as secondary outline buttons so the eye lands on
             Chassis instead of three identical red blocks. */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <Link href="/shop?category=chassis" className="btn-primary text-base px-10">
+          <Link href={CHASSIS_CATEGORY_HREF} className="btn-primary text-base px-10">
             Shop Chassis
           </Link>
           <Link href="/shop" className="btn-secondary text-base px-10">

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { PredatorChassisClient } from "./PredatorChassisClient";
 import type { Metadata } from "next";
+import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,13 @@ const FEATURES = [
     body: "All wear items and spares are stocked in-house. No waiting on international shipments.",
   },
 ];
+
+const USED_CHASSIS_IMAGE = {
+  src: "/Chasis/image.png",
+  alt: "Used red kart chassis available through DS Racing Karts",
+  width: 1200,
+  height: 1600,
+};
 
 export default async function PredatorChassisPage() {
   noStore();
@@ -90,6 +98,48 @@ export default async function PredatorChassisPage() {
 
       {/* ── Chequered divider ── */}
       <div className="chequered-stripe" />
+
+      {/* Featured used chassis */}
+      <section className="max-w-5xl mx-auto px-4 py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,0.85fr)_minmax(320px,1fr)] gap-8 lg:gap-10 items-center">
+          <div>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="h-[1px] w-8 bg-brand-red" />
+              <span className="font-heading text-xs tracking-[0.35em] text-brand-red uppercase">
+                Used Chassis
+              </span>
+            </div>
+            <h2 className="font-heading text-3xl md:text-4xl uppercase tracking-[0.08em] text-white mb-4">
+              Used Chassis For Sale
+            </h2>
+            <p className="text-text-secondary leading-relaxed mb-6">
+              Current used chassis photo. Contact DS Racing Karts for availability, inspection details, and what is included with the chassis.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <a href="/contact" className="btn-primary text-sm text-center">
+                Ask About This Chassis
+              </a>
+              <a href="#submit-listing" className="btn-secondary text-sm text-center">
+                List Yours
+              </a>
+            </div>
+          </div>
+
+          <figure className="overflow-hidden border border-surface-600 bg-surface-900">
+            <Image
+              src={USED_CHASSIS_IMAGE.src}
+              alt={USED_CHASSIS_IMAGE.alt}
+              width={USED_CHASSIS_IMAGE.width}
+              height={USED_CHASSIS_IMAGE.height}
+              sizes="(min-width: 1024px) 480px, 100vw"
+              className="h-auto w-full object-contain"
+            />
+            <figcaption className="border-t border-surface-700 px-4 py-3 text-xs text-text-muted">
+              Used chassis available through DS Racing Karts.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
 
       {/* ── Features grid ── */}
       <section className="max-w-5xl mx-auto px-4 py-16">
