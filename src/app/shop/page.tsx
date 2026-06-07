@@ -116,16 +116,28 @@ function buildCategoryLookup(categories: ShopCategory[]) {
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const params = await searchParams;
   const canonicalParams = new URLSearchParams();
-  if (params.category) canonicalParams.set("category", params.category);
   if (params.page && params.page !== "1") canonicalParams.set("page", params.page);
 
   const hasSearchQuery = Boolean(params.search?.trim());
-  const categoryLabel = params.category
-    ? params.category
-        .split("-")
-        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-        .join(" ")
-    : null;
+  let categoryLabel: string | null = null;
+
+  if (params.category) {
+    const supabase = await createClient();
+    const { data: categories } = await supabase
+      .from("categories")
+      .select("id, name, parent_id, slug, square_id")
+      .order("name");
+
+    const categoryLookup = buildCategoryLookup((categories || []) as ShopCategory[]);
+    const selectedCategory = findCategoryByParam(categoryLookup.dedupedCategories, params.category);
+    categoryLabel = selectedCategory?.name ?? params.category
+      .split("-")
+      .filter((part) => !/^\d+$/.test(part))
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+
+    canonicalParams.set("category", selectedCategory?.slug ?? params.category);
+  }
 
   return {
     title: categoryLabel ? `${categoryLabel} Parts` : "Shop All Products",

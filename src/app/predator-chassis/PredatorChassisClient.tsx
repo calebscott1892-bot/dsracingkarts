@@ -25,9 +25,19 @@ interface Listing {
   image_url?: string | null;
 }
 
-interface Props { approvedListings: Listing[] }
+interface Props {
+  approvedListings: Listing[];
+  activeListingsHeading: string;
+  listingFormHeading: string;
+  listingFormIntro: string;
+}
 
-export function PredatorChassisClient({ approvedListings }: Props) {
+export function PredatorChassisClient({
+  approvedListings,
+  activeListingsHeading,
+  listingFormHeading,
+  listingFormIntro,
+}: Props) {
   const [tab, setTab] = useState<"buy" | "sell">("sell");
   const [form, setForm] = useState({
     listing_type: "sell" as "buy" | "sell",
@@ -142,7 +152,7 @@ export function PredatorChassisClient({ approvedListings }: Props) {
         <section className="max-w-5xl mx-auto px-4 py-12">
           <div className="flex items-center gap-3 mb-8">
             <span className="h-[1px] w-8 bg-brand-red" />
-            <h2 className="font-heading text-2xl uppercase tracking-[0.1em]">Active Listings</h2>
+            <h2 className="font-heading text-2xl uppercase tracking-[0.1em]">{activeListingsHeading}</h2>
             <span className="h-[1px] w-8 bg-brand-red" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -191,11 +201,11 @@ export function PredatorChassisClient({ approvedListings }: Props) {
       <section className="max-w-2xl mx-auto px-4 py-12" id="submit-listing">
         <div className="flex items-center gap-3 mb-8 justify-center">
           <span className="h-[1px] w-8 bg-brand-red" />
-          <h2 className="font-heading text-2xl uppercase tracking-[0.1em]">List Your Chassis</h2>
+          <h2 className="font-heading text-2xl uppercase tracking-[0.1em]">{listingFormHeading}</h2>
           <span className="h-[1px] w-8 bg-brand-red" />
         </div>
         <p className="text-text-secondary text-sm text-center mb-8">
-          Looking to buy or sell a used DSR Predator? Fill in the form below. DS Racing Karts will review your submission and publish it to this board.
+          {listingFormIntro}
         </p>
 
         {/* Buy / Sell toggle */}

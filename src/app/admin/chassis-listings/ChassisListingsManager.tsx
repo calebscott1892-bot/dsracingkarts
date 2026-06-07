@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CheckCircle, XCircle, Clock, Tag, Loader2, Trash2, ChevronDown, ChevronUp, Phone, Mail, Plus, X, Pencil, Save } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
+import type { ChassisPageContent } from "@/lib/chassis-page-content";
 
 type ListingStatus = "pending" | "approved" | "sold" | "expired";
 
@@ -19,6 +20,7 @@ interface Listing {
   status: ListingStatus;
   admin_notes: string | null;
   created_at: string;
+  image_url: string | null;
 }
 
 const STATUS_STYLES: Record<ListingStatus, string> = {
@@ -35,7 +37,53 @@ const STATUS_ICON: Record<ListingStatus, React.ReactNode> = {
   expired: <XCircle size={12} />,
 };
 
-interface Props { initialListings: Listing[] }
+type PageContentKey = Exclude<keyof ChassisPageContent, "id" | "updated_at">;
+
+interface Props {
+  initialListings: Listing[];
+  initialPageContent: ChassisPageContent;
+}
+
+const PAGE_CONTENT_GROUPS: Array<{
+  title: string;
+  fields: Array<{ key: PageContentKey; label: string; rows?: number; help?: string }>;
+}> = [
+  {
+    title: "Hero",
+    fields: [
+      { key: "hero_eyebrow", label: "Small Label" },
+      { key: "hero_title", label: "Title" },
+      { key: "hero_accent", label: "Red Title Word" },
+      { key: "hero_body", label: "Intro Copy", rows: 3 },
+      { key: "hero_cta_label", label: "Button Label" },
+    ],
+  },
+  {
+    title: "Featured Used Chassis",
+    fields: [
+      { key: "featured_eyebrow", label: "Small Label" },
+      { key: "featured_title", label: "Heading" },
+      { key: "featured_body", label: "Description", rows: 4 },
+      { key: "featured_primary_cta_label", label: "Contact Button Label" },
+      { key: "featured_secondary_cta_label", label: "Form Button Label" },
+      {
+        key: "featured_image_url",
+        label: "Image URL",
+        help: "Use a site path, Supabase Storage URL, or Square image URL.",
+      },
+      { key: "featured_image_alt", label: "Image Alt Text" },
+      { key: "featured_image_caption", label: "Image Caption", rows: 2 },
+    ],
+  },
+  {
+    title: "Listings Form",
+    fields: [
+      { key: "active_listings_heading", label: "Active Listings Heading" },
+      { key: "listing_form_heading", label: "Form Heading" },
+      { key: "listing_form_intro", label: "Form Intro", rows: 3 },
+    ],
+  },
+];
 
 const BLANK_FORM = {
   listing_type: "sell" as "buy" | "sell",
@@ -46,9 +94,10 @@ const BLANK_FORM = {
   asking_price: "",
   chassis_year: "",
   condition: "",
+  image_url: "",
 };
 
-export function ChassisListingsManager({ initialListings }: Props) {
+export function ChassisListingsManager({ initialListings, initialPageContent }: Props) {
   const [listings, setListings] = useState<Listing[]>(initialListings);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -71,10 +120,15 @@ export function ChassisListingsManager({ initialListings }: Props) {
     asking_price: string;
     chassis_year: string;
     condition: string;
+    image_url: string;
     admin_notes: string;
   } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [pageContentForm, setPageContentForm] = useState<ChassisPageContent>(initialPageContent);
+  const [savingPageContent, setSavingPageContent] = useState(false);
+  const [pageContentError, setPageContentError] = useState("");
+  const [pageContentSaved, setPageContentSaved] = useState(false);
 
   const filtered = filter === "all" ? listings : listings.filter((l) => l.status === filter);
 
@@ -123,6 +177,7 @@ export function ChassisListingsManager({ initialListings }: Props) {
         chassis_year: newForm.chassis_year === "" ? null : Number(newForm.chassis_year),
         condition: newForm.condition || null,
         contact_phone: newForm.contact_phone || null,
+        image_url: newForm.image_url || null,
       };
       const res = await fetch("/api/admin/chassis-listings", {
         method: "POST",
@@ -151,6 +206,7 @@ export function ChassisListingsManager({ initialListings }: Props) {
       asking_price: listing.asking_price != null ? String(listing.asking_price) : "",
       chassis_year: listing.chassis_year != null ? String(listing.chassis_year) : "",
       condition: listing.condition ?? "",
+      image_url: listing.image_url ?? "",
       admin_notes: listing.admin_notes ?? "",
     });
   }
@@ -173,6 +229,7 @@ export function ChassisListingsManager({ initialListings }: Props) {
         asking_price: editForm.asking_price === "" ? null : Number(editForm.asking_price),
         chassis_year: editForm.chassis_year === "" ? null : Number(editForm.chassis_year),
         condition: editForm.condition || null,
+        image_url: editForm.image_url || null,
         admin_notes: editForm.admin_notes || null,
       };
       const res = await fetch(`/api/admin/chassis-listings/${id}`, {
@@ -189,6 +246,36 @@ export function ChassisListingsManager({ initialListings }: Props) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function setPageContentField(key: PageContentKey, value: string) {
+    setPageContentSaved(false);
+    setPageContentForm((current) => ({ ...current, [key]: value }));
+  }
+
+  async function savePageContent(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingPageContent(true);
+    setPageContentError("");
+    setPageContentSaved(false);
+
+    try {
+      const res = await fetch("/api/admin/chassis-page-content", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pageContentForm),
+      });
+
+      if (!res.ok) throw new Error((await res.json()).error || "Save failed");
+
+      const updated: ChassisPageContent = await res.json();
+      setPageContentForm(updated);
+      setPageContentSaved(true);
+    } catch (e: unknown) {
+      setPageContentError(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSavingPageContent(false);
     }
   }
 
@@ -225,6 +312,72 @@ export function ChassisListingsManager({ initialListings }: Props) {
           </button>
         </div>
       </div>
+
+      <form onSubmit={savePageContent} className="card p-6 mb-6 space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="font-heading text-sm uppercase tracking-wider text-white">
+              Preloved Chassis Page Content
+            </h2>
+            <p className="text-text-muted text-xs mt-1">
+              These fields update the public Predator / preloved chassis page.
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            {pageContentSaved && (
+              <span className="text-xs text-green-400">Saved</span>
+            )}
+            <button
+              type="submit"
+              disabled={savingPageContent}
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-heading uppercase tracking-wider bg-brand-red text-white hover:bg-brand-red/80 transition-colors rounded disabled:opacity-60"
+            >
+              {savingPageContent ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              Save Page Content
+            </button>
+          </div>
+        </div>
+
+        {pageContentError && (
+          <p className="text-red-400 text-sm bg-red-950/30 border border-red-800/40 rounded px-3 py-2">
+            {pageContentError}
+          </p>
+        )}
+
+        {PAGE_CONTENT_GROUPS.map((group) => (
+          <div key={group.title} className="border-t border-surface-700 pt-5">
+            <h3 className="font-heading text-xs uppercase tracking-[0.25em] text-brand-red mb-4">
+              {group.title}
+            </h3>
+            <div className="grid sm:grid-cols-2 gap-4">
+              {group.fields.map((field) => (
+                <div key={field.key} className={field.rows ? "sm:col-span-2" : ""}>
+                  <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">
+                    {field.label}
+                  </label>
+                  {field.rows ? (
+                    <textarea
+                      rows={field.rows}
+                      className="w-full bg-surface-700 border border-surface-500 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-red resize-none"
+                      value={pageContentForm[field.key]}
+                      onChange={(e) => setPageContentField(field.key, e.target.value)}
+                    />
+                  ) : (
+                    <input
+                      className="w-full bg-surface-700 border border-surface-500 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-red"
+                      value={pageContentForm[field.key]}
+                      onChange={(e) => setPageContentField(field.key, e.target.value)}
+                    />
+                  )}
+                  {field.help && (
+                    <p className="text-[11px] text-text-muted mt-1">{field.help}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </form>
 
       {/* New listing form */}
       {showNewForm && (
@@ -334,6 +487,16 @@ export function ChassisListingsManager({ initialListings }: Props) {
               value={newForm.description}
               onChange={(e) => setNewForm((f) => ({ ...f, description: e.target.value }))}
               required
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Listing Image URL</label>
+            <input
+              className="w-full bg-surface-700 border border-surface-500 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-red"
+              value={newForm.image_url}
+              onChange={(e) => setNewForm((f) => ({ ...f, image_url: e.target.value }))}
+              placeholder="/Chasis/image.png or Supabase Storage URL"
             />
           </div>
 
@@ -505,6 +668,14 @@ export function ChassisListingsManager({ initialListings }: Props) {
                       />
                     </div>
                     <div>
+                      <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Listing Image URL</label>
+                      <input
+                        className="w-full bg-surface-700 border border-surface-500 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-red"
+                        value={editForm.image_url}
+                        onChange={(e) => setEditForm((f) => f && ({ ...f, image_url: e.target.value }))}
+                      />
+                    </div>
+                    <div>
                       <label className="block text-xs text-text-muted uppercase tracking-wider mb-1">Admin Notes (internal only)</label>
                       <input
                         className="w-full bg-surface-700 border border-surface-500 rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-brand-red"
@@ -551,6 +722,13 @@ export function ChassisListingsManager({ initialListings }: Props) {
                       <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Description</p>
                       <p className="text-sm text-text-secondary whitespace-pre-wrap">{listing.description}</p>
                     </div>
+
+                    {listing.image_url && (
+                      <div>
+                        <p className="text-xs text-text-muted uppercase tracking-wider mb-1">Image URL</p>
+                        <p className="text-sm text-text-secondary break-all">{listing.image_url}</p>
+                      </div>
+                    )}
 
                     {/* Admin notes */}
                     {listing.admin_notes && (

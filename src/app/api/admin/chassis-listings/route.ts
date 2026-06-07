@@ -42,12 +42,14 @@ export async function POST(request: NextRequest) {
     asking_price,
     chassis_year,
     condition,
+    image_url,
   } = body;
 
   const trimmedName = String(contact_name || "").trim().slice(0, 120);
   const trimmedEmail = String(contact_email || "").trim().toLowerCase().slice(0, 320);
   const trimmedPhone = String(contact_phone || "").trim().slice(0, 40);
   const trimmedDescription = String(description || "").trim().slice(0, 2000);
+  const trimmedImageUrl = String(image_url || "").trim().slice(0, 600);
   const normalizedCondition = condition ? String(condition).trim() : null;
   const parsedYear =
     chassis_year === undefined || chassis_year === null || chassis_year === ""
@@ -89,6 +91,7 @@ export async function POST(request: NextRequest) {
       asking_price: parsedPrice,
       chassis_year: parsedYear,
       condition: normalizedCondition,
+      image_url: trimmedImageUrl || null,
       status: "approved", // admin listings are auto-approved
       admin_notes: "Created by admin",
     })

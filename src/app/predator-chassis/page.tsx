@@ -3,6 +3,7 @@ import { PredatorChassisClient } from "./PredatorChassisClient";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { unstable_noStore as noStore } from "next/cache";
+import { mergeChassisPageContent } from "@/lib/chassis-page-content";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -42,21 +43,22 @@ const FEATURES = [
   },
 ];
 
-const USED_CHASSIS_IMAGE = {
-  src: "/Chasis/image.png",
-  alt: "Used red kart chassis available through DS Racing Karts",
-  width: 1200,
-  height: 1600,
-};
-
 export default async function PredatorChassisPage() {
   noStore();
   const supabase = await createClient();
-  const { data: listings } = await supabase
-    .from("chassis_listings")
-    .select("id, listing_type, description, asking_price, chassis_year, condition, created_at, image_url")
-    .eq("status", "approved")
-    .order("created_at", { ascending: false });
+  const [{ data: listings }, { data: pageContentRow }] = await Promise.all([
+    supabase
+      .from("chassis_listings")
+      .select("id, listing_type, description, asking_price, chassis_year, condition, created_at, image_url")
+      .eq("status", "approved")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("chassis_page_content")
+      .select("*")
+      .eq("id", 1)
+      .maybeSingle(),
+  ]);
+  const pageContent = mergeChassisPageContent(pageContentRow);
 
   return (
     <main className="bg-surface-950 min-h-screen">
@@ -78,20 +80,21 @@ export default async function PredatorChassisPage() {
           <div className="flex items-center gap-3 mb-4">
             <span className="h-[1px] w-8 bg-brand-red" />
             <span className="font-heading text-xs tracking-[0.4em] text-brand-red uppercase">
-              DS Racing Karts
+              {pageContent.hero_eyebrow}
             </span>
           </div>
           <h1 className="font-heading text-5xl md:text-7xl uppercase tracking-[0.05em] text-white mb-4">
-            DSR <span className="text-brand-red">Predator</span>
+            {pageContent.hero_title}{" "}
+            {pageContent.hero_accent && <span className="text-brand-red">{pageContent.hero_accent}</span>}
           </h1>
           <p className="text-text-secondary text-lg max-w-xl leading-relaxed">
-            Australian-built. Enduro-proven. The chassis of choice for serious endurance karting competitors across NSW.
+            {pageContent.hero_body}
           </p>
           <a
             href="#submit-listing"
             className="btn-primary mt-8 inline-flex items-center gap-2"
           >
-            Buy or Sell a Predator
+            {pageContent.hero_cta_label}
           </a>
         </div>
       </section>
@@ -106,36 +109,36 @@ export default async function PredatorChassisPage() {
             <div className="flex items-center gap-3 mb-4">
               <span className="h-[1px] w-8 bg-brand-red" />
               <span className="font-heading text-xs tracking-[0.35em] text-brand-red uppercase">
-                Used Chassis
+                {pageContent.featured_eyebrow}
               </span>
             </div>
             <h2 className="font-heading text-3xl md:text-4xl uppercase tracking-[0.08em] text-white mb-4">
-              Used Chassis For Sale
+              {pageContent.featured_title}
             </h2>
             <p className="text-text-secondary leading-relaxed mb-6">
-              Current used chassis photo. Contact DS Racing Karts for availability, inspection details, and what is included with the chassis.
+              {pageContent.featured_body}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="/contact" className="btn-primary text-sm text-center">
-                Ask About This Chassis
+                {pageContent.featured_primary_cta_label}
               </a>
               <a href="#submit-listing" className="btn-secondary text-sm text-center">
-                List Yours
+                {pageContent.featured_secondary_cta_label}
               </a>
             </div>
           </div>
 
           <figure className="overflow-hidden border border-surface-600 bg-surface-900">
             <Image
-              src={USED_CHASSIS_IMAGE.src}
-              alt={USED_CHASSIS_IMAGE.alt}
-              width={USED_CHASSIS_IMAGE.width}
-              height={USED_CHASSIS_IMAGE.height}
+              src={pageContent.featured_image_url}
+              alt={pageContent.featured_image_alt}
+              width={1200}
+              height={1600}
               sizes="(min-width: 1024px) 480px, 100vw"
               className="h-auto w-full object-contain"
             />
             <figcaption className="border-t border-surface-700 px-4 py-3 text-xs text-text-muted">
-              Used chassis available through DS Racing Karts.
+              {pageContent.featured_image_caption}
             </figcaption>
           </figure>
         </div>
@@ -162,7 +165,12 @@ export default async function PredatorChassisPage() {
       <div className="chequered-stripe-sm" />
 
       {/* ── Buy/Sell board + form ── */}
-      <PredatorChassisClient approvedListings={listings ?? []} />
+      <PredatorChassisClient
+        approvedListings={listings ?? []}
+        activeListingsHeading={pageContent.active_listings_heading}
+        listingFormHeading={pageContent.listing_form_heading}
+        listingFormIntro={pageContent.listing_form_intro}
+      />
 
     </main>
   );

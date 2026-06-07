@@ -69,6 +69,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (body.asking_price !== undefined) update.asking_price = body.asking_price === null ? null : Number(body.asking_price);
   if (body.chassis_year !== undefined) update.chassis_year = body.chassis_year === null ? null : Number(body.chassis_year);
   if (body.condition !== undefined) update.condition = body.condition;
+  if (body.image_url !== undefined) update.image_url = body.image_url ? String(body.image_url).trim().slice(0, 600) : null;
   if (body.contact_name !== undefined) update.contact_name = String(body.contact_name).trim().slice(0, 120);
   if (body.contact_phone !== undefined) update.contact_phone = body.contact_phone ? String(body.contact_phone).trim().slice(0, 40) : null;
 
