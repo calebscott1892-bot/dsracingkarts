@@ -130,7 +130,7 @@ export default async function PredatorChassisPage() {
 
           <figure className="overflow-hidden border border-surface-600 bg-surface-900">
             <Image
-              src={pageContent.featured_image_url}
+              src="/Chasis/image.png"
               alt={pageContent.featured_image_alt}
               width={1200}
               height={1600}
