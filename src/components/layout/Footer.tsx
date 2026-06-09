@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { Facebook, Mail, MapPin, Phone } from "lucide-react";
-import { CHASSIS_CATEGORY_HREF } from "@/lib/shop-links";
 import { AppointmentAddress } from "./AppointmentPopup";
 import C4FooterCreditMounted from "../c4-footer-credit/C4FooterCreditMounted";
 
@@ -33,7 +32,7 @@ export function Footer() {
             <li><Link href="/shop?view=all" className="text-text-secondary hover:text-white hover:pl-1 transition-all">All Products</Link></li>
             <li><Link href="/shop" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Categories</Link></li>
             <li><Link href="/gift-card" className="text-text-secondary hover:text-white hover:pl-1 transition-all">E-Gift Card</Link></li>
-            <li><Link href={CHASSIS_CATEGORY_HREF} className="text-text-secondary hover:text-white hover:pl-1 transition-all">Shop Chassis</Link></li>
+            <li><Link href="/predator-chassis" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Pre-Loved Chassis</Link></li>
           </ul>
         </div>
 

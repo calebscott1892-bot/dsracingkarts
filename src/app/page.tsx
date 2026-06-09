@@ -59,7 +59,7 @@ const HOME_FAQS = [
   {
     question: "Can I buy kart chassis through DS Racing Karts?",
     answer:
-      "Yes. Browse the chassis category in the shop for current chassis options. Used and preloved listings will be added when they are available.",
+      "Yes. Browse current chassis options in the shop, and check the pre-loved chassis page for used Predator listings.",
   },
   {
     question: "Do I need an appointment before visiting the workshop?",
@@ -125,7 +125,7 @@ export default async function HomePage() {
 
       <script
         dangerouslySetInnerHTML={{
-          __html: `if(location.pathname==="/"&&location.hash==="#categories"&&matchMedia("(max-width: 767px)").matches){history.replaceState(history.state,"",location.pathname+location.search);scrollTo(0,0);}`,
+          __html: `if(location.pathname==="/"){history.scrollRestoration="manual";if(location.hash==="#categories"&&matchMedia("(max-width:767px)").matches){history.replaceState(history.state,"",location.pathname+location.search);}if(!location.hash){scrollTo(0,0);}}`,
         }}
       />
 

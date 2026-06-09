@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { CHASSIS_CATEGORY_HREF } from "@/lib/shop-links";
 
 const RECENT_RACING_IMAGES = [
   "/WhatsApp Image 2026-05-18 at 3.43.34 AM (1).jpeg",
@@ -208,8 +207,8 @@ export function HeroVideo() {
             sit behind it as secondary outline buttons so the eye lands on
             Chassis instead of three identical red blocks. */}
         <div className="flex flex-col sm:flex-row gap-4">
-          <Link href={CHASSIS_CATEGORY_HREF} className="btn-primary text-base px-10">
-            Shop Chassis
+          <Link href="/predator-chassis" className="btn-primary text-base px-10">
+            Pre-Loved Chassis
           </Link>
           <Link href="/shop" className="btn-secondary text-base px-10">
             Shop Parts
