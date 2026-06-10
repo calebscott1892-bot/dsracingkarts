@@ -7,6 +7,7 @@ import { TRACKS } from "./engine/track";
 import { updateCar, updateAI, tickLapProgress } from "./engine/physics";
 import { renderFrame, renderCountdownLights, renderText, clearSkidMarks } from "./engine/renderer";
 import { createInputHandler } from "./engine/input";
+import { updateEngine, idleEngine, blip, screech } from "./engine/audio";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS, COUNTDOWN_LIGHT_INTERVAL, COUNTDOWN_RANDOM_DELAY_MIN, COUNTDOWN_RANDOM_DELAY_MAX, DIFFICULTY_PROFILES } from "./engine/constants";
 
 interface Props {
@@ -20,7 +21,12 @@ export function GameCanvas({ state, onStateChange }: Props) {
   const inputRef = useRef(createInputHandler());
   const frameRef = useRef(0);
   const rafRef = useRef<number>(0);
+  const lastFrameTime = useRef(0);
   const falseStartCooldown = useRef<{ p1: number; p2: number }>({ p1: 0, p2: 0 });
+  // Audio edge-detection refs (one-shot SFX fire only on state transitions).
+  const prevLightsLit = useRef(0);
+  const prevLightsOut = useRef(false);
+  const prevSpinning = useRef<{ p1: boolean; p2: boolean }>({ p1: false, p2: false });
 
   // Keep stateRef in sync
   stateRef.current = state;
@@ -114,8 +120,29 @@ export function GameCanvas({ state, onStateChange }: Props) {
       const now = Date.now();
       frameRef.current++;
 
+      // ── Frame-rate-independent timestep ──
+      // dt is measured in "60fps frames": 1.0 at 60Hz, ~0.5 at 120Hz, ~0.42 at
+      // 144Hz. The physics constants are all tuned per-60fps-frame and the engine
+      // already multiplies linear terms by dt and raises decays to Math.pow(_, dt),
+      // so feeding real elapsed time keeps the sim identical across refresh rates.
+      // Clamped to 3 so a backgrounded tab (rAF paused) doesn't teleport cars on
+      // return.
+      const elapsed = lastFrameTime.current ? now - lastFrameTime.current : 1000 / 60;
+      lastFrameTime.current = now;
+      const dt = Math.min(3, Math.max(0, elapsed / (1000 / 60)));
+
+      // ── Start-light audio cues (edge-triggered; no-op when sound off) ──
+      if (s.lightsLit !== prevLightsLit.current) {
+        if (s.lightsLit > prevLightsLit.current && s.lightsLit > 0) blip(620, 110);
+        prevLightsLit.current = s.lightsLit;
+      }
+      if (s.lightsOut && !prevLightsOut.current) blip(990, 280);
+      prevLightsOut.current = s.lightsOut;
+
+      // Drop the engine to silence whenever we're not actively racing.
+      if (s.phase !== "racing" || s.paused) idleEngine();
+
       if (s.phase === "racing" && !s.paused) {
-        const dt = 1; // fixed timestep
 
         // Player 1 (always human) — apply difficulty profile only in single-player.
         const p1Profile = s.isMultiplayer ? undefined : DIFFICULTY_PROFILES[s.aiDifficulty];
@@ -131,6 +158,13 @@ export function GameCanvas({ state, onStateChange }: Props) {
         // Monotonic lap progress — robust against missed checkpoints.
         tickLapProgress(s.car1, now, s.totalLaps);
         tickLapProgress(s.car2, now, s.totalLaps);
+
+        // ── Engine audio + spin screech (no-ops when sound is disabled) ──
+        updateEngine(s.car1.speed / CAR_DEFAULTS.maxSpeed, !s.car1.spinning && !s.car1.respawn);
+        if (s.car1.spinning && !prevSpinning.current.p1) screech();
+        if (s.car2.spinning && !prevSpinning.current.p2) screech(220);
+        prevSpinning.current.p1 = s.car1.spinning;
+        prevSpinning.current.p2 = s.car2.spinning;
 
         // Check win condition (effective laps = laps minus false-start penalty).
         const effectiveLaps1 = s.car1.lapCount - s.car1.penaltyLaps;

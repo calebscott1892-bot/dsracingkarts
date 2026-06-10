@@ -10,7 +10,10 @@ import { ArcadeControls } from "./ArcadeControls";
 import { OrientationHint } from "./OrientationHint";
 import { createInitialState, type GameState, type AIDifficulty } from "./engine/state";
 import { CAR_DEFAULTS } from "./engine/constants";
-import { X } from "lucide-react";
+import { setAudioEnabled, resumeAudio } from "./engine/audio";
+import { X, Volume2, VolumeX } from "lucide-react";
+
+const SOUND_PREF_KEY = "dsr_gp_sound";
 
 interface Props {
   onExit: () => void;
@@ -18,6 +21,29 @@ interface Props {
 
 export function DSRGrandPrix({ onExit }: Props) {
   const [state, setState] = useState<GameState>(createInitialState());
+  const [soundOn, setSoundOn] = useState(false);
+
+  // Restore the saved sound preference (opt-in, defaults off).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSoundOn(window.localStorage.getItem(SOUND_PREF_KEY) === "1");
+  }, []);
+
+  // Push the preference into the audio engine + persist it.
+  useEffect(() => {
+    setAudioEnabled(soundOn);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(SOUND_PREF_KEY, soundOn ? "1" : "0");
+    }
+  }, [soundOn]);
+
+  // Silence the engine on unmount (e.g. exiting the game).
+  useEffect(() => () => setAudioEnabled(false), []);
+
+  const toggleSound = useCallback(() => {
+    resumeAudio(); // this click is the user gesture browsers require
+    setSoundOn((v) => !v);
+  }, []);
 
   const handleStateChange = useCallback((updates: Partial<GameState>) => {
     setState(prev => ({ ...prev, ...updates }));
@@ -126,6 +152,16 @@ export function DSRGrandPrix({ onExit }: Props) {
           maxHeight: isPlaying ? "calc(100dvh - 120px)" : undefined,
         }}
       >
+        {/* Sound toggle */}
+        <button
+          onClick={toggleSound}
+          className="absolute top-3 right-12 z-50 w-8 h-8 flex items-center justify-center bg-black/60 text-text-muted hover:text-white transition-colors"
+          aria-label={soundOn ? "Mute sound" : "Enable sound"}
+          aria-pressed={soundOn}
+        >
+          {soundOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
+        </button>
+
         {/* Exit button */}
         <button
           onClick={onExit}

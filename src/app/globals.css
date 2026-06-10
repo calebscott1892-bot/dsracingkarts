@@ -204,3 +204,25 @@
 .sponsor-track--rtl {
   animation: marquee-rtl 35s linear infinite;
 }
+
+/* ── Reduced motion ──
+   Respect the OS "reduce motion" setting site-wide: near-instant transitions,
+   no looping animations (pulse glows, marquees, sweeps), and no smooth-scroll
+   hijack. Looping decorative animations stop outright; one-shot reveals collapse
+   to effectively instant so content still appears. JS-driven motion (Lenis
+   smooth scroll, the canvas game) is gated separately in code. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .sponsor-track--ltr,
+  .sponsor-track--rtl {
+    animation: none !important;
+  }
+}

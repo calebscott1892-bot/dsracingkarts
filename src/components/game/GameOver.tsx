@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { GameState } from "./engine/state";
+import { saveBestLap } from "./engine/records";
 
 interface Props {
   state: GameState;
@@ -27,6 +28,15 @@ export function GameOver({ state, onPlayAgain, onNewTrack, onQuit }: Props) {
   const [sparkles, setSparkles] = useState<{ x: number; y: number; delay: number }[]>([]);
   const [hoveredButton, setHoveredButton] = useState<string | null>(null);
   const [flashFrame, setFlashFrame] = useState(0);
+  const [newRecord, setNewRecord] = useState(false);
+
+  // Persist the player's (car1) best lap for this track + difficulty.
+  useEffect(() => {
+    const key = state.isMultiplayer ? "mp" : state.aiDifficulty;
+    if (saveBestLap(state.trackIndex, key, state.car1.fastestLap)) {
+      setNewRecord(true);
+    }
+  }, [state.trackIndex, state.aiDifficulty, state.isMultiplayer, state.car1.fastestLap]);
 
   useEffect(() => {
     // Stagger the reveal
@@ -139,6 +149,12 @@ export function GameOver({ state, onPlayAgain, onNewTrack, onQuit }: Props) {
           <p className="font-digital text-xs text-text-muted tracking-[0.3em] mb-1">
             — RACE COMPLETE —
           </p>
+
+          {newRecord && (
+            <p className="font-digital text-xs md:text-sm text-racing-gold tracking-[0.25em] mb-1 animate-pulse">
+              ★ NEW BEST LAP — {formatTime(car1.fastestLap)} ★
+            </p>
+          )}
 
           {car1.falseStarts >= 3 && (
             <p className="font-digital text-xs text-[#e60012] mb-2 animate-pulse">P1 DISQUALIFIED — 3 FALSE STARTS</p>

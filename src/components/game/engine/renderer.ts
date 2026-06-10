@@ -1,6 +1,7 @@
 import type { CarState, GameState } from "./state";
 import type { TrackData } from "./track";
 import { COLORS, CANVAS_WIDTH, CANVAS_HEIGHT, CAR_DEFAULTS } from "./constants";
+import { prefersReducedMotion } from "./prefs";
 import {
   updateAmbient,
   drawAmbientGround,
@@ -14,36 +15,70 @@ const skidMarks: { x: number; y: number; age: number; alpha: number }[] = [];
 // Frame counter purely for ambient pacing
 let ambientFrameCounter = 0;
 
-export function renderFrame(
-  ctx: CanvasRenderingContext2D,
-  state: GameState,
-  track: TrackData,
-): void {
+// ── Static background layer cache ──────────────────────────────────────────
+// Grass, scenery and the track itself never change during a race, yet they're
+// the most expensive thing we draw (80+ scenery items, four wide track strokes).
+// We render them once per track into an offscreen canvas and blit that single
+// bitmap every frame instead — a large per-frame win, especially on mobile.
+const staticLayerCache = new Map<string, HTMLCanvasElement>();
+
+function drawGrass(ctx: CanvasRenderingContext2D): void {
   const w = CANVAS_WIDTH;
   const h = CANVAS_HEIGHT;
-
-  // ── Background: grass with texture ──
   ctx.fillStyle = COLORS.grass;
   ctx.fillRect(0, 0, w, h);
-
-  // Grass texture stripes
   ctx.fillStyle = COLORS.grassDark;
   for (let y = 0; y < h; y += 24) {
     if ((y / 24) % 2 === 0) {
       ctx.fillRect(0, y, w, 12);
     }
   }
+}
 
-  // ── Scenery behind track ──
-  drawScenery(ctx, track);
+function getStaticLayer(track: TrackData): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  const cached = staticLayerCache.get(track.name);
+  if (cached) return cached;
 
-  // ── Track ──
-  drawTrack(ctx, track);
+  const layer = document.createElement("canvas");
+  layer.width = CANVAS_WIDTH;
+  layer.height = CANVAS_HEIGHT;
+  const lctx = layer.getContext("2d");
+  if (!lctx) return null;
+
+  drawGrass(lctx);
+  drawScenery(lctx, track);
+  drawTrack(lctx, track);
+
+  staticLayerCache.set(track.name, layer);
+  return layer;
+}
+
+export function renderFrame(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  track: TrackData,
+): void {
+  // ── Static layer (grass + scenery + track) — blit the cached bitmap ──
+  const staticLayer = getStaticLayer(track);
+  if (staticLayer) {
+    ctx.drawImage(staticLayer, 0, 0);
+  } else {
+    // Fallback (no DOM / offscreen support): draw straight to the frame.
+    drawGrass(ctx);
+    drawScenery(ctx, track);
+    drawTrack(ctx, track);
+  }
+
+  const reduceMotion = prefersReducedMotion();
 
   // ── Ambient critters (ground layer: dust, butterflies) ──
-  ambientFrameCounter++;
-  updateAmbient(Date.now(), ambientFrameCounter);
-  drawAmbientGround(ctx);
+  // Decorative-only; suppressed entirely when the user prefers reduced motion.
+  if (!reduceMotion) {
+    ambientFrameCounter++;
+    updateAmbient(Date.now(), ambientFrameCounter);
+    drawAmbientGround(ctx);
+  }
 
   // ── Skid marks (persistent) ──
   drawSkidMarks(ctx);
@@ -73,7 +108,100 @@ export function renderFrame(
   drawRespawnHaloIfNeeded(ctx, state.car2, COLORS.player2);
 
   // ── Ambient critters (air layer: birds) ──
-  drawAmbientAir(ctx);
+  if (!reduceMotion) drawAmbientAir(ctx);
+
+  // ── Minimap (always-on positional awareness) ──
+  drawMinimap(ctx, state, track);
+}
+
+// ── Minimap ────────────────────────────────────────────────────────────────
+// A compact scaled silhouette of the track in the bottom-left with a live dot
+// per kart. Gives positional context the top-down zoomed view can't, and is the
+// only on-canvas race info mobile players get (the full HUD is desktop-only).
+const minimapBoundsCache = new Map<string, { minX: number; minY: number; w: number; h: number }>();
+
+function getTrackBounds(track: TrackData) {
+  const cached = minimapBoundsCache.get(track.name);
+  if (cached) return cached;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of track.racingLine) {
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  const bounds = { minX, minY, w: maxX - minX, h: maxY - minY };
+  minimapBoundsCache.set(track.name, bounds);
+  return bounds;
+}
+
+function drawMinimap(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  track: TrackData,
+): void {
+  const boxW = 130;
+  const boxH = 84;
+  const pad = 12;
+  const x0 = pad;
+  const y0 = CANVAS_HEIGHT - boxH - pad;
+
+  const b = getTrackBounds(track);
+  const inset = 14;
+  const scale = Math.min((boxW - inset * 2) / b.w, (boxH - inset * 2) / b.h);
+  const ox = x0 + (boxW - b.w * scale) / 2;
+  const oy = y0 + (boxH - b.h * scale) / 2;
+  const tx = (px: number) => ox + (px - b.minX) * scale;
+  const ty = (py: number) => oy + (py - b.minY) * scale;
+
+  ctx.save();
+
+  // Panel
+  ctx.globalAlpha = 0.72;
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.roundRect(x0, y0, boxW, boxH, 6);
+  ctx.fill();
+  ctx.globalAlpha = 0.9;
+  ctx.strokeStyle = "rgba(212,175,55,0.35)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Track line
+  ctx.strokeStyle = "#4a4a4a";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  const pts = track.racingLine;
+  for (let i = 0; i < pts.length; i++) {
+    const X = tx(pts[i].x), Y = ty(pts[i].y);
+    if (i === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+
+  // Start/finish tick
+  const sp = pts[track.startIndex];
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(tx(sp.x) - 1.5, ty(sp.y) - 1.5, 3, 3);
+
+  // Car dots (player drawn last so it's never hidden)
+  drawMinimapDot(ctx, tx(state.car2.x), ty(state.car2.y), state.isMultiplayer ? COLORS.player2 : "#2060ff");
+  drawMinimapDot(ctx, tx(state.car1.x), ty(state.car1.y), COLORS.player1);
+
+  ctx.restore();
+}
+
+function drawMinimapDot(ctx: CanvasRenderingContext2D, x: number, y: number, color: string): void {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.6)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
 }
 
 function drawRespawnHaloIfNeeded(
@@ -438,7 +566,7 @@ function drawCar(
 
   ctx.save();
   // Subtle vertical bob at speed — gives the kart a slight "rumble" feel.
-  const bob = (car.speed > 1.5 && !car.respawn && !car.spinning)
+  const bob = (car.speed > 1.5 && !car.respawn && !car.spinning && !prefersReducedMotion())
     ? Math.sin(Date.now() * 0.022 + car.x * 0.012) * (Math.min(1, car.speed / CAR_DEFAULTS.maxSpeed) * 1.0)
     : 0;
   ctx.translate(car.x, car.y + bob);

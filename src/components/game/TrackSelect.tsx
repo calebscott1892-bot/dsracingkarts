@@ -4,6 +4,15 @@ import { useRef, useEffect, useState } from "react";
 import { TRACKS } from "./engine/track";
 import type { AIDifficulty } from "./engine/state";
 import { DIFFICULTY_PROFILES } from "./engine/constants";
+import { getBestLap, type RecordKey } from "./engine/records";
+
+function formatLap(ms: number | null): string {
+  if (!ms || ms <= 0) return "— : —";
+  const s = ms / 1000;
+  const mins = Math.floor(s / 60);
+  const secs = s % 60;
+  return `${mins}:${secs.toFixed(2).padStart(5, "0")}`;
+}
 
 interface Props {
   onSelect: (trackIndex: number, laps: number, difficulty?: AIDifficulty) => void;
@@ -141,11 +150,18 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
   const [laps, setLaps] = useState(5);
   const [difficulty, setDifficulty] = useState<AIDifficulty>("medium");
   const [flashFrame, setFlashFrame] = useState(0);
+  const [bestLaps, setBestLaps] = useState<(number | null)[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => setFlashFrame(f => f + 1), 150);
     return () => clearInterval(interval);
   }, []);
+
+  // Refresh best laps for the current record bucket (difficulty or multiplayer).
+  useEffect(() => {
+    const key: RecordKey = showDifficulty ? difficulty : "mp";
+    setBestLaps(TRACKS.map((_, i) => getBestLap(i, key)));
+  }, [difficulty, showDifficulty]);
 
   return (
     <div className="absolute inset-0 bg-black z-20 overflow-y-auto overflow-x-hidden">
@@ -221,6 +237,9 @@ export function TrackSelect({ onSelect, showDifficulty }: Props) {
                     </div>
                     <div className="font-digital text-[10px] md:text-xs tracking-wider text-text-muted mt-0.5">
                       {TRACK_DIFFICULTIES[i]} — {Math.round(track.trackLength)}m
+                    </div>
+                    <div className="font-digital text-[9px] md:text-[10px] tracking-wider text-racing-gold/80 mt-0.5">
+                      BEST {formatLap(bestLaps[i] ?? null)}
                     </div>
                   </div>
                 </div>

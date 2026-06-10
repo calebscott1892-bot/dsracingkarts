@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicReadClient } from "@/lib/supabase/server";
 import { CategoryGrid } from "@/components/shop/CategoryGrid";
 import { HeroVideo } from "@/components/layout/HeroVideo";
 import { NewsletterSignup } from "@/components/layout/NewsletterSignup";
@@ -15,8 +15,11 @@ const GIFT_CARD_SLUG = "ds-racing-karts-e-gift-card";
 const PARTS_AVAILABLE_FALLBACK = 3500;
 const PARTS_AVAILABLE_ROUNDING = 500;
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// The homepage shows only public catalog data (categories, reviews, an active-
+// product count) — none of it is user-specific. Using the cookie-less read
+// client lets Next statically render + ISR-cache the page, so we revalidate the
+// data periodically instead of hitting Supabase three times on every request.
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Go Kart Chassis, Parts, Service & Racewear | Sydney",
@@ -86,7 +89,7 @@ function getPartsAvailableCount(productCount: number | null) {
 }
 
 export default async function HomePage() {
-  const supabase = await createClient();
+  const supabase = createPublicReadClient();
 
   const { data: categories } = await supabase
     .from("categories")
