@@ -69,6 +69,7 @@ export function GameOver({ state, onPlayAgain, onNewTrack, onQuit }: Props) {
     { label: "Total Time", p1: formatTime(car1Total), p2: formatTime(car2Total) },
     { label: "Best Lap", p1: formatTime(car1.fastestLap), p2: formatTime(car2.fastestLap) },
     { label: "Top Speed", p1: `${Math.round(car1.topSpeed)} km/h`, p2: `${Math.round(car2.topSpeed)} km/h` },
+    { label: "Overtakes", p1: String(car1.overtakes), p2: String(car2.overtakes) },
     { label: "Spin-Outs", p1: String(car1.spinOuts), p2: String(car2.spinOuts) },
     { label: "Laps", p1: String(Math.max(0, car1.lapCount - car1.penaltyLaps)), p2: String(Math.max(0, car2.lapCount - car2.penaltyLaps)) },
   ];

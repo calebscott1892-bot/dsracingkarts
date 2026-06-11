@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import type { GameState } from "./engine/state";
 import { createCarState } from "./engine/state";
 import { TRACKS } from "./engine/track";
-import { updateCar, updateAI, tickLapProgress } from "./engine/physics";
+import { updateCar, updateAI, updateInteractions, tickLapProgress } from "./engine/physics";
 import { renderFrame, renderCountdownLights, renderText, clearSkidMarks } from "./engine/renderer";
 import { createInputHandler } from "./engine/input";
 import { updateEngine, idleEngine, blip, screech } from "./engine/audio";
@@ -27,6 +27,8 @@ export function GameCanvas({ state, onStateChange }: Props) {
   const prevLightsLit = useRef(0);
   const prevLightsOut = useRef(false);
   const prevSpinning = useRef<{ p1: boolean; p2: boolean }>({ p1: false, p2: false });
+  // Lead tracking for the overtake stat (null until the race settles).
+  const prevLeader = useRef<1 | 2 | null>(null);
 
   // Keep stateRef in sync
   stateRef.current = state;
@@ -54,6 +56,7 @@ export function GameCanvas({ state, onStateChange }: Props) {
     car2.maxSpeed = CAR_DEFAULTS.maxSpeed;
 
     clearSkidMarks();
+    prevLeader.current = null;
 
     onStateChange({
       phase: "countdown",
@@ -142,18 +145,38 @@ export function GameCanvas({ state, onStateChange }: Props) {
       // Drop the engine to silence whenever we're not actively racing.
       if (s.phase !== "racing" || s.paused) idleEngine();
 
+      // In single-player the arrow keys drive P1 too, so either hand position works.
+      const solo = !s.isMultiplayer;
+      const p1Accel = input.p1Accelerate || (solo && input.p2Accelerate);
+      const p1Brake = input.p1Brake || (solo && input.p2Brake);
+      const p1Steer =
+        (input.p1Right ? 1 : 0) - (input.p1Left ? 1 : 0) +
+        (solo ? (input.p2Right ? 1 : 0) - (input.p2Left ? 1 : 0) : 0);
+
       if (s.phase === "racing" && !s.paused) {
 
         // Player 1 (always human) — apply difficulty profile only in single-player.
         const p1Profile = s.isMultiplayer ? undefined : DIFFICULTY_PROFILES[s.aiDifficulty];
-        updateCar(s.car1, input.p1Accelerate, input.p1Brake, track, dt, now, p1Profile);
+        updateCar(s.car1, p1Accel, p1Brake, track, dt, now, p1Profile, p1Steer);
 
         // Update player 2 (AI or human)
         if (s.isMultiplayer) {
-          updateCar(s.car2, input.p2Accelerate, input.p2Brake, track, dt, now);
+          const p2Steer = (input.p2Right ? 1 : 0) - (input.p2Left ? 1 : 0);
+          updateCar(s.car2, input.p2Accelerate, input.p2Brake, track, dt, now, undefined, p2Steer);
         } else {
-          updateAI(s.car2, track, dt, now, frameRef.current, s.aiDifficulty);
+          updateAI(s.car2, s.car1, track, dt, now, frameRef.current, s.aiDifficulty);
         }
+
+        // Slipstream flags + wheel-to-wheel contact (after both karts move).
+        updateInteractions(s.car1, s.car2, track, dt);
+
+        // Overtake stat: count lead changes once the race is genuinely under way.
+        const leader: 1 | 2 = s.car1.lapProgress >= s.car2.lapProgress ? 1 : 2;
+        if (prevLeader.current !== null && leader !== prevLeader.current && now - s.raceStartTime > 3000) {
+          if (leader === 1) s.car1.overtakes++;
+          else s.car2.overtakes++;
+        }
+        prevLeader.current = leader;
 
         // Monotonic lap progress — robust against missed checkpoints.
         tickLapProgress(s.car1, now, s.totalLaps);
@@ -179,11 +202,12 @@ export function GameCanvas({ state, onStateChange }: Props) {
 
       // ── False start detection during countdown ──
       if (s.phase === "countdown" && !s.lightsOut) {
-        // Cooldown to prevent multiple triggers per press
-        if (falseStartCooldown.current.p1 > 0) falseStartCooldown.current.p1--;
-        if (falseStartCooldown.current.p2 > 0) falseStartCooldown.current.p2--;
+        // Cooldown to prevent multiple triggers per press (dt-scaled so the
+        // half-second window is the same on every refresh rate)
+        if (falseStartCooldown.current.p1 > 0) falseStartCooldown.current.p1 -= dt;
+        if (falseStartCooldown.current.p2 > 0) falseStartCooldown.current.p2 -= dt;
 
-        if (input.p1Accelerate && s.car1.falseStarts < 3 && falseStartCooldown.current.p1 <= 0) {
+        if (p1Accel && s.car1.falseStarts < 3 && falseStartCooldown.current.p1 <= 0) {
           falseStartCooldown.current.p1 = 30; // half second cooldown
           const newCar1 = { ...s.car1 };
           newCar1.falseStarts++;

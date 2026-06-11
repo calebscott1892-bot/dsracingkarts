@@ -9,60 +9,75 @@ interface Props {
   onPauseToggle: () => void;
 }
 
+type ButtonKind = "gas" | "brake" | "left" | "right";
+
+const KEY_FOR_KIND: Record<ButtonKind, string> = {
+  gas: "KeyW",
+  brake: "KeyS",
+  left: "KeyA",
+  right: "KeyD",
+};
+
 /**
  * Mobile-first arcade controller bar that sits BELOW the game canvas.
- * Shape: [ BRAKE ][ PAUSE ][ GO ] — three buttons forming one rectangle,
- * styled like a chunky 2000s-era handheld controller. Each button has a
- * white embossed glyph and a press-down animation.
+ * Shape: [ ◀ ][ ▶ ][ PAUSE ][ BRAKE ][ GO ] — steering under the left thumb,
+ * pedals under the right, styled like a chunky 2000s-era handheld controller.
  *
- * Buttons fire synthetic KeyW (gas) / KeyS (brake) keyboard events so they
+ * Buttons fire synthetic keyboard events (W/S gas-brake, A/D steer) so they
  * tap into the same input pipeline as desktop keyboard play.
  */
 export function ArcadeControls({ paused, canPause, onPauseToggle }: Props) {
-  const [gasDown, setGasDown] = useState(false);
-  const [brakeDown, setBrakeDown] = useState(false);
+  const [down, setDown] = useState<Record<ButtonKind, boolean>>({
+    gas: false,
+    brake: false,
+    left: false,
+    right: false,
+  });
 
-  // Defensive: if the user lifts off-screen, ensure we release the keys.
+  // Release every key unconditionally (a spurious keyup is harmless). Used
+  // wherever a held button could otherwise latch its key: lifting off-screen,
+  // tab blur, pausing (disabled buttons swallow the touchend), and unmount
+  // (race end while a button is held).
+  function releaseAllKeys() {
+    for (const code of Object.values(KEY_FOR_KIND)) {
+      window.dispatchEvent(new KeyboardEvent("keyup", { code }));
+    }
+    setDown({ gas: false, brake: false, left: false, right: false });
+  }
+
   useEffect(() => {
-    const release = () => {
-      if (gasDown) {
-        window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW" }));
-        setGasDown(false);
-      }
-      if (brakeDown) {
-        window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyS" }));
-        setBrakeDown(false);
-      }
-    };
+    const release = () => releaseAllKeys();
     window.addEventListener("touchcancel", release);
     window.addEventListener("blur", release);
     return () => {
       window.removeEventListener("touchcancel", release);
       window.removeEventListener("blur", release);
+      release(); // unmount with a button held → don't leave the key latched
     };
-  }, [gasDown, brakeDown]);
+     
+  }, []);
 
-  function pressGas(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault();
-    if (paused) return;
-    setGasDown(true);
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyW" }));
+  // Pausing disables the buttons, which suppresses their release events —
+  // proactively let go of everything when the pause overlay comes up.
+  useEffect(() => {
+    if (paused) releaseAllKeys();
+     
+  }, [paused]);
+
+  function press(kind: ButtonKind) {
+    return (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault();
+      if (paused) return;
+      setDown((prev) => ({ ...prev, [kind]: true }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: KEY_FOR_KIND[kind] }));
+    };
   }
-  function releaseGas(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault();
-    setGasDown(false);
-    window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyW" }));
-  }
-  function pressBrake(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault();
-    if (paused) return;
-    setBrakeDown(true);
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "KeyS" }));
-  }
-  function releaseBrake(e: React.TouchEvent | React.MouseEvent) {
-    e.preventDefault();
-    setBrakeDown(false);
-    window.dispatchEvent(new KeyboardEvent("keyup", { code: "KeyS" }));
+  function release(kind: ButtonKind) {
+    return (e: React.TouchEvent | React.MouseEvent) => {
+      e.preventDefault();
+      setDown((prev) => ({ ...prev, [kind]: false }));
+      window.dispatchEvent(new KeyboardEvent("keyup", { code: KEY_FOR_KIND[kind] }));
+    };
   }
 
   return (
@@ -72,27 +87,41 @@ export function ArcadeControls({ paused, canPause, onPauseToggle }: Props) {
     >
       {/* Faux-controller frame */}
       <div className="relative bg-gradient-to-b from-[#1c1f24] via-[#13161a] to-[#0a0c0f] border-t-2 border-surface-700 px-2 py-2.5">
-        {/* The three-button rectangle */}
+        {/* The five-button rectangle */}
         <div className="flex items-stretch gap-1.5 h-[78px]">
-          {/* BRAKE — blue, left, large */}
+          {/* STEER ◀ ▶ — graphite pair, left thumb */}
           <ControllerButton
-            kind="brake"
-            pressed={brakeDown && !paused}
+            kind="left"
+            pressed={down.left && !paused}
             disabled={paused}
-            onPress={pressBrake}
-            onRelease={releaseBrake}
+            onPress={press("left")}
+            onRelease={release("left")}
+          />
+          <ControllerButton
+            kind="right"
+            pressed={down.right && !paused}
+            disabled={paused}
+            onPress={press("right")}
+            onRelease={release("right")}
           />
 
           {/* PAUSE — small square, center */}
           <PauseButton paused={paused} disabled={!canPause} onPress={onPauseToggle} />
 
-          {/* GO — red, right, large */}
+          {/* BRAKE + GO — pedals, right thumb */}
+          <ControllerButton
+            kind="brake"
+            pressed={down.brake && !paused}
+            disabled={paused}
+            onPress={press("brake")}
+            onRelease={release("brake")}
+          />
           <ControllerButton
             kind="gas"
-            pressed={gasDown && !paused}
+            pressed={down.gas && !paused}
             disabled={paused}
-            onPress={pressGas}
-            onRelease={releaseGas}
+            onPress={press("gas")}
+            onRelease={release("gas")}
           />
         </div>
       </div>
@@ -100,7 +129,14 @@ export function ArcadeControls({ paused, canPause, onPauseToggle }: Props) {
   );
 }
 
-// ── BRAKE / GO buttons ─────────────────────────────────────────────────────
+// ── Action buttons ─────────────────────────────────────────────────────────
+const BUTTON_STYLE: Record<ButtonKind, { live: string; dim: string; accent: string; label: string }> = {
+  gas: { live: "#dc2433", dim: "#7a1219", accent: "#ffe4b5", label: "GO" },
+  brake: { live: "#1f5dd6", dim: "#11357a", accent: "#bcd6ff", label: "BRAKE" },
+  left: { live: "#3a424d", dim: "#1c2127", accent: "#e6e9ef", label: "LEFT" },
+  right: { live: "#3a424d", dim: "#1c2127", accent: "#e6e9ef", label: "RIGHT" },
+};
+
 function ControllerButton({
   kind,
   pressed,
@@ -108,19 +144,13 @@ function ControllerButton({
   onPress,
   onRelease,
 }: {
-  kind: "gas" | "brake";
+  kind: ButtonKind;
   pressed: boolean;
   disabled: boolean;
   onPress: (e: React.TouchEvent | React.MouseEvent) => void;
   onRelease: (e: React.TouchEvent | React.MouseEvent) => void;
 }) {
-  const isGas = kind === "gas";
-  const label = isGas ? "GO" : "BRAKE";
-
-  // Colour palette per state. "live" = restful, "dim" = pressed.
-  const live = isGas ? "#dc2433" : "#1f5dd6";
-  const dim  = isGas ? "#7a1219" : "#11357a";
-  const accent = isGas ? "#ffe4b5" : "#bcd6ff";
+  const { live, dim, accent, label } = BUTTON_STYLE[kind];
   const bg = pressed ? dim : live;
   const shadow = pressed
     ? "inset 0 4px 8px rgba(0,0,0,0.55), 0 0 0 1.5px #00000080"
@@ -145,10 +175,9 @@ function ControllerButton({
         border: `1.5px solid ${dim}`,
       }}
     >
-      {/* White embossed glyph: arrow up for GO, arrow down for BRAKE */}
       <Glyph kind={kind} pressed={pressed} accent={accent} />
       <span
-        className="font-digital text-[10px] tracking-[0.35em] mt-0.5"
+        className="font-digital text-[9px] tracking-[0.3em] mt-0.5"
         style={{ color: pressed ? "rgba(255,255,255,0.7)" : "#fff" }}
       >
         {label}
@@ -157,7 +186,7 @@ function ControllerButton({
   );
 }
 
-function Glyph({ kind, pressed, accent }: { kind: "gas" | "brake"; pressed: boolean; accent: string }) {
+function Glyph({ kind, pressed, accent }: { kind: ButtonKind; pressed: boolean; accent: string }) {
   // Plate background — slightly inset white/grey square with the chevron on top.
   return (
     <div
@@ -172,12 +201,17 @@ function Glyph({ kind, pressed, accent }: { kind: "gas" | "brake"; pressed: bool
       }}
     >
       <svg width="22" height="14" viewBox="0 0 22 14" fill="none">
-        {kind === "gas" ? (
-          // Up-pointing chevron (GO)
+        {kind === "gas" && (
           <polygon points="11,1 21,11 16,11 16,13 6,13 6,11 1,11" fill={accent} stroke="rgba(0,0,0,0.45)" strokeWidth="0.6" />
-        ) : (
-          // Down-pointing chevron (BRAKE)
+        )}
+        {kind === "brake" && (
           <polygon points="11,13 21,3 16,3 16,1 6,1 6,3 1,3" fill={accent} stroke="rgba(0,0,0,0.45)" strokeWidth="0.6" />
+        )}
+        {kind === "left" && (
+          <polygon points="1,7 11,1 11,4.5 21,4.5 21,9.5 11,9.5 11,13" fill={accent} stroke="rgba(0,0,0,0.45)" strokeWidth="0.6" />
+        )}
+        {kind === "right" && (
+          <polygon points="21,7 11,1 11,4.5 1,4.5 1,9.5 11,9.5 11,13" fill={accent} stroke="rgba(0,0,0,0.45)" strokeWidth="0.6" />
         )}
       </svg>
     </div>
@@ -202,9 +236,9 @@ function PauseButton({
       disabled={disabled}
       onClick={onPress}
       onContextMenu={(e) => e.preventDefault()}
-      className="relative flex flex-col items-center justify-center rounded-md transition-transform duration-75 active:translate-y-[2px] disabled:opacity-40"
+      className="relative flex flex-col items-center justify-center rounded-md transition-transform duration-75 active:translate-y-[2px] disabled:opacity-40 shrink-0"
       style={{
-        width: 64,
+        width: 52,
         background: paused ? dim : live,
         boxShadow: paused
           ? "inset 0 3px 6px rgba(0,0,0,0.55)"

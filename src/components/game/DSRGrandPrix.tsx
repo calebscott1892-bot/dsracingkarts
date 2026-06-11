@@ -205,9 +205,15 @@ export function DSRGrandPrix({ onExit }: Props) {
         {isPlaying && (
           <div className="md:hidden absolute top-1 left-0 right-0 flex justify-center pointer-events-none z-20">
             <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
+              <span className={state.car1.lapProgress >= state.car2.lapProgress ? "text-racing-gold" : "text-text-secondary"}>
+                {state.car1.lapProgress >= state.car2.lapProgress ? "1ST" : "2ND"}
+              </span>
+              {" · "}
               LAP {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)} / {state.totalLaps}
               {" · "}
-              <span className="text-white">{Math.round((state.car1.speed / CAR_DEFAULTS.maxSpeed) * 110)}km/h</span>
+              <span className={state.car1.slipstream ? "text-cyan-300" : "text-white"}>
+                {Math.round((state.car1.speed / CAR_DEFAULTS.maxSpeed) * 110)}km/h
+              </span>
             </span>
           </div>
         )}

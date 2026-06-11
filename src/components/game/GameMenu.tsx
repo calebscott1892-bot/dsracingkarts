@@ -241,7 +241,7 @@ export function GameMenu({ onSelect }: Props) {
                 1 PLAYER
               </span>
               <div className="font-digital text-xs text-text-muted tracking-wider mt-1">
-                {isMobile ? "TAP CONTROLS" : "W / S KEYS"}
+                {isMobile ? "TAP CONTROLS" : "W·A·S·D / ARROWS"}
               </div>
             </div>
           </button>
@@ -303,7 +303,7 @@ export function GameMenu({ onSelect }: Props) {
                 2 PLAYERS
               </span>
               <div className="font-digital text-xs text-text-muted tracking-wider mt-1">
-                W/S + ↑/↓
+                WASD vs ARROWS
               </div>
             </div>
           </button>

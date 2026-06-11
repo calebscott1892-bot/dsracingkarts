@@ -70,8 +70,8 @@ export function GameHUD({ state }: Props) {
               <span className="text-white tabular-nums">{car1EffectiveLap} / {state.totalLaps}</span>
             </div>
             <div className="flex justify-between font-digital text-[10px] md:text-xs">
-              <span className="text-text-muted">SPEED</span>
-              <span className={`tabular-nums ${car1Speed > 90 ? "text-[#e60012]" : car1Speed > 70 ? "text-racing-gold" : "text-white"}`}>
+              <span className="text-text-muted">{state.car1.slipstream ? "DRAFT ▸" : "SPEED"}</span>
+              <span className={`tabular-nums ${state.car1.slipstream ? "text-cyan-300" : car1Speed > 90 ? "text-[#e60012]" : car1Speed > 70 ? "text-racing-gold" : "text-white"}`}>
                 {car1Speed} km/h
               </span>
             </div>
@@ -115,8 +115,8 @@ export function GameHUD({ state }: Props) {
               <span className="text-white tabular-nums">{car2EffectiveLap} / {state.totalLaps}</span>
             </div>
             <div className="flex justify-between font-digital text-[10px] md:text-xs">
-              <span className="text-text-muted">SPEED</span>
-              <span className={`tabular-nums ${car2Speed > 90 ? "text-[#2060ff]" : car2Speed > 70 ? "text-racing-gold" : "text-white"}`}>
+              <span className="text-text-muted">{state.car2.slipstream ? "DRAFT ▸" : "SPEED"}</span>
+              <span className={`tabular-nums ${state.car2.slipstream ? "text-cyan-300" : car2Speed > 90 ? "text-[#2060ff]" : car2Speed > 70 ? "text-racing-gold" : "text-white"}`}>
                 {car2Speed} km/h
               </span>
             </div>

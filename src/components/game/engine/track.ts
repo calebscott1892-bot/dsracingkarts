@@ -9,12 +9,19 @@ export interface TrackData {
   name: string;
   racingLine: Point[];
   curvature: number[];        // unsigned 0–1 (used by AI braking & speed cap)
-  signedCurvature: number[];  // signed: positive = left turn, negative = right (for overshoot direction)
+  signedCurvature: number[];  // signed per-segment angle change (see sign note below)
   maxSafeSpeed: number[];
   trackWidth: number;
   checkpointIndices: number[];
   startIndex: number;
   trackLength: number; // total length in pixels (sum of segment distances)
+  segmentLength: number[];    // px distance from point i to i+1
+  // True signed curvature per pixel (signedCurvature / segmentLength), clamped.
+  // Sign convention: the lane-offset perpendicular is (-sin θ, cos θ); positive
+  // trueCurvature means the curve's centre lies on the POSITIVE lane side, so a
+  // positive laneOffset is the inside of that corner. Local path length for a
+  // kart offset by d is scaled by (1 - d * trueCurvature).
+  trueCurvature: number[];
 }
 
 // Helper: generate points along an elliptical path
@@ -189,6 +196,16 @@ function buildTrack(name: string, controlPoints: Point[], width: number, baseMax
   const maxSafeSpeed = curvatureToMaxSpeed(curvature, baseMax);
   const trackLength = computeTrackLength(racingLine);
 
+  const segmentLength = racingLine.map((p, i) => {
+    const q = racingLine[(i + 1) % racingLine.length];
+    return Math.max(0.001, Math.hypot(q.x - p.x, q.y - p.y));
+  });
+  // Clamp to ±0.05/px (radius ≥ 20px) so near-degenerate segments can't blow
+  // up the lane path-length math.
+  const trueCurvature = signedCurvature.map((k, i) =>
+    Math.max(-0.05, Math.min(0.05, k / segmentLength[i])),
+  );
+
   const startIndex = findBestStartIndex(racingLine, curvature);
 
   // Densified checkpoints — TRACK_CHECKPOINT_COUNT evenly spaced from start.
@@ -210,6 +227,8 @@ function buildTrack(name: string, controlPoints: Point[], width: number, baseMax
     checkpointIndices,
     startIndex,
     trackLength,
+    segmentLength,
+    trueCurvature,
   };
 }
 

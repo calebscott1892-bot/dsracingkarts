@@ -28,6 +28,48 @@ export const TRACK_CHECKPOINT_COUNT = 12; // 12 evenly-spaced checkpoints for re
 // A car must enter a curving segment with curvature > this to risk fly-off
 export const OVERSHOOT_CURVATURE_THRESHOLD = 0.06;
 
+// ── Steering / lane handling ──
+// laneOffset is now a live control axis. The asphalt spans ±(trackWidth/2 −
+// asphaltMargin); a kerbZone beyond that rumbles and bleeds speed; past the
+// kerb is a hard clamp (treated as running out of road, not a crash).
+export const HANDLING = {
+  laneChangeSpeed: 1.0,   // px of lateral travel per 60fps frame at full authority
+  asphaltMargin: 8,       // px inset from the painted track edge
+  kerbZone: 10,           // px of rumble strip beyond the asphalt
+  kerbSpeedBleed: 0.988,  // per-frame speed multiplier while on the kerb
+  steerLean: 0.22,        // visual yaw added at full steering lock (radians)
+  steerSmoothing: 0.22,   // per-frame lerp factor for the visual lean
+  // Saturation bounds for the lane path-scale (1 - laneOffset·curvature).
+  // The raw geometry would give a ~70% inside↔outside safe-speed spread at
+  // hairpins, which makes apexing near-suicidal; these bounds cap the spread
+  // at ≈27% so line choice matters without being brutal.
+  pathScaleMin: 0.78,
+  pathScaleMax: 1.26,
+};
+
+// ── Slipstream ──
+// Tuck in behind the other kart (close + laterally aligned) and your top speed
+// and pickup get a temporary bump — the classic overtaking setup.
+export const DRAFT = {
+  minGapPx: 20,          // closer than this is "contact", not draft
+  maxGapPx: 110,
+  laneTolerancePx: 13,
+  speedBonus: 1.07,      // max-speed multiplier while in the tow
+  accelBonus: 1.25,      // acceleration multiplier while in the tow
+};
+
+// ── Kart-to-kart contact ──
+// Side-by-side: karts push each other apart and scrub a little speed.
+// Nose-to-tail in the same lane: the follower is speed-capped so karts can
+// never drive through each other — you must change lanes to pass.
+export const CONTACT = {
+  radiusPx: 13,           // per-kart collision radius (contact below ~26px)
+  lateralPush: 1.1,       // px per frame of separation while rubbing
+  sameLaneGapPx: 9,       // lateral gap below which it's nose-to-tail
+  rubSpeedScrub: 0.992,   // per-frame speed multiplier while rubbing side-by-side
+  blockSpeedRatio: 0.98,  // follower capped to leader speed × this when blocked
+};
+
 // ── Difficulty profiles ──
 // "Win rate" targets: easy 90%, medium 65%, hard 40%, extreme 10%.
 // Achieved by tuning AI pace AND player track conditions ("wet track / cold tires" etc).
@@ -48,6 +90,8 @@ export interface DifficultyProfile {
   aiLookAhead: number;           // segments ahead AI inspects for braking
   aiBrakeThreshold: number;      // brake when speed > targetSpeed * this
   aiMistakeChance: number;       // per-frame chance of small AI lift-off
+  aiApexSkill: number;           // 0–1: how well the AI hunts the inside line
+  aiOvertakeAggression: number;  // 0–1: 0 = sits behind when blocked, 1 = always goes around
 }
 
 export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme", DifficultyProfile> = {
@@ -66,6 +110,8 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     aiLookAhead: 6,
     aiBrakeThreshold: 0.96,      // AI brakes early
     aiMistakeChance: 0.004,
+    aiApexSkill: 0.35,
+    aiOvertakeAggression: 0,
   },
   medium: {
     key: "medium",
@@ -82,6 +128,8 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     aiLookAhead: 12,
     aiBrakeThreshold: 1.04,
     aiMistakeChance: 0.0015,
+    aiApexSkill: 0.65,
+    aiOvertakeAggression: 0.6,
   },
   hard: {
     key: "hard",
@@ -98,6 +146,8 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     aiLookAhead: 18,
     aiBrakeThreshold: 1.08,
     aiMistakeChance: 0.0006,
+    aiApexSkill: 0.85,
+    aiOvertakeAggression: 0.9,
   },
   extreme: {
     key: "extreme",
@@ -114,6 +164,8 @@ export const DIFFICULTY_PROFILES: Record<"easy" | "medium" | "hard" | "extreme",
     aiLookAhead: 24,
     aiBrakeThreshold: 1.12,
     aiMistakeChance: 0.0001,
+    aiApexSkill: 1.0,
+    aiOvertakeAggression: 1.0,
   },
 };
 

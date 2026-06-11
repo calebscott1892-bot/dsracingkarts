@@ -41,6 +41,15 @@ export interface CarState {
   // headlights, brake lights, and brake-scuff marks.
   inputAccel: boolean;
   inputBrake: boolean;
+  // Steering (lane control)
+  steerInput: number;   // -1..1 raw steering this frame
+  steerSmooth: number;  // smoothed steering for the visual lean
+  onKerb: boolean;      // riding the rumble strip — bleeds speed
+  // Slipstream — set each frame by updateInteractions when tucked in behind
+  // the other kart; grants a temporary top-speed/accel bonus.
+  slipstream: boolean;
+  // Completed on-track passes (lead changes in this car's favour)
+  overtakes: number;
   // Respawn (corner overshoot → fly off → carry back)
   respawn: RespawnState | null;
   // Lap counting (monotonic — robust against missed checkpoints)
@@ -59,6 +68,8 @@ export interface CarState {
   falseStarts: number;
   // AI brain (only used when car is driven by AI)
   aiMistakeFramesLeft: number;
+  aiOvertakeSide: number;    // -1 | 0 | 1 — committed pass direction
+  aiOvertakeFrames: number;  // frames left on the current overtake commitment
 }
 
 export type AIDifficulty = "easy" | "medium" | "hard" | "extreme";
@@ -103,6 +114,11 @@ export function createCarState(x: number, y: number, angle: number): CarState {
     spinAngle: 0,
     inputAccel: false,
     inputBrake: false,
+    steerInput: 0,
+    steerSmooth: 0,
+    onKerb: false,
+    slipstream: false,
+    overtakes: 0,
     respawn: null,
     lapProgress: 0,
     lapCount: 0,
@@ -117,6 +133,8 @@ export function createCarState(x: number, y: number, angle: number): CarState {
     totalDistance: 0,
     falseStarts: 0,
     aiMistakeFramesLeft: 0,
+    aiOvertakeSide: 0,
+    aiOvertakeFrames: 0,
   };
 }
 

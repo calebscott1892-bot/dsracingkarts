@@ -35,7 +35,7 @@ export function GameTeaser() {
           DSR GRAND PRIX
         </h2>
         <p className="text-text-muted text-sm mb-8 max-w-md mx-auto">
-          Think you can handle the speed? Race head-to-head in our slot-car mini-game.
+          Pick your line, ride the slipstream, and make the pass. Race head-to-head in our arcade mini-game.
         </p>
 
         <button
@@ -48,8 +48,8 @@ export function GameTeaser() {
         </button>
 
         <p className="text-text-muted text-xs font-digital tracking-wider mt-6">
-          <span className="hidden md:inline">Use W/S and &uarr;/&darr; to race. Can you handle the speed?</span>
-          <span className="md:hidden">Use the on-screen GAS &amp; BRAKE buttons to race!</span>
+          <span className="hidden md:inline">W·A·S·D or arrow keys — steer, brake, overtake.</span>
+          <span className="md:hidden">On-screen controls: steer, gas &amp; brake!</span>
         </p>
 
         <div className="mt-8 flex items-center justify-center gap-1.5 text-text-muted/40 text-[10px] tracking-widest uppercase">

@@ -91,6 +91,9 @@ export function renderFrame(
   // Brake scuff streaks — short black asphalt marks behind the rear wheels.
   if (state.car1.inputBrake && state.car1.speed > 2 && !state.car1.respawn) addBrakeScuff(state.car1);
   if (state.car2.inputBrake && state.car2.speed > 2 && !state.car2.respawn) addBrakeScuff(state.car2);
+  // Kerb rumble scuffs — faint marks while riding the rumble strip.
+  if (state.car1.onKerb && state.car1.speed > 2 && !state.car1.respawn) addSkidMark(state.car1, 0.15);
+  if (state.car2.onKerb && state.car2.speed > 2 && !state.car2.respawn) addSkidMark(state.car2, 0.15);
 
   // ── Cars (draw car behind first) ──
   const car1Ahead = state.car1.trackPosition > state.car2.trackPosition;
@@ -101,6 +104,10 @@ export function renderFrame(
     drawCar(ctx, state.car1, COLORS.player1, "1");
     drawCar(ctx, state.car2, COLORS.player2, "2");
   }
+
+  // ── Contact sparks — yellow-orange flecks where the karts are rubbing ──
+  // (Decorative random jitter — suppressed under reduced motion.)
+  if (!reduceMotion) drawContactSparks(ctx, state);
 
   // ── Respawn checkpoint glow (drawn over track, behind cars in flying state) ──
   // Already drawn cars; draw an overlay halo over reviving/placing cars on top.
@@ -202,6 +209,31 @@ function drawMinimapDot(ctx: CanvasRenderingContext2D, x: number, y: number, col
   ctx.strokeStyle = "rgba(0,0,0,0.6)";
   ctx.lineWidth = 1;
   ctx.stroke();
+}
+
+// Sparks where the two karts are physically rubbing — instant feedback that
+// contact (and its speed scrub) is happening.
+function drawContactSparks(ctx: CanvasRenderingContext2D, state: GameState): void {
+  const c1 = state.car1;
+  const c2 = state.car2;
+  if (c1.respawn || c2.respawn || c1.spinning || c2.spinning) return;
+  if (c1.speed < 1 && c2.speed < 1) return;
+  const dx = c2.x - c1.x;
+  const dy = c2.y - c1.y;
+  if (dx * dx + dy * dy > 26 * 26) return;
+
+  const mx = (c1.x + c2.x) / 2;
+  const my = (c1.y + c2.y) / 2;
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const ox = (Math.random() - 0.5) * 14;
+    const oy = (Math.random() - 0.5) * 14;
+    ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+    ctx.fillStyle = Math.random() > 0.4 ? "#ffd24a" : "#ff8a2a";
+    ctx.fillRect(mx + ox, my + oy, 1.6 + Math.random() * 1.4, 1.6 + Math.random() * 1.4);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 function drawRespawnHaloIfNeeded(
@@ -747,6 +779,27 @@ function drawCar(
       ctx.arc(ox, oy, 1.5 + Math.random() * 2, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.globalAlpha = respawnAlpha;
+  }
+
+  // ── Slipstream streaks — cool-blue speed lines while in the tow ──
+  // Under reduced motion the streaks stay (they're informational) but the
+  // per-frame random flicker is dropped.
+  if (car.slipstream && !car.spinning && !car.respawn) {
+    const still = prefersReducedMotion();
+    ctx.save();
+    ctx.strokeStyle = "rgba(150,200,255,0.55)";
+    ctx.lineWidth = 1.2;
+    for (let i = 0; i < 3; i++) {
+      const oy = (i - 1) * 7;
+      const jitter = still ? 3 : Math.random() * 6;
+      ctx.globalAlpha = (still ? 0.5 : 0.35 + Math.random() * 0.3) * respawnAlpha;
+      ctx.beginPath();
+      ctx.moveTo(-20 - jitter, oy);
+      ctx.lineTo(-34 - jitter, oy);
+      ctx.stroke();
+    }
+    ctx.restore();
     ctx.globalAlpha = respawnAlpha;
   }
 
