@@ -27,9 +27,18 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Old query-param category URLs (Google's index, bookmarks) get a real
+      // HTTP 308 here — the in-page permanentRedirect only manages a
+      // client-side hop because /shop streams behind loading.tsx.
+      {
+        source: "/shop",
+        has: [{ type: "query", key: "category", value: "(?<slug>.+)" }],
+        destination: "/shop/:slug",
+        permanent: true,
+      },
       {
         source: "/shop/:slug/:legacyId",
-        destination: "/shop?category=:slug",
+        destination: "/shop/:slug",
         permanent: true,
       },
       {
