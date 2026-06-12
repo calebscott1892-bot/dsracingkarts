@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -244,7 +245,7 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function CategoryPage({ params, searchParams }: Props) {
   const { category } = await params;
   const sp = await searchParams;
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
 
   const resolved = await resolveCategory(category);
   if (!resolved) notFound();

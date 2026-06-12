@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildCategoryLookup, type ShopCategory } from "@/components/shop/ShopPageView";
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+import { SITE_URL } from "@/lib/site-url";
 
 export default async function sitemap() {
   const supabase = await createClient();

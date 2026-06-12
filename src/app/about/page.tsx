@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -27,7 +28,7 @@ function publishableTagline(tagline?: string | null) {
 
 export default async function AboutPage() {
   noStore();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
   // Fetch team profiles from DB; fall back to empty (carousel uses hardcoded data)
   let dbTeams: Team[] = [];
   try {

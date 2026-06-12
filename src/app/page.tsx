@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { createPublicReadClient } from "@/lib/supabase/server";
@@ -113,7 +114,7 @@ export default async function HomePage() {
     .eq("is_sellable", true)
     .neq("slug", GIFT_CARD_SLUG);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
   const featuredCategories = (categories || []).slice(0, 7);
   const partsAvailableCount = getPartsAvailableCount(productCount);
 

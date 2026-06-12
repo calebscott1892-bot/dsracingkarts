@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -44,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     product.description_plain?.substring(0, 160) ||
     "";
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
 
   const realImages = (product.product_images || [])
     .filter((image: any) => isRealProductImageUrl(image.url))
@@ -82,7 +83,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const supabase = await createClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
 
   const { data: product } = await supabase
     .from("products")
@@ -134,7 +135,9 @@ export default async function ProductPage({ params }: Props) {
       handlingTime: {
         "@type": "QuantitativeValue",
         minValue: 1,
-        maxValue: 2,
+        // Supplier-sourced (non-stockable) items need a day or two extra to
+        // arrive from the supplier before dispatch.
+        maxValue: product.is_stockable === false ? 4 : 2,
         unitCode: "DAY",
       },
       transitTime: {

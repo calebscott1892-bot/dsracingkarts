@@ -30,7 +30,11 @@ export function Footer() {
           <h4 className="font-heading uppercase tracking-[0.2em] text-xs text-racing-red mb-5">Shop</h4>
           <ul className="space-y-2.5 text-sm">
             <li><Link href="/shop?view=all" className="text-text-secondary hover:text-white hover:pl-1 transition-all">All Products</Link></li>
-            <li><Link href="/shop" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Categories</Link></li>
+            <li><Link href="/shop/brakes-components" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Go Kart Brakes</Link></li>
+            <li><Link href="/shop/engines-accessories-2" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Engines &amp; Parts</Link></li>
+            <li><Link href="/shop/wheels-accessories-2" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Wheels &amp; Rims</Link></li>
+            <li><Link href="/shop/bearings" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Bearings</Link></li>
+            <li><Link href="/shop/chains" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Chains &amp; Sprockets</Link></li>
             <li><Link href="/gift-card" className="text-text-secondary hover:text-white hover:pl-1 transition-all">E-Gift Card</Link></li>
             <li><Link href="/predator-chassis" className="text-text-secondary hover:text-white hover:pl-1 transition-all">Pre-Loved Chassis</Link></li>
           </ul>

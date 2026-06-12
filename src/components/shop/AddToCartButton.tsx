@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Check, MessageCircle, ShoppingCart } from "lucide-react";
+import { AlertTriangle, Check, MessageCircle, ShoppingCart, Truck } from "lucide-react";
 import { useCart } from "@/hooks/useCart";
 import { formatPrice } from "@/lib/utils";
 import { isRealProductImageUrl } from "@/lib/product-images";
@@ -113,6 +113,16 @@ export function AddToCartButton({ product, variations }: Props) {
           )}
         </p>
       )}
+
+      {/* Supplier-sourced items: buyable, but set the dispatch expectation
+          up front. Gift cards are non-stockable too and ship nothing. */}
+      {product.is_stockable === false &&
+        product.slug !== "ds-racing-karts-e-gift-card" && (
+          <p className="flex items-center gap-2.5 text-xs text-text-secondary">
+            <Truck size={14} className="text-racing-red shrink-0" />
+            Sourced from our supplier — usually dispatched within 2–4 business days.
+          </p>
+        )}
 
       {selectedUnavailable && (
         <div className="border border-racing-red/30 bg-racing-red/10 px-4 py-3 text-sm text-text-secondary leading-relaxed">

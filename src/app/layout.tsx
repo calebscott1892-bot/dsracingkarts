@@ -9,6 +9,7 @@ import { Analytics } from "@/components/layout/Analytics";
 import { ActiveAnnouncement } from "@/components/layout/ActiveAnnouncement";
 import { BackButton } from "@/components/layout/BackButton";
 import { PublicChrome } from "@/components/layout/PublicChrome";
+import { SITE_URL } from "@/lib/site-url";
 
 const heading = Oswald({
   subsets: ["latin"],
@@ -81,7 +82,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_AU",
-    url: process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au",
+    url: SITE_URL,
     siteName: "DS Racing Karts",
     title: "DS Racing Karts - Go Kart Chassis, Parts & Service | Sydney",
     description: "Sydney's karting solutions specialist — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
@@ -91,7 +92,7 @@ export const metadata: Metadata = {
     title: "DS Racing Karts - Go Kart Chassis, Parts & Service | Sydney",
     description: "Sydney's karting solutions specialist — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
   },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au"),
+  metadataBase: new URL(SITE_URL),
   formatDetection: {
     email: false,
     address: false,

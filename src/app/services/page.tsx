@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
@@ -176,7 +177,7 @@ const FALLBACK_GALLERY = [
 
 export default async function ServicesPage() {
   const supabase = createServiceClient();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
   const { data: dbGallery } = await supabase
     .from("racewear_gallery")
     .select("id, group_label, image_url, alt_text, is_featured, sort_order, created_at")

@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import { Metadata } from "next";
 import Image from "next/image";
 import { MapPin, Mail, Clock, AlertTriangle, Phone } from "lucide-react";
@@ -22,7 +23,7 @@ export default async function ContactPage({ searchParams }: Props) {
   const params = await searchParams;
   const defaultSubject = params.subject?.slice(0, 200);
   const defaultMessage = params.message?.slice(0, 2000);
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
+  const siteUrl = SITE_URL;
 
   return (
     <>
