@@ -8,7 +8,10 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
+        // /api/og/ stays crawlable — product placeholder images are served
+        // from there and Google disapproves products whose image URL is
+        // blocked by robots.txt.
+        allow: ["/", "/api/og/"],
         disallow: [
           "/admin",
           "/admin/",
@@ -20,22 +23,22 @@ export default function robots(): MetadataRoute.Robots {
       },
       {
         userAgent: "GPTBot",
-        allow: "/",
+        allow: ["/", "/api/og/"],
         disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
       },
       {
         userAgent: "ClaudeBot",
-        allow: "/",
+        allow: ["/", "/api/og/"],
         disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
       },
       {
         userAgent: "PerplexityBot",
-        allow: "/",
+        allow: ["/", "/api/og/"],
         disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
       },
       {
         userAgent: "Google-Extended",
-        allow: "/",
+        allow: ["/", "/api/og/"],
         disallow: ["/admin", "/admin/", "/api/", "/checkout", "/account", "/auth/"],
       },
     ],

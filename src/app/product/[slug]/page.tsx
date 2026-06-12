@@ -6,6 +6,7 @@ import { ScrollToTopOnMount } from "@/components/layout/ScrollToTopOnMount";
 import { ProductImageGallery } from "@/components/shop/ProductImageGallery";
 import { formatPrice } from "@/lib/utils";
 import { isRealProductImageUrl } from "@/lib/product-images";
+import { isUnavailableByStock } from "@/lib/stock";
 import { ChevronRight } from "lucide-react";
 import sanitizeHtml from "sanitize-html";
 import type { Metadata } from "next";
@@ -112,6 +113,46 @@ export default async function ProductPage({ params }: Props) {
     .filter((price: number | null) => typeof price === "number" && Number.isFinite(price));
   const hasVariations = variations.length > 0;
   const displaySku = product.sku || variations.find((v: any) => v.sku)?.sku;
+  // Mirror the storefront's real purchasability in structured data — Google
+  // disapproves products whose markup says InStock while the page says
+  // "Not available for immediate purchase" (availability mismatch).
+  const anyVariationInStock = variations.some(
+    (v: any) => !isUnavailableByStock(v, product.is_stockable !== false)
+  );
+  const schemaAvailability = anyVariationInStock
+    ? "https://schema.org/InStock"
+    : "https://schema.org/OutOfStock";
+  const schemaShippingDetails = {
+    "@type": "OfferShippingDetails",
+    shippingDestination: {
+      "@type": "DefinedRegion",
+      addressCountry: "AU",
+    },
+    deliveryTime: {
+      "@type": "ShippingDeliveryTime",
+      handlingTime: {
+        "@type": "QuantitativeValue",
+        minValue: 1,
+        maxValue: 2,
+        unitCode: "DAY",
+      },
+      transitTime: {
+        "@type": "QuantitativeValue",
+        minValue: 2,
+        maxValue: 8,
+        unitCode: "DAY",
+      },
+    },
+  };
+  const schemaReturnPolicy = {
+    "@type": "MerchantReturnPolicy",
+    applicableCountry: "AU",
+    returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+    merchantReturnDays: 14,
+    returnMethod: "https://schema.org/ReturnByMail",
+    returnFees: "https://schema.org/ReturnFeesCustomerResponsibility",
+    merchantReturnLink: `${siteUrl}/shipping-returns`,
+  };
   const cartProduct = {
     id: product.id,
     slug: product.slug,
@@ -289,19 +330,38 @@ export default async function ProductPage({ params }: Props) {
                       name: "DS Racing Karts",
                     },
                     offers: hasVariations && variationPrices.length > 0
-                      ? {
-                          "@type": "AggregateOffer",
-                          lowPrice: Math.min(...variationPrices),
-                          highPrice: Math.max(...variationPrices),
-                          priceCurrency: "AUD",
-                          offerCount: variations.length,
-                          availability: "https://schema.org/InStock",
-                          seller: {
-                            "@type": "Organization",
-                            name: "DS Racing Karts",
-                            url: siteUrl,
-                          },
-                        }
+                      ? variations.length === 1
+                        ? {
+                            "@type": "Offer",
+                            price: variations[0].sale_price || variations[0].price,
+                            priceCurrency: "AUD",
+                            url: `${siteUrl}/product/${product.slug}`,
+                            availability: schemaAvailability,
+                            itemCondition: "https://schema.org/NewCondition",
+                            shippingDetails: schemaShippingDetails,
+                            hasMerchantReturnPolicy: schemaReturnPolicy,
+                            seller: {
+                              "@type": "Organization",
+                              name: "DS Racing Karts",
+                              url: siteUrl,
+                            },
+                          }
+                        : {
+                            "@type": "AggregateOffer",
+                            lowPrice: Math.min(...variationPrices),
+                            highPrice: Math.max(...variationPrices),
+                            priceCurrency: "AUD",
+                            offerCount: variations.length,
+                            availability: schemaAvailability,
+                            itemCondition: "https://schema.org/NewCondition",
+                            shippingDetails: schemaShippingDetails,
+                            hasMerchantReturnPolicy: schemaReturnPolicy,
+                            seller: {
+                              "@type": "Organization",
+                              name: "DS Racing Karts",
+                              url: siteUrl,
+                            },
+                          }
                       : undefined,
                   },
                 ],
