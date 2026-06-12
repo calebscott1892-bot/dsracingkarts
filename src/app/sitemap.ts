@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { buildCategoryLookup, type ShopCategory } from "@/components/shop/ShopPageView";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://dsracingkarts.com.au";
 
@@ -33,13 +34,18 @@ export default async function sitemap() {
     priority: 0.8,
   }));
 
-  // Dynamic category pages
+  // Dynamic category pages — canonical slugs only, so the sitemap never
+  // points at a duplicate that would redirect or 404.
   const { data: categories } = await supabase
     .from("categories")
-    .select("slug");
+    .select("id, name, parent_id, slug, square_id");
 
-  const categoryPages = (categories || []).map((cat) => ({
-    url: `${SITE_URL}/shop?category=${cat.slug}`,
+  const { dedupedCategories } = buildCategoryLookup(
+    (categories || []) as ShopCategory[]
+  );
+
+  const categoryPages = dedupedCategories.map((cat) => ({
+    url: `${SITE_URL}/shop/${cat.slug}`,
     lastModified: new Date(),
     changeFrequency: "weekly" as const,
     priority: 0.6,

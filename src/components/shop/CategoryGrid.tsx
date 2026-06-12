@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ChevronRight } from "lucide-react";
 import type { Category } from "@/types/database";
+import { categoryHref } from "@/lib/shop-links";
 import { CategoryIcon, hasCategoryIcon } from "@/components/icons/CategoryIcon";
 
 interface Props {
@@ -21,7 +22,7 @@ export function CategoryGrid({ categories, extraTile }: Props) {
         return (
           <Link
             key={cat.id}
-            href={`/shop?category=${cat.slug}`}
+            href={categoryHref(cat.slug)}
             className="group relative aspect-[4/3] overflow-hidden bg-surface-800 border border-surface-600/50 hover:border-brand-red/40 transition-all duration-300"
           >
             {cat.image_url ? (

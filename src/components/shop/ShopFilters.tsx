@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { SlidersHorizontal, Gift } from "lucide-react";
 import type { Category } from "@/types/database";
+import { categoryHref } from "@/lib/shop-links";
 
 interface Props {
   categories: Pick<Category, "id" | "name" | "slug" | "parent_id">[];
@@ -20,6 +21,15 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
 
   function updateParam(key: string, value: string | undefined, closePanel = false) {
     const params = new URLSearchParams(searchParams.toString());
+    // Categories live in the path (/shop/<slug>) — never as a query param.
+    params.delete("category");
+    if (key === "category") {
+      params.delete("page");
+      if (closePanel) setFiltersOpen(false);
+      const qs = params.toString();
+      router.push(`${value ? categoryHref(value) : "/shop"}${qs ? `?${qs}` : ""}`);
+      return;
+    }
     if (value) {
       params.set(key, value);
     } else {
@@ -27,7 +37,9 @@ export function ShopFilters({ categories, currentCategory, currentSort, currentS
     }
     params.delete("page");
     if (closePanel) setFiltersOpen(false);
-    router.push(`/shop?${params.toString()}`);
+    const base = currentCategory ? categoryHref(currentCategory) : "/shop";
+    const qs = params.toString();
+    router.push(`${base}${qs ? `?${qs}` : ""}`);
   }
 
   const parentCats = categories.filter((c) => !c.parent_id);

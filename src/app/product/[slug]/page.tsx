@@ -7,6 +7,7 @@ import { ProductImageGallery } from "@/components/shop/ProductImageGallery";
 import { formatPrice } from "@/lib/utils";
 import { isRealProductImageUrl } from "@/lib/product-images";
 import { isUnavailableByStock } from "@/lib/stock";
+import { categoryHref } from "@/lib/shop-links";
 import { ChevronRight } from "lucide-react";
 import sanitizeHtml from "sanitize-html";
 import type { Metadata } from "next";
@@ -177,7 +178,7 @@ export default async function ProductPage({ params }: Props) {
           <>
             <ChevronRight size={12} />
             <Link
-              href={`/shop?category=${categories[0].slug}`}
+              href={categoryHref(categories[0].slug)}
               className="hover:text-white transition-colors"
             >
               {categories[0].name}
@@ -197,7 +198,7 @@ export default async function ProductPage({ params }: Props) {
           {/* Category badge */}
           {categories[0] && (
             <Link
-              href={`/shop?category=${categories[0].slug}`}
+              href={categoryHref(categories[0].slug)}
               className="inline-block font-heading text-xs tracking-[0.3em] text-brand-red uppercase mb-3 hover:text-brand-red-light transition-colors"
             >
               {categories[0].name}
@@ -292,7 +293,7 @@ export default async function ProductPage({ params }: Props) {
                             "@type": "ListItem",
                             position: 3,
                             name: categories[0].name,
-                            item: `${siteUrl}/shop?category=${categories[0].slug}`,
+                            item: `${siteUrl}${categoryHref(categories[0].slug)}`,
                           }]
                         : []),
                       {
