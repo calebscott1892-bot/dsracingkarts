@@ -44,6 +44,13 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_CART_LINE_QTY = 20;
 const ADMIN_ORDER_EMAIL = process.env.ORDER_NOTIFICATION_EMAIL || "dsracing@bigpond.com";
 const ORDER_EMAIL_FROM = process.env.ORDER_EMAIL_FROM || DEFAULT_TRANSACTIONAL_EMAIL_FROM;
+// Public-facing help line appended to error messages so customers can
+// self-resolve (or reach us directly) instead of getting stuck at checkout.
+const SUPPORT_CONTACT = "If you need a hand, email dsracing@bigpond.com or call 0492 454 854 and we'll sort it out.";
+const PHONE_CONFLICT_MESSAGE =
+  "This phone number is already linked to a previous order under a different email address. " +
+  "If you've ordered with us before, please check out using that same email. " +
+  SUPPORT_CONTACT;
 
 function escapeHtml(value: unknown): string {
   return String(value ?? "")
@@ -346,9 +353,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!EMAIL_REGEX.test(customerEmail) || !customerName || !customerPhone || !normalizePhoneForSquare(customerPhone) || !shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+    if (!EMAIL_REGEX.test(customerEmail)) {
       return NextResponse.json(
-        { error: "Invalid customer or shipping details" },
+        { error: "Please enter a valid email address." },
+        { status: 400 }
+      );
+    }
+    if (!customerName) {
+      return NextResponse.json(
+        { error: "Please enter your name." },
+        { status: 400 }
+      );
+    }
+    if (!customerPhone || !normalizePhoneForSquare(customerPhone)) {
+      return NextResponse.json(
+        { error: "Please enter a valid phone number, including the mobile or area prefix (e.g. 0412 345 678)." },
+        { status: 400 }
+      );
+    }
+    if (!shippingLine1 || !shippingCity || !shippingState || !shippingPostcode) {
+      return NextResponse.json(
+        { error: "Please complete your shipping address — street, suburb, state and postcode are all required." },
         { status: 400 }
       );
     }
@@ -551,7 +576,7 @@ export async function POST(request: NextRequest) {
     );
     if (phoneConflict) {
       return NextResponse.json(
-        { error: "That phone number is already attached to another customer. Please check your details or contact us." },
+        { error: PHONE_CONFLICT_MESSAGE },
         { status: 409 }
       );
     }
@@ -573,7 +598,7 @@ export async function POST(request: NextRequest) {
 
     if (squarePhoneConflict) {
       return NextResponse.json(
-        { error: "That phone number is already attached to another customer. Please check your details or contact us." },
+        { error: PHONE_CONFLICT_MESSAGE },
         { status: 409 }
       );
     }
@@ -645,7 +670,7 @@ export async function POST(request: NextRequest) {
     } catch (squareCustomerError) {
       console.error("Square customer sync failed:", squareCustomerError);
       return NextResponse.json(
-        { error: "Customer setup failed. Please check your details and try again." },
+        { error: `Customer setup failed. Please check your details and try again. ${SUPPORT_CONTACT}` },
         { status: 500 }
       );
     }
@@ -972,7 +997,7 @@ export async function POST(request: NextRequest) {
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(
-        { error: "Payment failed. Please try again." },
+        { error: `Payment failed. Please try again. ${SUPPORT_CONTACT}` },
         { status: 402 }
       );
     }
@@ -992,7 +1017,7 @@ export async function POST(request: NextRequest) {
       revalidatePath("/admin/orders");
       revalidatePath(`/admin/orders/${order.id}`);
       return NextResponse.json(
-        { error: "Payment failed. Please try again." },
+        { error: `Payment failed. Please try again. ${SUPPORT_CONTACT}` },
         { status: 402 }
       );
     }
