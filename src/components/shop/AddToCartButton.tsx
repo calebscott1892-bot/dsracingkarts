@@ -120,7 +120,7 @@ export function AddToCartButton({ product, variations }: Props) {
         product.slug !== "ds-racing-karts-e-gift-card" && (
           <p className="flex items-center gap-2.5 text-xs text-text-secondary">
             <Truck size={14} className="text-racing-red shrink-0" />
-            Sourced from our supplier — usually dispatched within 2–4 business days.
+            Sourced from our supplier — usually dispatched within 5 business days.
           </p>
         )}
 

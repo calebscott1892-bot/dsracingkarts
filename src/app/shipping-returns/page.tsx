@@ -30,8 +30,8 @@ export default function ShippingReturnsPage() {
             <h2 className="font-heading text-lg uppercase tracking-[0.1em] text-white mb-3">Shipping Policy</h2>
             <ul className="list-disc list-inside space-y-1 text-white/60">
               <li>We ship Australia-wide from our workshop in Woodbine, NSW.</li>
-              <li>Orders are dispatched within 1&ndash;2 business days of payment. Items not held in stock are
-                typically sourced from our suppliers within 24&ndash;48 hours before dispatch.</li>
+              <li>In-stock orders are dispatched within 1&ndash;2 business days of payment. Items sourced from
+                our suppliers are usually dispatched within 5 business days.</li>
               <li>Shipping costs are calculated based on the size, weight and destination of your order and
                 are confirmed at checkout or via invoice.</li>
               <li>Delivery methods range from express envelopes through Australia Post to courier services
