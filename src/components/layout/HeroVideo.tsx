@@ -67,12 +67,26 @@ export function HeroVideo() {
     window.addEventListener("touchmove", markUserInteraction, { passive: true });
     window.addEventListener("keydown", markUserInteraction);
 
-    const v = videoRef.current;
-    if (!v) {
-      window.history.scrollRestoration = originalScrollRestoration;
+    const cleanupListeners = () => {
       window.removeEventListener("wheel", markUserInteraction);
       window.removeEventListener("touchmove", markUserInteraction);
       window.removeEventListener("keydown", markUserInteraction);
+      window.history.scrollRestoration = originalScrollRestoration;
+    };
+
+    // Mobile: skip the hero video entirely (it's CSS-hidden via `hidden md:block`
+    // below). Reveal the photo backdrop and content immediately instead of
+    // waiting on a video that never plays.
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setVideoEnded(true);
+      setContentVisible(true);
+      keepHomepageAtHeroTop(userHasInteractedRef.current);
+      return cleanupListeners;
+    }
+
+    const v = videoRef.current;
+    if (!v) {
+      cleanupListeners();
       return;
     }
 
@@ -101,10 +115,7 @@ export function HeroVideo() {
     return () => {
       v.removeEventListener("ended", onEnded);
       clearTimeout(fallback);
-      window.removeEventListener("wheel", markUserInteraction);
-      window.removeEventListener("touchmove", markUserInteraction);
-      window.removeEventListener("keydown", markUserInteraction);
-      window.history.scrollRestoration = originalScrollRestoration;
+      cleanupListeners();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -147,7 +158,8 @@ export function HeroVideo() {
         ref={videoRef}
         muted
         playsInline
-        className={`absolute inset-0 w-full h-full object-contain md:object-cover transition-opacity duration-1000 ${
+        preload="none"
+        className={`absolute inset-0 w-full h-full object-contain md:object-cover transition-opacity duration-1000 hidden md:block ${
           videoEnded ? "opacity-0" : "opacity-100"
         }`}
       >

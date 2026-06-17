@@ -19,12 +19,17 @@
  *   ANTHROPIC_API_KEY=sk-... node scripts/generate-descriptions.js
  */
 
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../.env.local") });
 const { createClient } = require("@supabase/supabase-js");
 const Anthropic = require("@anthropic-ai/sdk").default;
 
-const SUPABASE_URL = "https://bqkefjpoejjgxdxueiod.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJxa2VmanBvZWpqZ3hkeHVlaW9kIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NTY1NDE4OCwiZXhwIjoyMDkxMjMwMTg4fQ.rZgp-5fhb6x_RIBIa9AXus3nsbaXb6Iz_4vpWsmryoQ";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error("❌ Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
+  process.exit(1);
+}
 
 const MIN_EXISTING_LEN = 60; // only expand descriptions shorter than this
 const SLEEP_MS = 300; // tiny pause between API calls
@@ -78,18 +83,25 @@ async function main() {
     process.exit(1);
   }
 
-  // Fetch products + their primary category for context
-  const { data: products, error } = await supabase
-    .from("products")
-    .select(`
-      id, name, description,
-      product_categories ( categories ( name ) )
-    `)
-    .order("name");
-
-  if (error) {
-    console.error("DB error:", error);
-    process.exit(1);
+  // Fetch products + their primary category for context. Supabase caps a
+  // single select at 1000 rows, so page through the full catalogue.
+  const products = [];
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("products")
+      .select(`
+        id, name, description,
+        product_categories ( categories ( name ) )
+      `)
+      .order("name")
+      .range(from, from + PAGE - 1);
+    if (error) {
+      console.error("DB error:", error);
+      process.exit(1);
+    }
+    products.push(...(data || []));
+    if (!data || data.length < PAGE) break;
   }
 
   const targets = products.filter((p) => (p.description || "").trim().length < MIN_EXISTING_LEN);

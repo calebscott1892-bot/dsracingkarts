@@ -91,6 +91,10 @@ export function renderFrame(
   // Brake scuff streaks — short black asphalt marks behind the rear wheels.
   if (state.car1.inputBrake && state.car1.speed > 2 && !state.car1.respawn) addBrakeScuff(state.car1);
   if (state.car2.inputBrake && state.car2.speed > 2 && !state.car2.respawn) addBrakeScuff(state.car2);
+  // Burnout rubber — flooring it from a standing start spins the rears and
+  // lays two black lines, so a launch reads instantly even before the kart moves.
+  if (isBurningOut(state.car1)) addBrakeScuff(state.car1);
+  if (isBurningOut(state.car2)) addBrakeScuff(state.car2);
   // Kerb rumble scuffs — faint marks while riding the rumble strip.
   if (state.car1.onKerb && state.car1.speed > 2 && !state.car1.respawn) addSkidMark(state.car1, 0.15);
   if (state.car2.onKerb && state.car2.speed > 2 && !state.car2.respawn) addSkidMark(state.car2, 0.15);
@@ -753,6 +757,23 @@ function drawCar(
   ctx.textBaseline = "middle";
   ctx.fillText(label, -6, 0.5);
 
+  // ── Burnout smoke — wheelspin off the line throws white tyre smoke from the
+  //    rear wheels immediately, before the kart has built any speed. ──
+  if (isBurningOut(car)) {
+    ctx.globalAlpha = 0.5 * respawnAlpha;
+    for (let i = 0; i < 6; i++) {
+      const lateral = i % 2 === 0 ? -10 : 10;        // the two rear wheels
+      const ox = -13 - Math.random() * 13;            // billow out behind
+      const oy = lateral + (Math.random() - 0.5) * 9;
+      const size = 2.5 + Math.random() * 4.5;
+      ctx.fillStyle = i % 4 === 0 ? "#e8e8e8" : "#c2c2c2";
+      ctx.beginPath();
+      ctx.arc(ox, oy, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = respawnAlpha;
+  }
+
   // ── Exhaust / smoke particles ──
   if ((car.drifting || car.spinning) && !car.respawn) {
     ctx.globalAlpha = 0.4 * respawnAlpha;
@@ -884,6 +905,17 @@ function addSkidMark(car: CarState, baseAlpha: number = 0.6): void {
   if (skidMarks.length > 300) {
     skidMarks.splice(0, 50);
   }
+}
+
+// A full-throttle, low-speed launch = wheelspin. Used for both the rubber
+// marks and the smoke puffs so a standing start "registers" immediately.
+function isBurningOut(car: CarState): boolean {
+  return (
+    car.inputAccel &&
+    car.speed < car.maxSpeed * 0.25 &&
+    !car.spinning &&
+    !car.respawn
+  );
 }
 
 // Add two black scuff dots behind the car's rear wheels — visible as a

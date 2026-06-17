@@ -33,12 +33,12 @@ export const OVERSHOOT_CURVATURE_THRESHOLD = 0.06;
 // asphaltMargin); a kerbZone beyond that rumbles and bleeds speed; past the
 // kerb is a hard clamp (treated as running out of road, not a crash).
 export const HANDLING = {
-  laneChangeSpeed: 1.0,   // px of lateral travel per 60fps frame at full authority
+  laneChangeSpeed: 1.7,   // px of lateral travel per 60fps frame at full authority
   asphaltMargin: 8,       // px inset from the painted track edge
   kerbZone: 10,           // px of rumble strip beyond the asphalt
   kerbSpeedBleed: 0.988,  // per-frame speed multiplier while on the kerb
-  steerLean: 0.22,        // visual yaw added at full steering lock (radians)
-  steerSmoothing: 0.22,   // per-frame lerp factor for the visual lean
+  steerLean: 0.34,        // visual yaw added at full steering lock (radians)
+  steerSmoothing: 0.30,   // per-frame lerp factor for the visual lean
   // Saturation bounds for the lane path-scale (1 - laneOffset·curvature).
   // The raw geometry would give a ~70% inside↔outside safe-speed spread at
   // hairpins, which makes apexing near-suicidal; these bounds cap the spread

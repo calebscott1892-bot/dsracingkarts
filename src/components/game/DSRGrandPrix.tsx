@@ -202,21 +202,7 @@ export function DSRGrandPrix({ onExit }: Props) {
         )}
 
         {/* Mobile compact top banner */}
-        {isPlaying && (
-          <div className="md:hidden absolute top-1 left-0 right-0 flex justify-center pointer-events-none z-20">
-            <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
-              <span className={state.car1.lapProgress >= state.car2.lapProgress ? "text-racing-gold" : "text-text-secondary"}>
-                {state.car1.lapProgress >= state.car2.lapProgress ? "1ST" : "2ND"}
-              </span>
-              {" · "}
-              LAP {Math.max(0, state.car1.lapCount - state.car1.penaltyLaps)} / {state.totalLaps}
-              {" · "}
-              <span className={state.car1.slipstream ? "text-cyan-300" : "text-white"}>
-                {Math.round((state.car1.speed / CAR_DEFAULTS.maxSpeed) * 110)}km/h
-              </span>
-            </span>
-          </div>
-        )}
+        {isPlaying && <MobileRaceBanner state={state} />}
 
         {/* Pause overlay (covers canvas, both desktop & mobile) */}
         {state.paused && isRacing && (
@@ -235,6 +221,44 @@ export function DSRGrandPrix({ onExit }: Props) {
           onPauseToggle={togglePause}
         />
       )}
+    </div>
+  );
+}
+
+// ── Mobile race banner ─────────────────────────────────────────────────────
+// The game loop mutates the car objects in place every frame WITHOUT calling
+// setState, so a component that just reads `state.car1` from props would show
+// frozen lap/speed/position values. The desktop GameHUD avoids this with its
+// own rAF; this banner does the same so the mobile readout stays live.
+function MobileRaceBanner({ state }: { state: GameState }) {
+  const [, force] = useState(0);
+  useEffect(() => {
+    let raf: number;
+    const tick = () => {
+      force((n) => (n + 1) % 1_000_000);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const p1Ahead = state.car1.lapProgress >= state.car2.lapProgress;
+  const p1Lap = Math.max(0, state.car1.lapCount - state.car1.penaltyLaps);
+  const p1Kmh = Math.round((state.car1.speed / CAR_DEFAULTS.maxSpeed) * 110);
+
+  return (
+    <div className="md:hidden absolute top-1 left-0 right-0 flex justify-center pointer-events-none z-20">
+      <span className="font-digital text-[9px] tracking-[0.2em] text-racing-gold bg-black/80 px-3 py-0.5 border border-racing-gold/30">
+        <span className={p1Ahead ? "text-racing-gold" : "text-text-secondary"}>
+          {p1Ahead ? "1ST" : "2ND"}
+        </span>
+        {" · "}
+        LAP {p1Lap} / {state.totalLaps}
+        {" · "}
+        <span className={state.car1.slipstream ? "text-cyan-300" : "text-white"}>
+          {p1Kmh}km/h
+        </span>
+      </span>
     </div>
   );
 }
