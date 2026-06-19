@@ -36,6 +36,7 @@ export function Header({ announcementSlot }: { announcementSlot?: React.ReactNod
     { href: "/about", label: "About" },
     { href: "/shop", label: "Shop" },
     { href: "/services", label: "Services" },
+    { href: "/brands", label: "Brands" },
     { href: "/sponsors", label: "Sponsors" },
   ];
   const leftNavLinks = navLinks.slice(0, 2);
