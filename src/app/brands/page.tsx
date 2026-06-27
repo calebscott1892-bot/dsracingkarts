@@ -19,6 +19,8 @@ interface Brand {
   name: string;
   logo?: string;
   featured?: boolean;
+  // Some logos are white/light artwork that only reads on a dark tile.
+  dark?: boolean;
 }
 
 // Chassis, engines, components, brakes, seats and electronics we fit, tune and
@@ -29,8 +31,8 @@ const serviceBrands: Brand[] = [
   { name: "OTK Kart Group" },
   { name: "Kart Republic" },
   { name: "CRG Kart" },
-  { name: "Arrow" },
-  { name: "KG Kart" },
+  { name: "Arrow", logo: "/images/brands/arrow.png" },
+  { name: "KG Kart", logo: "/images/brands/kg.png" },
   { name: "Senzo" },
   { name: "Prodezine" },
   { name: "DELTA" },
@@ -41,13 +43,13 @@ const serviceBrands: Brand[] = [
   { name: "Honda", logo: "/images/brands/honda.svg" },
   { name: "Honda Aftermarket" },
   { name: "Briggs & Stratton" },
-  { name: "Torini" },
+  { name: "Torini", logo: "/images/brands/torini.png" },
   { name: "Tillotson" },
   { name: "Walbro" },
-  { name: "Kartech" },
+  { name: "Kartech", logo: "/images/brands/kartech.png" },
   { name: "Righetti Ridolfi" },
-  { name: "Talon Engineering" },
-  { name: "Noram" },
+  { name: "Talon Engineering", logo: "/images/brands/talon.png" },
+  { name: "Noram", logo: "/images/brands/noram.jpg" },
   { name: "Ferodo" },
   { name: "Dent Brakes" },
   { name: "Tillett" },
@@ -55,7 +57,7 @@ const serviceBrands: Brand[] = [
   { name: "Sniper" },
   { name: "GT GoKart Wheels" },
   { name: "K1R Racing Products" },
-  { name: "NR Racing" },
+  { name: "NR Racing", logo: "/images/brands/nr.png" },
   { name: "Greyhound" },
   { name: "AiM (MyChron)" },
   { name: "Alfano" },
@@ -74,12 +76,12 @@ const supplyBrands: Brand[] = [
   { name: "NGK", logo: "/images/brands/ngk.svg" },
   { name: "Denso", logo: "/images/brands/denso.svg" },
   { name: "Champion" },
-  { name: "D.I.D" },
+  { name: "D.I.D", logo: "/images/brands/did.png" },
   { name: "CZ Chains" },
-  { name: "RK Racing Chain" },
+  { name: "RK Racing Chain", logo: "/images/brands/rk.png" },
   { name: "Dunlop", logo: "/images/brands/dunlop.svg" },
   { name: "Maxxis", logo: "/images/brands/maxxis.svg" },
-  { name: "Jecko" },
+  { name: "Jecko", logo: "/images/brands/jecko.png", dark: true },
 ];
 
 function BrandTile({ brand }: { brand: Brand }) {
@@ -88,7 +90,9 @@ function BrandTile({ brand }: { brand: Brand }) {
       className={`group relative flex items-center justify-center rounded-md overflow-hidden aspect-[3/2] ${
         brand.featured
           ? "bg-black ring-2 ring-racing-red shadow-[0_0_24px_rgba(230,0,18,0.25)]"
-          : "bg-white"
+          : brand.dark
+            ? "bg-racing-black border border-white/10"
+            : "bg-white"
       }`}
     >
       {brand.featured && (
