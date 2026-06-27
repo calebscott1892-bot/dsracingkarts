@@ -168,7 +168,7 @@ function needsMigration(url) {
 }
 
 /** Signed server-side fetch upload. Cloudinary pulls `sourceUrl` itself. */
-async function uploadToCloudinary(sourceUrl, publicId) {
+async function rawUpload(sourceUrl, publicId) {
   const timestamp = Math.floor(Date.now() / 1000);
   // Only these params are signed (file/api_key/resource_type/cloud_name are excluded).
   const signed = { overwrite: "true", public_id: publicId, timestamp: String(timestamp) };
@@ -195,6 +195,37 @@ async function uploadToCloudinary(sourceUrl, publicId) {
   }
   // Build a clean delivery URL with the optimization transform baked in.
   return `https://res.cloudinary.com/${CLD.cloudName}/image/upload/${DELIVERY_TX}/v${json.version}/${json.public_id}.${json.format}`;
+}
+
+/**
+ * Supabase Storage object URL -> on-the-fly downscaled render URL. Lets us feed
+ * Cloudinary a smaller file when an original exceeds its 10MB ingestion limit.
+ * Returns null for non-Supabase-Storage URLs.
+ */
+function supabaseRenderUrl(url) {
+  if (typeof url !== "string" || !url.includes("/storage/v1/object/public/")) return null;
+  const rendered = url.replace(
+    "/storage/v1/object/public/",
+    "/storage/v1/render/image/public/"
+  );
+  return `${rendered}${rendered.includes("?") ? "&" : "?"}width=2400&quality=80`;
+}
+
+/**
+ * Upload wrapper: on Cloudinary's "file size too large" (free-tier 10MB cap),
+ * retry once via Supabase's downscaling render endpoint so big originals still
+ * make it across.
+ */
+async function uploadToCloudinary(sourceUrl, publicId) {
+  try {
+    return await rawUpload(sourceUrl, publicId);
+  } catch (err) {
+    if (/file size too large/i.test(err.message || "")) {
+      const ren = supabaseRenderUrl(sourceUrl);
+      if (ren) return await rawUpload(ren, publicId);
+    }
+    throw err;
+  }
 }
 
 async function pMap(items, fn, concurrency) {
@@ -236,21 +267,29 @@ let totalSkip = 0;
 
 async function migrateTarget(t) {
   console.log(`\n━━ ${t.name} (${t.table}.${t.column}) ━━`);
-  let from = 0;
+  let lastId = null;
   let processed = 0;
 
   while (processed < LIMIT) {
-    const { data: rows, error } = await supabase
+    // Keyset pagination by id: stable even as we mutate rows mid-run (range
+    // offsets drift when the underlying rows change). Excluding already-migrated
+    // rows at the DB level keeps re-runs cheap; failures are simply revisited on
+    // the next run since we advance past their id this run.
+    let q = supabase
       .from(t.table)
       .select(t.select)
       .not(t.column, "is", null)
-      .range(from, from + PAGE - 1);
+      .not(t.column, "ilike", "%res.cloudinary.com%")
+      .order("id", { ascending: true })
+      .limit(PAGE);
+    if (lastId) q = q.gt("id", lastId);
+    const { data: rows, error } = await q;
     if (error) {
       console.error(`  ✖ read failed: ${error.message}`);
       return;
     }
     if (!rows?.length) break;
-    from += PAGE;
+    lastId = rows[rows.length - 1].id;
 
     const todo = rows
       .filter((r) => needsMigration(r[t.column]))
