@@ -18,6 +18,13 @@ const nextConfig = {
         protocol: "https",
         hostname: "items-images-production.s3.us-west-2.amazonaws.com",
       },
+      // Cloudinary — image CDN we migrate Storage images onto so they aren't
+      // served (and metered) straight out of Supabase Storage.
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+        pathname: "/dovtfunu2/**",
+      },
     ],
     formats: ["image/avif", "image/webp"],
     // Cache optimized images for 30 days at the CDN edge
@@ -90,7 +97,7 @@ const nextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://web.squarecdn.com https://sandbox.web.squarecdn.com",
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com",
-              "img-src 'self' data: blob: https://*.supabase.co https://items-images-production.s3.us-west-2.amazonaws.com https://www.google-analytics.com",
+              "img-src 'self' data: blob: https://*.supabase.co https://items-images-production.s3.us-west-2.amazonaws.com https://res.cloudinary.com https://www.google-analytics.com",
               "connect-src 'self' https://*.supabase.co https://www.google-analytics.com https://pax.squareup.com https://connect.squareup.com https://pci-connect.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com https://*.ingest.de.sentry.io https://*.sentry.io",
               "frame-src 'self' https://pax.squareup.com https://connect.squareup.com https://sandbox.web.squarecdn.com https://web.squarecdn.com",
               "media-src 'self' blob:",
