@@ -16,6 +16,14 @@ const SIZES = { small: 28, default: 36, large: 48, xl: 72 };
 const FULL_VIEWBOX = '50 100 880 400';
 const FULL_ASPECT = 880 / 400;
 
+/* Horizontal shift (as a fraction of the rendered SVG width) that optically
+   centres the RESTING C4 mark. The SVG box always reserves the full lockup width
+   (mark + "Studios" wordmark), but at rest only the mark shows and it sits
+   left-of-centre in that box. Shifting the SVG right by this fraction centres the
+   mark; it slides back to 0 as the wordmark expands so the full lockup stays
+   centred. Derived from the fixed lockup geometry, so it is size-independent. */
+const MARK_CENTER_SHIFT = 0.187;
+
 const LOCKUP_TRANSFORM = 'translate(18 -273) scale(1.5)';
 
 const COLOURS = {
@@ -293,6 +301,9 @@ export default function C4FooterCredit({
 }) {
   const prefersReducedMotion = usePrefersReducedMotion();
 
+  /* Drives the resting→expanded centring slide (see MARK_CENTER_SHIFT). */
+  const [expanded, setExpanded] = useState(false);
+
   const rootRef = useRef(null);
   const monoTlRef = useRef(null);
   const colourTlRef = useRef(null);
@@ -327,6 +338,7 @@ export default function C4FooterCredit({
   const uid = useId();
 
   const w = Math.round(h * FULL_ASPECT);
+  const restShift = (expanded || initialStage >= 1) ? 0 : w * MARK_CENTER_SHIFT;
 
   const cClipId = `c4-c-clip-${uid}`;
   const stemUpperClipId = `c4-four-stem-upper-${uid}`;
@@ -642,11 +654,13 @@ export default function C4FooterCredit({
     const tl = getActiveTl();
     if (!tl) return;
     inFlightTlRef.current = tl;
+    setExpanded(true);
     playTl(tl);
   }, [prefersReducedMotion, getActiveTl, playTl]);
 
   const handleHoverEnd = useCallback(() => {
     if (prefersReducedMotion) return;
+    setExpanded(false);
     const tl = inFlightTlRef.current;
     inFlightTlRef.current = null;
     if (!tl || tl.progress() >= 1) return;
@@ -659,6 +673,7 @@ export default function C4FooterCredit({
     if (!tl) return;
     touchStartRef.current = Date.now();
     inFlightTlRef.current = tl;
+    setExpanded(true);
     playTl(tl);
   }, [prefersReducedMotion, getActiveTl, playTl]);
 
@@ -666,6 +681,7 @@ export default function C4FooterCredit({
     if (prefersReducedMotion) return;
     const elapsed = Date.now() - (touchStartRef.current || 0);
     touchStartRef.current = null;
+    setExpanded(false);
 
     const tl = inFlightTlRef.current;
     inFlightTlRef.current = null;
@@ -716,7 +732,7 @@ export default function C4FooterCredit({
       style={{
         display: 'inline-flex',
         flexDirection: 'column',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         gap: '6px',
         textDecoration: 'none',
         color: 'inherit',
@@ -730,7 +746,12 @@ export default function C4FooterCredit({
         height={h}
         xmlns="http://www.w3.org/2000/svg"
         shapeRendering="geometricPrecision"
-        style={{ overflow: 'visible' }}
+        style={{
+          overflow: 'visible',
+          transform: `translateX(${restShift}px)`,
+          transition: prefersReducedMotion ? 'none' : 'transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)',
+          willChange: 'transform',
+        }}
       >
         <defs>
           <filter id={cPresenceId} x="-15%" y="-15%" width="130%" height="130%">
