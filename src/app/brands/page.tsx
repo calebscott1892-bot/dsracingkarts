@@ -19,8 +19,9 @@ interface Brand {
   name: string;
   logo?: string;
   featured?: boolean;
-  // Some logos are white/light artwork that only reads on a dark tile.
   dark?: boolean;
+  // href links the tile to a brand landing page (SEO) or external URL.
+  href?: string;
 }
 
 // Chassis, engines, components, brakes, seats and electronics we fit, tune and
@@ -28,18 +29,18 @@ interface Brand {
 // one. (Categorisation is a first pass; easy to shuffle in this array.)
 const serviceBrands: Brand[] = [
   { name: "Maverick Kart", logo: "/images/brands/maverick.jpg", featured: true },
-  { name: "OTK Kart Group", logo: "/images/brands/otk.png" },
-  { name: "Kart Republic", logo: "/images/brands/kart-republic.png" },
-  { name: "CRG Kart", logo: "/images/brands/crg.png" },
-  { name: "Arrow", logo: "/images/brands/arrow.png" },
+  { name: "OTK Kart Group", logo: "/images/brands/otk.png", href: "/brands/otk" },
+  { name: "Kart Republic", logo: "/images/brands/kart-republic.png", href: "/brands/kart-republic" },
+  { name: "CRG Kart", logo: "/images/brands/crg.png", href: "/brands/crg" },
+  { name: "Arrow", logo: "/images/brands/arrow.png", href: "/brands/arrow" },
   { name: "KG Kart", logo: "/images/brands/kg.png" },
   { name: "Senzo", logo: "/images/brands/senzo.png" },
   { name: "Prodezine", logo: "/images/brands/prodezine.png" },
   { name: "DELTA", logo: "/images/brands/delta.png" },
   { name: "Italsport", logo: "/images/brands/italsport.png" },
-  { name: "Rotax", logo: "/images/brands/rotax.svg" },
-  { name: "IAME", logo: "/images/brands/iame.png" },
-  { name: "Vortex", logo: "/images/brands/vortex.png" },
+  { name: "Rotax", logo: "/images/brands/rotax.svg", href: "/brands/rotax" },
+  { name: "IAME", logo: "/images/brands/iame.png", href: "/brands/iame" },
+  { name: "Vortex", logo: "/images/brands/vortex.png", href: "/brands/vortex" },
   { name: "Honda", logo: "/images/brands/honda.svg" },
   { name: "Honda Aftermarket", logo: "/images/brands/honda-aftermarket.png" },
   { name: "Briggs & Stratton", logo: "/images/brands/briggs.png" },
@@ -85,9 +86,11 @@ const supplyBrands: Brand[] = [
 ];
 
 function BrandTile({ brand }: { brand: Brand }) {
-  return (
+  const inner = (
     <div
-      className={`group relative flex items-center justify-center rounded-md overflow-hidden aspect-[3/2] ${
+      className={`group relative flex items-center justify-center rounded-md overflow-hidden aspect-[3/2] transition-opacity ${
+        brand.href ? "hover:opacity-80" : ""
+      } ${
         brand.featured
           ? "bg-black ring-2 ring-racing-red shadow-[0_0_24px_rgba(230,0,18,0.25)]"
           : brand.dark
@@ -116,6 +119,8 @@ function BrandTile({ brand }: { brand: Brand }) {
       )}
     </div>
   );
+
+  return brand.href ? <Link href={brand.href}>{inner}</Link> : inner;
 }
 
 function BrandGrid({ brands }: { brands: Brand[] }) {

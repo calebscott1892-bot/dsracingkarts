@@ -33,51 +33,90 @@ const digital = Orbitron({
 
 export const metadata: Metadata = {
   title: {
-    default: "DS Racing Karts - Go Kart Chassis, Parts & Service | Sydney",
+    default: "DS Racing Karts | Kart Shop Sydney — Parts, Racewear & Servicing | Australia-Wide",
     template: "%s | DS Racing Karts",
   },
   description:
-    "Having problems in karting? DS Racing Karts is your karting solutions specialist in Sydney — chassis, engines, brakes, racewear and more, shipped Australia-wide.",
+    "DS Racing Karts — Sydney's go kart specialists. 8,000+ kart parts, custom racewear, engine rebuilds and full servicing. OTK, IAME, Rotax, CRG and more. Shipping Australia-wide.",
   keywords: [
-    "go kart parts",
-    "kart racing",
-    "Sydney",
-    "karting",
-    "engines",
-    "chassis",
-    "racing karts Australia",
+    // Tier 1 — money keywords
+    "DS Racing Karts",
+    "kart shop Sydney",
+    "kart shop Australia",
+    "go kart parts Australia",
+    "kart parts Australia",
+    "kart racing parts",
+    "karting parts online",
+    "kart workshop Sydney",
+    "kart servicing Sydney",
+    "kart repairs Sydney",
+    // Tier 2 — products
+    "kart tyres",
+    "kart wheels",
+    "kart chains",
+    "kart sprockets",
+    "kart brakes",
+    "kart axles",
+    "kart bearings",
+    "kart seats",
+    "kart steering wheels",
+    "kart accessories",
+    "kart helmets",
+    "kart racewear",
+    "custom kart suits",
+    "kart gloves",
+    "kart boots",
+    // Tier 3 — brands
+    "OTK parts",
+    "CRG parts",
+    "Arrow kart parts",
+    "Rotax parts",
+    "KA100 parts",
+    "Vortex kart parts",
+    "IAME parts",
+    "Tillotson parts",
+    "Revolution Racegear",
+    "DPE kart parts",
+    "IKD",
+    // Tier 4 — services
+    "kart setup",
+    "kart tuning",
+    "kart engine rebuild",
+    "kart engine servicing",
+    "kart preparation",
+    "race kart setup",
+    "kart chassis setup",
+    // Tier 5 — local SEO
+    "kart shop Campbelltown",
+    "kart workshop Campbelltown",
+    "kart parts NSW",
+    "go kart shop Sydney",
+    "go kart parts Sydney",
+    "second hand karts Sydney",
+    "used karts for sale Sydney",
+    // Competitor terms (branded search capture)
     "karting solutions",
     "karting direct",
+    "velocity kart shop",
+    "st george kart centre",
+    // Community / events
     "endurance racing club",
     "ERC",
     "endurance karting",
     "sportsman enduro karting",
     "SEK",
-    "the endurance karting association",
-    "TEKA",
-    "rotax",
-    "rotax max",
-    "kart 88",
-    "nutek",
-    "the kartshed",
-    "kartworks",
-    "velocity kart shop",
-    "st george kart centre",
-    "CRG",
-    "tillotson",
-    "torini",
-    "honda",
-    "go kart parts Sydney",
     "endurance karting Australia",
-    "kart servicing Sydney",
+    // Legacy / specific
+    "karting",
+    "go kart parts",
+    "kart spare parts",
+    "go kart shop",
     "kart chassis",
-    "kart engine tuning",
-    "4 stroke endurance kart",
+    "racing karts Australia",
+    "rotax max",
     "briggs and stratton kart",
     "honda gx200 kart",
-    "DSR Predator",
-    "go kart shop",
-    "kart spare parts",
+    "4 stroke endurance kart",
   ],
   openGraph: {
     type: "website",
@@ -123,6 +162,68 @@ export default function RootLayout({
           </CartProvider>
         </SmoothScroll>
         <Analytics />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@graph": [
+                {
+                  "@type": ["LocalBusiness", "AutoPartsStore", "SportsGoodsStore"],
+                  "@id": `${SITE_URL}/#business`,
+                  name: "DS Racing Karts",
+                  alternateName: ["DSR", "DS Racing Karts Sydney"],
+                  description:
+                    "Sydney's go kart specialists — 8,000+ kart parts, custom racewear, engine rebuilds and full chassis servicing. OTK, IAME, Rotax, CRG and more. Shipping Australia-wide.",
+                  url: SITE_URL,
+                  telephone: "+61492454854",
+                  email: "dsracing@bigpond.com",
+                  address: {
+                    "@type": "PostalAddress",
+                    streetAddress: "Long Reef Crescent",
+                    addressLocality: "Woodbine",
+                    addressRegion: "NSW",
+                    postalCode: "2560",
+                    addressCountry: "AU",
+                  },
+                  areaServed: [
+                    { "@type": "Country", name: "Australia" },
+                    { "@type": "City", name: "Sydney" },
+                    { "@type": "State", name: "New South Wales" },
+                  ],
+                  openingHoursSpecification: {
+                    "@type": "OpeningHoursSpecification",
+                    description: "By appointment only — contact us to arrange a visit.",
+                  },
+                  sameAs: ["https://www.facebook.com/dsracingkarts"],
+                  hasOfferCatalog: {
+                    "@type": "OfferCatalog",
+                    name: "Kart Parts, Racewear & Services",
+                    itemListElement: [
+                      { "@type": "Offer", itemOffered: { "@type": "Product", name: "Kart Parts & Accessories" } },
+                      { "@type": "Offer", itemOffered: { "@type": "Product", name: "Custom Kart Racewear & Suits" } },
+                      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Kart Servicing & Engine Rebuilds" } },
+                      { "@type": "Offer", itemOffered: { "@type": "Service", name: "Chassis Setup & Tuning" } },
+                    ],
+                  },
+                },
+                {
+                  "@type": "WebSite",
+                  "@id": `${SITE_URL}/#website`,
+                  url: SITE_URL,
+                  name: "DS Racing Karts",
+                  description: "Sydney's go kart specialists — parts, racewear, servicing and race prep.",
+                  publisher: { "@id": `${SITE_URL}/#business` },
+                  potentialAction: {
+                    "@type": "SearchAction",
+                    target: { "@type": "EntryPoint", urlTemplate: `${SITE_URL}/shop?search={search_term_string}` },
+                    "query-input": "required name=search_term_string",
+                  },
+                },
+              ],
+            }),
+          }}
+        />
       </body>
     </html>
   );
