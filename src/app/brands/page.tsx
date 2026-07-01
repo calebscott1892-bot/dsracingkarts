@@ -62,6 +62,8 @@ const serviceBrands: Brand[] = [
   { name: "Greyhound", logo: "/images/brands/greyhound.png", dark: true },
   { name: "AiM (MyChron)", logo: "/images/brands/aim.png" },
   { name: "Alfano", logo: "/images/brands/alfano.png", dark: true },
+  { name: "Wright Karts", logo: "/images/brands/wright-karts.png", dark: true },
+  { name: "Karting Direct", logo: "/images/brands/karting-direct.png" },
 ];
 
 // Oils, lubricants, spark plugs, chains and tyres we supply from our suppliers.
