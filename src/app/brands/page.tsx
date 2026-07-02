@@ -29,45 +29,38 @@ interface Brand {
 // one. (Categorisation is a first pass; easy to shuffle in this array.)
 const serviceBrands: Brand[] = [
   { name: "Maverick Kart", logo: "/images/brands/maverick.jpg", featured: true },
+  { name: "DS Racing Karts", logo: "/images/brands/dsr.png" },
+  // Chassis — the karts we set up, tune and service
   { name: "OTK Kart Group", logo: "/images/brands/otk.png", href: "/brands/otk" },
+  { name: "Tony Kart" },
+  { name: "Kosmic" },
+  { name: "Redspeed" },
   { name: "Kart Republic", logo: "/images/brands/kart-republic.png", href: "/brands/kart-republic" },
   { name: "CRG Kart", logo: "/images/brands/crg.png", href: "/brands/crg" },
   { name: "Arrow", logo: "/images/brands/arrow.png", href: "/brands/arrow" },
-  { name: "KG Kart", logo: "/images/brands/kg.png" },
-  { name: "Senzo", logo: "/images/brands/senzo.png" },
-  { name: "Prodezine", logo: "/images/brands/prodezine.png" },
-  { name: "DELTA", logo: "/images/brands/delta.png" },
-  { name: "Italsport", logo: "/images/brands/italsport.png" },
+  { name: "Birel ART" },
+  { name: "Praga" },
+  { name: "Parolin" },
+  { name: "Energy Corse" },
+  { name: "FA Kart" },
+  { name: "DAP" },
+  { name: "MS Kart" },
+  { name: "Phoenix Karts" },
+  { name: "Omega Karts", logo: "/images/brands/omega-karts.png" },
+  // Engines
   { name: "Rotax", logo: "/images/brands/rotax.svg", href: "/brands/rotax" },
   { name: "IAME", logo: "/images/brands/iame.png", href: "/brands/iame" },
   { name: "Vortex", logo: "/images/brands/vortex.png", href: "/brands/vortex" },
   { name: "Honda", logo: "/images/brands/honda.svg" },
-  { name: "Honda Aftermarket", logo: "/images/brands/honda-aftermarket.png" },
   { name: "Briggs & Stratton", logo: "/images/brands/briggs.png" },
   { name: "Torini", logo: "/images/brands/torini.png" },
   { name: "Tillotson" },
   { name: "Walbro", logo: "/images/brands/walbro.png" },
-  { name: "Kartech", logo: "/images/brands/kartech.png" },
-  { name: "Righetti Ridolfi", logo: "/images/brands/righetti.png" },
-  { name: "Talon Engineering", logo: "/images/brands/talon.png" },
-  { name: "Noram", logo: "/images/brands/noram.jpg" },
-  { name: "Ferodo", logo: "/images/brands/ferodo.png" },
-  { name: "Dent Brakes", logo: "/images/brands/dent-brakes.png", dark: true },
-  { name: "Tillett", logo: "/images/brands/tillett.png", dark: true },
-  { name: "IMAF", logo: "/images/brands/imaf.png" },
-  { name: "Sniper", logo: "/images/brands/sniper.png", dark: true },
-  { name: "GT GoKart Wheels", logo: "/images/brands/gt-wheels.png", dark: true },
   { name: "K1R Racing Products", logo: "/images/brands/k1r.png" },
-  { name: "NR Racing", logo: "/images/brands/nr.png" },
-  { name: "Greyhound", logo: "/images/brands/greyhound.png", dark: true },
-  { name: "AiM (MyChron)", logo: "/images/brands/aim.png" },
-  { name: "Alfano", logo: "/images/brands/alfano.png", dark: true },
-  { name: "Wright Karts", logo: "/images/brands/wright-karts.png", dark: true },
-  { name: "Phoenix Karts" },
-  { name: "Omega Karts", logo: "/images/brands/omega-karts.png" },
 ];
 
-// Oils, lubricants, spark plugs, chains and tyres we supply from our suppliers.
+// Everything we supply — oils, lubricants, plugs, chains and tyres, plus the
+// components, seats, brakes and data gear we stock from our suppliers.
 const supplyBrands: Brand[] = [
   { name: "Castrol", logo: "/images/brands/castrol.svg" },
   { name: "Motul", logo: "/images/brands/motul.svg" },
@@ -86,6 +79,23 @@ const supplyBrands: Brand[] = [
   { name: "Dunlop", logo: "/images/brands/dunlop.svg" },
   { name: "Maxxis", logo: "/images/brands/maxxis.svg" },
   { name: "Jecko", logo: "/images/brands/jecko.png", dark: true },
+  // Components, seats, brakes, steering and data — moved from the service wall
+  { name: "KG Kart", logo: "/images/brands/kg.png" },
+  { name: "Senzo", logo: "/images/brands/senzo.png" },
+  { name: "Prodezine", logo: "/images/brands/prodezine.png" },
+  { name: "DELTA", logo: "/images/brands/delta.png" },
+  { name: "Italsport", logo: "/images/brands/italsport.png" },
+  { name: "Kartech", logo: "/images/brands/kartech.png" },
+  { name: "Righetti Ridolfi", logo: "/images/brands/righetti.png" },
+  { name: "Talon Engineering", logo: "/images/brands/talon.png" },
+  { name: "Noram", logo: "/images/brands/noram.jpg" },
+  { name: "Dent Brakes", logo: "/images/brands/dent-brakes.png", dark: true },
+  { name: "Tillett", logo: "/images/brands/tillett.png", dark: true },
+  { name: "IMAF", logo: "/images/brands/imaf.png" },
+  { name: "Sniper", logo: "/images/brands/sniper.png", dark: true },
+  { name: "AiM (MyChron)", logo: "/images/brands/aim.png" },
+  { name: "Alfano", logo: "/images/brands/alfano.png", dark: true },
+  { name: "NR Racing", logo: "/images/brands/nr.png" },
 ];
 
 function BrandTile({ brand }: { brand: Brand }) {
@@ -194,10 +204,13 @@ export default function BrandsPage() {
             <span className="h-[1px] w-8 bg-racing-red" />
           </div>
           <p className="text-white/50 text-sm text-center max-w-2xl mx-auto mb-10">
-            Oils, lubricants, spark plugs, chains and tyres — sourced from our suppliers and ready
-            when you are.
+            Oils, lubricants, spark plugs, chains, tyres, seats, brakes, steering and data — sourced
+            from our suppliers and ready when you are.
           </p>
           <BrandGrid brands={supplyBrands} />
+          <p className="text-white/40 text-sm text-center mt-8 italic">
+            …and thousands more. Just ask.
+          </p>
         </div>
       </section>
 
